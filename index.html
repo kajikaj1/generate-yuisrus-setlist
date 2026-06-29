@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>セトリテキスト生成</title>
+  <style>
+    /* ===== Base / Reset ===== */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --color-bg: #f4f5f7;
+      --color-surface: #ffffff;
+      --color-border: #d4d7dd;
+      --color-text: #1c1e21;
+      --color-muted: #6b7280;
+      --color-accent: #2563eb;
+      --color-accent-text: #ffffff;
+      --color-danger: #dc2626;
+      --color-overlay: rgba(0, 0, 0, 0.5);
+      --radius: 10px;
+      --tap-min: 48px;
+      --gap: 12px;
+      --max-width: 640px;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* ===== App layout (stacked, mobile-first) ===== */
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: var(--gap);
+      gap: var(--gap);
+    }
+
+    .app__header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--gap);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .field__label {
+      flex: 0 0 5em;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-muted);
+    }
+
+    .field__input {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+      min-height: 34px;
+      padding: 5px 12px;
+      font-size: 16px;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .field__input:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 1px;
+    }
+
+    /* ===== Setlist table area ===== */
+    .app__main {
+      flex: 1 1 auto;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--gap);
+      overflow-x: auto;
+    }
+
+    .setlist {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .setlist th,
+    .setlist td {
+      padding: 3px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border);
+      vertical-align: middle;
+    }
+
+    .setlist__empty {
+      color: var(--color-muted);
+      text-align: center;
+      padding: 24px 8px;
+    }
+
+    /* 列幅: ハンドル/番号/削除は内容幅、曲名で残り幅を占有 */
+    .setlist__col--handle,
+    .setlist__col--no,
+    .setlist__col--remove {
+      width: 1%;
+      white-space: nowrap;
+    }
+
+    .setlist__col--title {
+      width: auto;
+      /* ellipsis を効かせるためのトリック: セルを縮ませ、内側で省略表示 */
+      max-width: 0;
+    }
+
+    /* 並べ替えハンドル（スワイプ用の掴み要素。配線は後続3.3） */
+    .setlist__handle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: var(--tap-min);
+      min-height: 32px;
+      color: var(--color-muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .setlist__handle:active {
+      cursor: grabbing;
+    }
+
+    /* ドラッグ中の対象行ハイライト（どの行を掴んでいるか分かる程度の簡易表示 / 3.3） */
+    .setlist__row--dragging {
+      background-color: var(--color-bg);
+      box-shadow: inset 0 0 0 2px var(--color-accent);
+    }
+
+    .setlist__row--dragging .setlist__handle {
+      cursor: grabbing;
+      color: var(--color-accent);
+    }
+
+    /* 曲名（非編集の表示テキスト・長い場合は省略表示 …） */
+    .setlist__title {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 行ごとのタップ式削除ボタン */
+    .setlist__remove {
+      min-width: var(--tap-min);
+      min-height: 32px;
+      padding: 4px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-danger);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-danger);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .setlist__remove:active {
+      filter: brightness(0.95);
+    }
+
+    /* ===== Footer action bar ===== */
+    .app__footer {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--gap);
+      padding: var(--gap) 0 0;
+    }
+
+    .btn {
+      min-height: var(--tap-min);
+      min-width: 96px;
+      padding: 12px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .btn--add {
+      background-color: var(--color-surface);
+      color: var(--color-accent);
+      border-color: var(--color-accent);
+    }
+
+    .btn--copy {
+      background-color: var(--color-accent);
+      color: var(--color-accent-text);
+    }
+
+    .btn--ghost {
+      background-color: var(--color-surface);
+      color: var(--color-text);
+      border-color: var(--color-border);
+    }
+
+    .btn:active {
+      filter: brightness(0.95);
+    }
+
+    /* ===== Toast / notification ===== */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 88px;
+      transform: translateX(-50%);
+      max-width: calc(100% - 32px);
+      padding: 12px 20px;
+      background-color: rgba(28, 30, 33, 0.92);
+      color: #ffffff;
+      border-radius: var(--radius);
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    /* ===== Add-song popup (modal) ===== */
+    .popup-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      background-color: var(--color-overlay);
+      padding: 0;
+      z-index: 100;
+    }
+
+    .popup {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: var(--max-width);
+      height: 100%;
+      max-height: 100vh;
+      max-height: 100dvh;
+      background-color: var(--color-surface);
+      border-radius: 0;
+      overflow: hidden;
+    }
+
+    .popup__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--gap);
+      padding: var(--gap);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .popup__title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .popup__body {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px var(--gap) var(--gap);
+    }
+
+    .popup__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* 曲一覧の各項目（タップ追加用。十分なタップ面積を確保） */
+    .popup__item {
+      display: block;
+    }
+
+    .popup__item-button {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: var(--tap-min);
+      padding: 12px 8px;
+      font-size: 16px;
+      text-align: left;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      border-radius: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .popup__item-button:active {
+      background-color: var(--color-bg);
+    }
+
+    .popup__item-button:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    .popup__empty {
+      padding: 24px 8px;
+      text-align: center;
+      color: var(--color-muted);
+    }
+
+    @media (min-width: 480px) {
+      .popup-overlay {
+        align-items: center;
+        padding: var(--gap);
+      }
+
+      .popup {
+        border-radius: var(--radius);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ===== Header: live info inputs ===== -->
+    <header class="app__header">
+      <div class="field">
+        <label class="field__label" for="input-date">日付</label>
+        <input class="field__input" type="date" id="input-date" data-role="date">
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-live-name">ライブ名</label>
+        <input class="field__input" type="text" id="input-live-name" data-role="live-name"
+          placeholder="ライブ名を入力" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-venue">会場名</label>
+        <input class="field__input" type="text" id="input-venue" data-role="venue"
+          placeholder="会場名を入力" autocomplete="off">
+      </div>
+    </header>
+
+    <!-- ===== Main: setlist table ===== -->
+    <main class="app__main">
+      <table class="setlist" id="setlist-table" data-role="setlist-table">
+        <thead>
+          <tr>
+            <th scope="col">並べ替え</th>
+            <th scope="col">No.</th>
+            <th scope="col">曲名</th>
+            <th scope="col">削除</th>
+          </tr>
+        </thead>
+        <tbody id="setlist-body" data-role="setlist-body">
+          <tr>
+            <td class="setlist__empty" colspan="4">曲が追加されていません</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+
+    <!-- ===== Footer: actions ===== -->
+    <footer class="app__footer">
+      <button type="button" class="btn btn--add" id="btn-add" data-role="add-button">＋ 曲を追加</button>
+      <button type="button" class="btn btn--copy" id="btn-copy" data-role="copy-button">コピー</button>
+    </footer>
+  </div>
+
+  <!-- ===== Add-song popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="popup-overlay" data-role="popup-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="popup-title">曲を選択</h2>
+        <button type="button" class="btn btn--ghost" id="btn-popup-close" data-role="popup-close">閉じる</button>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="popup-list" data-role="popup-list">
+          <!-- 曲一覧は後続タスクで描画される -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Toast notification (initially hidden) ===== -->
+  <div class="toast" id="toast" data-role="toast" role="status" aria-live="polite" hidden></div>
+
+  <script>
+    'use strict';
+
+    // ============================================================
+    // Data: 曲マスタ（HTML内固定埋め込み / Requirements 3.7）
+    // ------------------------------------------------------------
+    // 各要素は { title, reading }。reading はあいうえお順ソート用の
+    // 読み仮名（ひらがな）。実運用ではファイルを直接編集して差し替える。
+    // 以下は動作確認用サンプル。五十音の各行から読み仮名がバラけるよう収録。
+    // ============================================================
+
+    /** @type {ReadonlyArray<Song>} */
+    const SONG_MASTER = [
+      { title: 'よーいすとっぷ',                 reading: 'よーいすとっぷ' },
+      { title: '途中下車スーサイド',             reading: 'とちゅうげしゃすーさいど' },
+      { title: '宵夢バタフライ',                 reading: 'よいゆめばたふらい' },
+      { title: 'かいじるし',                     reading: 'かいじるし' },
+      { title: 'がいねん',                       reading: 'がいねん' },
+      { title: 'きのこ',                         reading: 'きのこ' },
+      { title: 'ぼくのこえきみのうた',           reading: 'ぼくのこえきみのうた' },
+      { title: 'むげんだい∞日曜曲',              reading: 'むげんだいにちようきょく' },
+      { title: 'らりるれほんげんば',             reading: 'らりるれほんげんば' },
+      { title: 'ずんどこ後退曲',                 reading: 'ずんどここうたいきょく' },
+      { title: 'そんなそんぐ',                   reading: 'そんなそんぐ' },
+      { title: 'もーぜにたのもーぜ',             reading: 'もーぜにたのもーぜ' },
+      { title: 'ぶら汁神',                       reading: 'ぶらじるがみ' },
+      { title: '宇宙とファンシー',               reading: 'うちゅうとふぁんしー' },
+      { title: 'えれくとりかる ぴょんぴょこ',    reading: 'えれくとりかるぴょんぴょこ' },
+      { title: 'やせないで おたく',              reading: 'やせないでおたく' },
+      { title: 'たかいたかい',                   reading: 'たかいたかい' },
+      { title: '卒業ぐらじゅえーしょん',         reading: 'そつぎょうぐらじゅえーしょん' },
+      { title: 'ほくいもパラダイちゅ',           reading: 'ほくいもぱらだいちゅ' },
+      { title: 'かんπさんしゃいん',              reading: 'かんぱいさんしゃいん' },
+      { title: 'カニチャーハン',                 reading: 'かにちゃーはん' },
+      { title: 'お天気注意報',                   reading: 'おてんきちゅういほう' },
+      { title: '布団の前世の女の子',             reading: 'ふとんのぜんせのおんなのこ' },
+      { title: '人類万歳',                       reading: 'じんるいばんざい' },
+      { title: '日本の夏 ゆいざらすの夏',        reading: 'にほんのなつゆいざらすのなつ' },
+      { title: 'おたんじょうびのうた',           reading: 'おたんじょうびのうた' },
+      { title: 'コロコロ',                       reading: 'ころころ' },
+      { title: '愛してやるからこっちにこい！',   reading: 'あいしてやるからこっちにこい' },
+      { title: 'キラキラスター',                 reading: 'きらきらすたー' },
+      { title: 'かわいげ留年確定☆',             reading: 'かわいげりゅうねんかくてい' },
+      { title: '爆上げキュート！',               reading: 'ばくあげきゅーと' },
+      { title: 'ざらっこ学校校歌',               reading: 'ざらっこがっこうこうか' },
+      { title: '全力コロッケ',                   reading: 'ぜんりょくころっけ' }
+    ];
+
+    // ============================================================
+    // Types: JSDoc 型注釈（実装はバニラJS。any 相当の曖昧型は使わない）
+    // ============================================================
+
+    /**
+     * 曲マスタの1曲を表す。
+     * @typedef {Object} Song
+     * @property {string} title   表示・出力に用いる曲名
+     * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
+     */
+
+    /**
+     * アプリの単一状態（唯一の真実）。
+     * setlist は曲タイトルの配列で、重複要素を許容する（各要素=1行）。
+     * @typedef {Object} AppState
+     * @property {string} date     <input type="date"> の値 (YYYY-MM-DD)。未入力は ""
+     * @property {string} liveName ライブ名。未入力は ""
+     * @property {string} venue    会場名。未入力は ""
+     * @property {string[]} setlist 追加順の曲タイトル列。重複可
+     */
+
+    // ============================================================
+    // State: AppState 単一インスタンスと状態ミューテータ
+    // ------------------------------------------------------------
+    // ミューテータは state を更新するのみで DOM には触れない
+    // （描画は後続タスク 2.1 の Renderer に委譲）。
+    // ============================================================
+
+    /** @type {AppState} */
+    const state = {
+      date: '',
+      liveName: '',
+      venue: '',
+      setlist: []
+    };
+
+    /**
+     * セトリ末尾に曲タイトルを追加する（重複許可 / Requirements 3.5）。
+     * @param {string} title 追加する曲タイトル
+     * @returns {void}
+     */
+    function addSong(title) {
+      state.setlist.push(title);
+    }
+
+    /**
+     * セトリから指定インデックスの曲を削除する。
+     * 重複曲は index で一意に同定する（Requirements 4.3）。
+     * 範囲外インデックスは無視する。
+     * @param {number} index 削除対象の0起算インデックス
+     * @returns {void}
+     */
+    function removeSongAt(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= state.setlist.length) {
+        return;
+      }
+      state.setlist.splice(index, 1);
+    }
+
+    /**
+     * セトリ内の曲を fromIndex から toIndex へ移動する（並び替え / Requirements 4.1）。
+     * 配列要素の移動: fromIndex の要素を取り出し、toIndex の位置へ挿入する。
+     * これにより fromIndex と toIndex の間の要素は1つずつシフトする。
+     * 同一インデックスへの移動は no-op。いずれかが範囲外・非整数なら何もしない。
+     * 状態を更新するのみで DOM には触れない（描画は呼び出し側で renderAll）。
+     * @param {number} fromIndex 移動元の0起算インデックス
+     * @param {number} toIndex 移動先の0起算インデックス
+     * @returns {boolean} 実際に移動したら true、no-op／無効なら false
+     */
+    function moveSetlistItem(fromIndex, toIndex) {
+      const length = state.setlist.length;
+      if (
+        !Number.isInteger(fromIndex) ||
+        !Number.isInteger(toIndex) ||
+        fromIndex < 0 ||
+        fromIndex >= length ||
+        toIndex < 0 ||
+        toIndex >= length ||
+        fromIndex === toIndex
+      ) {
+        return false;
+      }
+      const [moved] = state.setlist.splice(fromIndex, 1);
+      state.setlist.splice(toIndex, 0, moved);
+      return true;
+    }
+
+    // ============================================================
+    // Text Generator: 出力テキストの純粋生成（TextGenerator）
+    // ------------------------------------------------------------
+    // formatDate / buildOutputText は純粋関数。引数のみから出力を決定し、
+    // DOM や state を書き換えない（副作用なし）。
+    // 行区切りは '\n'。出力フォーマットは Requirements 1.4 / 5.2–5.4 / 5.8。
+    // ============================================================
+
+    /** 曜日（日本語1文字）。new Date#getDay() の 0=日 〜 6=土 に対応。 */
+    const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
+
+    /** 出力末尾に常に付与する固定ハッシュタグ（Requirements 5.4）。 */
+    const FIXED_HASHTAG = '#ゆいざらすセトリ';
+
+    /**
+     * `YYYY-MM-DD` を `YYYY.MM.DD(曜)` 形式へ整形する（純粋関数 / Requirements 1.4）。
+     * 曜日はローカル日付として算出する（`new Date('YYYY-MM-DD')` の UTC 解釈を避け、
+     * 年月日を分解して `new Date(y, m-1, d)` を構築する）。
+     * 月日は2桁ゼロ埋めし、カレンダー的に正しい曜日を付す。
+     * 空文字・不正値（形式不一致、存在しない日付など）は '' を返す。
+     * @param {string} isoDate `YYYY-MM-DD` 形式の日付文字列
+     * @returns {string} `YYYY.MM.DD(曜)` または ''（不正・空）
+     */
+    function formatDate(isoDate) {
+      if (typeof isoDate !== 'string') {
+        return '';
+      }
+      const match = /^(\d{1,4})-(\d{1,2})-(\d{1,2})$/.exec(isoDate.trim());
+      if (!match) {
+        return '';
+      }
+
+      const year = Number(match[1]);
+      const month = Number(match[2]); // 1起算
+      const day = Number(match[3]);
+
+      // ローカル日付として構築（UTC 解釈を回避）。
+      const date = new Date(year, month - 1, day);
+
+      // 桁あふれ（例: 2月30日 → 3月へ繰り上がり）を不正値として弾く。
+      if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+      ) {
+        return '';
+      }
+
+      const yyyy = String(year).padStart(4, '0');
+      const mm = String(month).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      const weekday = WEEKDAY_JP[date.getDay()];
+
+      return yyyy + '.' + mm + '.' + dd + '(' + weekday + ')';
+    }
+
+    /**
+     * AppState から共有用の出力テキスト全体を生成する（純粋関数 / Requirements 5.2–5.4, 5.8）。
+     * 行順（design Postconditions 準拠）:
+     *   1. 日付行 = formatDate(state.date)（空・不正なら空行）
+     *   2. 『{liveName}』
+     *   3. 会場：{venue}
+     *   4. 各曲 `{index}.{title}`（index は 1 起算、setlist の順）
+     *   5. 固定行 `#ゆいざらすセトリ`（件数や入力に関わらず常に付与）
+     * ライブ名／会場名が空でもエラーにせず該当行を空のまま出力する（5.8）。
+     * 行区切りは '\n'。
+     * @param {AppState} state アプリ状態
+     * @returns {string} 生成した出力テキスト
+     */
+    function buildOutputText(state) {
+      const source = state || {};
+      const liveName = typeof source.liveName === 'string' ? source.liveName : '';
+      const venue = typeof source.venue === 'string' ? source.venue : '';
+      const setlist = Array.isArray(source.setlist) ? source.setlist : [];
+
+      const lines = [];
+      lines.push(formatDate(source.date));           // 1. 日付行
+      lines.push('『' + liveName + '』');             // 2. 『ライブ名』
+      lines.push('会場：' + venue);                   // 3. 会場：会場名
+
+      // 4. 各曲（1起算の連番 + 曲名）
+      setlist.forEach(function (title, index) {
+        lines.push(String(index + 1) + '.' + (typeof title === 'string' ? title : ''));
+      });
+
+      lines.push(FIXED_HASHTAG);                      // 5. 固定ハッシュタグ（常に付与）
+
+      return lines.join('\n');
+    }
+
+    // ============================================================
+    // Clipboard Service: 生成テキストのコピー（ClipboardService）
+    // ------------------------------------------------------------
+    // copyToClipboard は成否を Promise<boolean> で解決する純粋責務。
+    // 例外は内部で握りつぶし、呼び出し側へ漏らさない（成否は真偽値で返す）。
+    // 二段フォールバック（design ClipboardService / Requirements 5.5–5.7）:
+    //   1) navigator.clipboard.writeText（セキュアコンテキストの第一候補）
+    //   2) 隠し <textarea> + document.execCommand('copy')（file:// 等の代替）
+    // 成否通知（トースト）の表示判断・結線は呼び出し側（後続 4.1）の責務。
+    // ============================================================
+
+    /**
+     * 隠し <textarea> と document.execCommand('copy') でクリップボードへコピーする
+     * フォールバック実装（Clipboard API が未対応／失敗した場合に使用）。
+     * 生成した textarea は成否に関わらず必ず除去する。例外時は false を返す。
+     * @param {string} text コピーする文字列
+     * @returns {boolean} コピー成功で true、失敗・例外で false
+     */
+    function copyViaExecCommand(text) {
+      let textarea = null;
+      try {
+        textarea = document.createElement('textarea');
+        textarea.value = text;
+        // 画面外かつ操作不能に配置し、レイアウト・スクロール・ズームへ影響させない。
+        textarea.setAttribute('readonly', '');
+        textarea.setAttribute('aria-hidden', 'true');
+        textarea.tabIndex = -1;
+        textarea.style.position = 'fixed';
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.width = '1px';
+        textarea.style.height = '1px';
+        textarea.style.padding = '0';
+        textarea.style.border = 'none';
+        textarea.style.outline = 'none';
+        textarea.style.boxShadow = 'none';
+        textarea.style.background = 'transparent';
+        textarea.style.opacity = '0';
+
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        // iOS Safari など select() が効きにくい環境向けに範囲選択も併用。
+        if (typeof textarea.setSelectionRange === 'function') {
+          textarea.setSelectionRange(0, text.length);
+        }
+
+        const succeeded = document.execCommand('copy');
+        return succeeded === true;
+      } catch (err) {
+        return false;
+      } finally {
+        if (textarea && textarea.parentNode) {
+          textarea.parentNode.removeChild(textarea);
+        }
+      }
+    }
+
+    /**
+     * 生成テキストをクリップボードへコピーする（Requirements 5.5–5.7）。
+     * まず Clipboard API（navigator.clipboard.writeText）を試行し、未対応または
+     * 失敗時は textarea + execCommand フォールバックへ降格する。いずれも失敗した
+     * 場合は false を返す。例外は内部で握り、呼び出し側へは真偽値のみを返す。
+     * @param {string} text コピーする文字列
+     * @returns {Promise<boolean>} 成功で true、最終的に失敗で false
+     */
+    async function copyToClipboard(text) {
+      const value = typeof text === 'string' ? text : String(text == null ? '' : text);
+
+      // 1) Clipboard API（セキュアコンテキストの第一候補）。
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === 'function'
+      ) {
+        try {
+          await navigator.clipboard.writeText(value);
+          return true;
+        } catch (err) {
+          // 権限拒否・非セキュアコンテキスト等。フォールバックへ降格する。
+        }
+      }
+
+      // 2) textarea + execCommand フォールバック（file:// 等）。
+      return copyViaExecCommand(value);
+    }
+
+    /**
+     * トースト要素（1.1 で用意済みの #toast / data-role="toast"）へメッセージを
+     * 表示する補助ヘルパ（任意）。表示時間後に自動で隠す。要素が無ければ何もしない。
+     * copyToClipboard 自体の責務（boolean を返す）には影響しない。
+     * @param {string} message 表示する通知文
+     * @param {number} [durationMs=2400] 表示継続時間（ミリ秒）
+     * @returns {void}
+     */
+    let toastHideTimer = null;
+    function showToast(message, durationMs) {
+      const toast = document.getElementById('toast');
+      if (!toast) {
+        return;
+      }
+      const duration = typeof durationMs === 'number' && durationMs > 0 ? durationMs : 2400;
+      toast.textContent = message;
+      toast.hidden = false;
+      if (toastHideTimer !== null) {
+        clearTimeout(toastHideTimer);
+      }
+      toastHideTimer = setTimeout(function () {
+        toast.hidden = true;
+        toastHideTimer = null;
+      }, duration);
+    }
+
+    // ============================================================
+    // Render: state→DOM 反映（Renderer）
+    // ------------------------------------------------------------
+    // 描画関数は state を読み取るのみで state を書き換えない。
+    // 状態変更はミューテータ経由→その後 renderAll() を呼ぶ設計。
+    // 通し番号の同期は差分描画ではなく全再描画で保証する（2.4, 4.2）。
+    // XSS回避のため曲名は textContent で挿入する。
+    // ============================================================
+
+    /**
+     * セトリ1行分の <tr> を生成する。
+     * 各行に ①並び替えハンドル ②通し番号(index+1) ③曲名(非編集) ④削除ボタン を描画。
+     * @param {string} title 曲タイトル
+     * @param {number} index 0起算インデックス（通し番号は index+1、削除同定にも使用）
+     * @returns {HTMLTableRowElement}
+     */
+    function createSetlistRow(title, index) {
+      const row = document.createElement('tr');
+      row.className = 'setlist__row';
+      row.dataset.index = String(index);
+
+      // ① 並び替えハンドル（スワイプ用の掴み要素。実スワイプ配線は後続3.3）
+      const handleCell = document.createElement('td');
+      handleCell.className = 'setlist__col--handle';
+      const handle = document.createElement('span');
+      handle.className = 'setlist__handle';
+      handle.dataset.role = 'reorder-handle';
+      handle.setAttribute('aria-label', '並べ替え');
+      handle.textContent = '☰'; // ☰ ハンバーガー（掴み目印）
+      handleCell.appendChild(handle);
+
+      // スワイプ並び替えの Pointer Events を当該ハンドルへ結線（3.3）。
+      // 行生成のたびに新規要素へ張るため二重結線にはならない。
+      attachReorderHandlers(handle, row);
+
+      // ② 通し番号（1起算 = index+1）
+      const noCell = document.createElement('td');
+      noCell.className = 'setlist__col--no';
+      noCell.textContent = String(index + 1);
+
+      // ③ 曲名（非編集の表示テキスト。input要素にしない / textContentで挿入）
+      const titleCell = document.createElement('td');
+      titleCell.className = 'setlist__col--title';
+      const titleText = document.createElement('span');
+      titleText.className = 'setlist__title';
+      titleText.textContent = title;
+      titleCell.appendChild(titleText);
+
+      // ④ 行ごとのタップ式削除ボタン（実処理配線の本体は後続3.2）
+      const removeCell = document.createElement('td');
+      removeCell.className = 'setlist__col--remove';
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'setlist__remove';
+      removeBtn.dataset.role = 'remove-button';
+      removeBtn.dataset.index = String(index);
+      removeBtn.setAttribute('aria-label', String(index + 1) + '曲目を削除');
+      removeBtn.textContent = '削除';
+      removeBtn.addEventListener('click', function () {
+        removeSongAt(index);
+        renderAll();
+      });
+      removeCell.appendChild(removeBtn);
+
+      row.appendChild(handleCell);
+      row.appendChild(noCell);
+      row.appendChild(titleCell);
+      row.appendChild(removeCell);
+      return row;
+    }
+
+    /**
+     * 空状態の <tr>（プレースホルダ行）を生成する。
+     * @returns {HTMLTableRowElement}
+     */
+    function createEmptyRow() {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.className = 'setlist__empty';
+      cell.colSpan = 4;
+      cell.textContent = '曲が追加されていません';
+      row.appendChild(cell);
+      return row;
+    }
+
+    /**
+     * state.setlist をセトリ表 (<tbody data-role="setlist-body">) へ全再描画する。
+     * 通し番号は配列順の連番（index+1）へ常に同期される。
+     * @returns {void}
+     */
+    function renderSetlist() {
+      const body = document.getElementById('setlist-body');
+      if (!body) {
+        return;
+      }
+      body.textContent = ''; // 既存行をクリア（全再描画）
+
+      if (state.setlist.length === 0) {
+        body.appendChild(createEmptyRow());
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      state.setlist.forEach(function (title, index) {
+        fragment.appendChild(createSetlistRow(title, index));
+      });
+      body.appendChild(fragment);
+    }
+
+    /**
+     * 全体描画のエントリポイント。状態変更後に呼び出す。
+     * 現状はセトリ表のみ。後続タスクで他領域の描画を集約する。
+     * @returns {void}
+     */
+    function renderAll() {
+      renderSetlist();
+    }
+
+    // ============================================================
+    // Reorder Controller: ハンドルのスワイプによる行の並び替え（ReorderController）
+    // ------------------------------------------------------------
+    // 責務（Requirements 4.1, 4.2, 4.4 / design ReorderController, research「スワイプ」）:
+    //   - 並び替えハンドル上の Pointer Events（pointerdown/move/up + setPointerCapture）で
+    //     対象行を縦方向にドラッグし、縦移動量から挿入位置を算出して state.setlist 内で移動。
+    //   - 確定（pointerup/cancel）時に renderAll() で全再描画し通し番号を同期する（4.2）。
+    //   - ハンドルには CSS で touch-action:none を付与済み（スクロール競合回避）。
+    //   - タップ/スワイプで完結（4.4）。pointer type=mouse でも同一経路で動作する。
+    // 状態変更は moveSetlistItem ミューテータ経由のみ。描画中に直接DOM順は変えず、
+    // ドラッグ中は視覚フィードバック（行ハイライト）のみ行い、真実は常に state.setlist。
+    // 結線は createSetlistRow からの attachReorderHandlers で行ごとに新規要素へ張るため
+    // 二重結線は発生しない（全再描画で古い行とリスナは破棄される）。
+    // ============================================================
+
+    /**
+     * 進行中ドラッグの一時状態。1本のポインタのみ追跡する。
+     * @type {{
+     *   pointerId: number,
+     *   handle: HTMLElement,
+     *   row: HTMLTableRowElement,
+     *   startIndex: number,
+     *   currentIndex: number,
+     *   startClientY: number
+     * } | null}
+     */
+    let activeDrag = null;
+
+    /**
+     * セトリ表本体（tbody）内の並び替え可能な行要素を配列で返す。
+     * 空状態のプレースホルダ行は data-index を持たないため除外される。
+     * @returns {HTMLTableRowElement[]}
+     */
+    function getReorderRows() {
+      const body = document.getElementById('setlist-body');
+      if (!body) {
+        return [];
+      }
+      return Array.prototype.slice.call(
+        body.querySelectorAll('tr.setlist__row[data-index]')
+      );
+    }
+
+    /**
+     * ポインタの現在Y座標から、ドラッグ対象の挿入先インデックスを算出する。
+     * 各行の垂直中心と比較し、現在位置が中心より上にある最初の行の位置を挿入先とする。
+     * すべての行の中心より下なら末尾（length-1）を返す。
+     * @param {number} clientY ポインタの現在 clientY
+     * @param {number} draggingIndex ドラッグ中要素の現在インデックス（自身は判定から除外）
+     * @returns {number} 0起算の挿入先インデックス
+     */
+    function computeTargetIndex(clientY, draggingIndex) {
+      const rows = getReorderRows();
+      const lastIndex = rows.length - 1;
+      if (lastIndex < 0) {
+        return draggingIndex;
+      }
+      for (let i = 0; i < rows.length; i++) {
+        if (i === draggingIndex) {
+          continue; // 自身の現在位置は基準にしない
+        }
+        const rect = rows[i].getBoundingClientRect();
+        const center = rect.top + rect.height / 2;
+        if (clientY < center) {
+          // i 番目の行の上側に挿入したい。自身が i より後ろにいる場合は i、
+          // 前にいる場合は i-1（splice 後のインデックス整合のため）。
+          return i > draggingIndex ? i - 1 : i;
+        }
+      }
+      return lastIndex;
+    }
+
+    /**
+     * ドラッグを確定し、一時状態と視覚フィードバックを解放する。
+     * 確定時のインデックスが開始位置と異なれば moveSetlistItem で並び替え、
+     * renderAll() で全再描画する（古い行・リスナは破棄され二重結線は起きない）。
+     * @returns {void}
+     */
+    function finalizeDrag() {
+      if (!activeDrag) {
+        return;
+      }
+      const drag = activeDrag;
+      activeDrag = null;
+
+      if (drag.row) {
+        drag.row.classList.remove('setlist__row--dragging');
+      }
+      try {
+        if (drag.handle && typeof drag.handle.releasePointerCapture === 'function') {
+          drag.handle.releasePointerCapture(drag.pointerId);
+        }
+      } catch (err) {
+        // 既に解放済み等は無視する。
+      }
+
+      if (drag.currentIndex !== drag.startIndex) {
+        if (moveSetlistItem(drag.startIndex, drag.currentIndex)) {
+          renderAll(); // 並び替え確定 → 全再描画で通し番号を同期（4.2）
+        }
+      }
+    }
+
+    /**
+     * pointermove ハンドラ。進行中ドラッグの挿入先を更新する。
+     * @param {PointerEvent} event
+     * @returns {void}
+     */
+    function onReorderPointerMove(event) {
+      if (!activeDrag || event.pointerId !== activeDrag.pointerId) {
+        return;
+      }
+      // スクロール等の既定挙動を抑止（touch-action:none と併せて競合回避）。
+      if (event.cancelable) {
+        event.preventDefault();
+      }
+      const target = computeTargetIndex(event.clientY, activeDrag.currentIndex);
+      activeDrag.currentIndex = target;
+    }
+
+    /**
+     * pointerup / pointercancel ハンドラ。ドラッグを確定する。
+     * @param {PointerEvent} event
+     * @returns {void}
+     */
+    function onReorderPointerUp(event) {
+      if (!activeDrag || event.pointerId !== activeDrag.pointerId) {
+        return;
+      }
+      finalizeDrag();
+    }
+
+    /**
+     * 1つの並び替えハンドル（と対応する行）へ Pointer Events を結線する。
+     * pointerdown でドラッグ開始（setPointerCapture）、move/up はハンドル自身に張る。
+     * setPointerCapture により以降のイベントはキャプチャ中の要素へ届くため、
+     * move/up をハンドルに張れば行外へ指が出ても追従できる。
+     * @param {HTMLElement} handle 並び替えハンドル要素（data-role="reorder-handle"）
+     * @param {HTMLTableRowElement} row 対応する行要素（data-index 保持）
+     * @returns {void}
+     */
+    function attachReorderHandlers(handle, row) {
+      handle.addEventListener('pointerdown', function (event) {
+        // 主ボタン以外（右クリック等）は無視。タッチ/ペン/主ボタンのみ開始。
+        if (event.button !== undefined && event.button > 0) {
+          return;
+        }
+        // 既に別ドラッグ進行中なら無視（単一ポインタ追跡）。
+        if (activeDrag) {
+          return;
+        }
+        const index = Number(row.dataset.index);
+        if (!Number.isInteger(index)) {
+          return;
+        }
+
+        activeDrag = {
+          pointerId: event.pointerId,
+          handle: handle,
+          row: row,
+          startIndex: index,
+          currentIndex: index,
+          startClientY: event.clientY
+        };
+
+        row.classList.add('setlist__row--dragging');
+        try {
+          handle.setPointerCapture(event.pointerId);
+        } catch (err) {
+          // 一部環境で失敗しても move/up は document へのフォールバックで拾えるよう
+          // 後段のリスナで pointerId 照合する。
+        }
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+      });
+
+      handle.addEventListener('pointermove', onReorderPointerMove);
+      handle.addEventListener('pointerup', onReorderPointerUp);
+      handle.addEventListener('pointercancel', onReorderPointerUp);
+    }
+
+    // ============================================================
+    // Add Song Popup Controller: 曲選択ポップアップの制御（AddSongPopupController）
+    // ------------------------------------------------------------
+    // 責務（Requirements 3.1, 3.2, 3.3, 3.4, 3.6 / design AddSongPopupController）:
+    //   - 追加ボタンのタップでポップアップを開く（hidden 解除）。
+    //   - SONG_MASTER を読み仮名 reading（未設定時は title）昇順にソートして一覧描画
+    //     （あいうえお順 / localeCompare('ja')）。
+    //   - 一覧はスクロール可能なコンテナ（.popup__body{overflow-y:auto} + .popup{max-height}）
+    //     に入れ、収まらない場合は縦スクロールできる。
+    //   - 曲名タップで addSong(title) → renderAll() → 閉じる。
+    //   - 閉じるボタンは state を変更せず閉じるのみ。
+    // 状態変更は addSong ミューテータ経由のみ。描画は renderAll を直接呼ぶ。
+    // 結線は initAddSongPopup() で行い、二重結線を防ぐためフラグで冪等化する
+    // （後続 4.1 bootstrap から再度呼ばれても安全）。
+    // ============================================================
+
+    /**
+     * 曲のソートキーを返す。読み仮名 reading を優先し、未設定（空文字・非文字列）
+     * の場合は title へフォールバックする（Requirements 3.2）。
+     * @param {Song} song 曲マスタの1曲
+     * @returns {string} あいうえお順比較に用いるキー文字列
+     */
+    function songSortKey(song) {
+      const source = song || {};
+      const reading = typeof source.reading === 'string' ? source.reading.trim() : '';
+      if (reading !== '') {
+        return reading;
+      }
+      return typeof source.title === 'string' ? source.title : '';
+    }
+
+    /**
+     * SONG_MASTER を読み仮名（フォールバック title）昇順にソートした新配列を返す
+     * （元配列は破壊しない / Requirements 3.2）。比較は日本語ロケールで行う。
+     * @returns {Song[]} あいうえお順に並んだ曲配列
+     */
+    function getSortedSongMaster() {
+      return SONG_MASTER.slice().sort(function (a, b) {
+        return songSortKey(a).localeCompare(songSortKey(b), 'ja');
+      });
+    }
+
+    /**
+     * ポップアップの曲一覧（#popup-list）を SONG_MASTER のあいうえお順で描画する。
+     * 各項目はタップ追加用のボタンで、タップで addSong→renderAll→閉じる（3.4）。
+     * 曲名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderPopupSongList() {
+      const list = document.getElementById('popup-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const songs = getSortedSongMaster();
+
+      if (songs.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '選択できる曲がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      songs.forEach(function (song) {
+        const title = typeof song.title === 'string' ? song.title : '';
+
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button';
+        button.dataset.role = 'song-option';
+        button.textContent = title; // textContent で挿入（XSS安全）
+        button.addEventListener('click', function () {
+          addSong(title);          // state ミューテータ経由で末尾追加（重複許可）
+          renderAll();             // 再描画して連番同期
+          closeAddSongPopup();     // 閉じる（3.4）
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 曲選択ポップアップを開く（Requirements 3.1）。
+     * 一覧をあいうえお順で描画してからオーバーレイを表示する。
+     * @returns {void}
+     */
+    function openAddSongPopup() {
+      const overlay = document.getElementById('popup-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderPopupSongList(); // 表示直前に最新のマスタを反映
+      overlay.hidden = false;
+    }
+
+    /**
+     * 曲選択ポップアップを閉じる（Requirements 3.6）。
+     * state は一切変更しない（表示の切り替えのみ）。
+     * @returns {void}
+     */
+    function closeAddSongPopup() {
+      const overlay = document.getElementById('popup-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 追加ボタン・閉じるボタンへの結線を行う初期化（冪等）。
+     * 二重結線を避けるため一度だけ実行する。後続 4.1 bootstrap から
+     * 再度呼ばれても安全（項目タップの結線は renderPopupSongList 側で都度行う）。
+     * @returns {void}
+     */
+    let addSongPopupWired = false;
+    function initAddSongPopup() {
+      if (addSongPopupWired) {
+        return;
+      }
+      const addButton = document.getElementById('btn-add');
+      const closeButton = document.getElementById('btn-popup-close');
+
+      if (addButton) {
+        addButton.addEventListener('click', openAddSongPopup);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeAddSongPopup);
+      }
+      addSongPopupWired = true;
+    }
+
+    // ============================================================
+    // Bootstrap: DOM取得・イベント結線・初期描画（タスク4.1 / design Bootstrap）
+    // ------------------------------------------------------------
+    // 責務（Requirements 1.2, 1.3, 5.1, 5.5–5.7 / design「テキスト生成とコピー」）:
+    //   - 日付／ライブ名／会場名の入力を state へ反映（input イベント）。
+    //   - コピーボタンのタップで buildOutputText(state) → copyToClipboard(text)、
+    //     戻り値（boolean）に応じて成功／失敗トーストを表示。
+    //   - 起動時に renderAll() で初期描画し、メイン画面を動作可能状態にする。
+    // 二重結線回避: 追加／閉じるボタンのポップアップ開閉は 3.1 の initAddSongPopup()
+    //   が addSongPopupWired フラグで冪等結線する。ここでは initAddSongPopup() を
+    //   呼ぶのみで（既に結線済みなら no-op）、ポップアップ開閉を再結線しない。
+    //   入力欄・コピーボタンの結線も bootstrap 自体を一度だけ実行することで多重登録を防ぐ。
+    // ============================================================
+
+    /** コピー成功／失敗時の通知文（Requirements 5.6, 5.7）。 */
+    const COPY_SUCCESS_MESSAGE = 'コピーしました';
+    const COPY_FAILURE_MESSAGE = 'コピーに失敗しました';
+
+    /**
+     * ライブ情報入力欄（日付・ライブ名・会場名）を state へ結線する（1.2, 1.3）。
+     * input イベントで入力値を逐次 state へ反映する（state を唯一の真実とする）。
+     * テキスト生成は state を参照するため、出力時に常に最新値が使われる。
+     * @returns {void}
+     */
+    function initLiveInfoInputs() {
+      const dateInput = document.getElementById('input-date');
+      const liveNameInput = document.getElementById('input-live-name');
+      const venueInput = document.getElementById('input-venue');
+
+      if (dateInput) {
+        // 初期値: アクセス日（ローカルの今日）を YYYY-MM-DD で設定（未入力時のみ）
+        if (!dateInput.value) {
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, '0');
+          const dd = String(now.getDate()).padStart(2, '0');
+          dateInput.value = yyyy + '-' + mm + '-' + dd;
+        }
+        state.date = dateInput.value;
+        dateInput.addEventListener('input', function () {
+          state.date = dateInput.value;
+        });
+      }
+      if (liveNameInput) {
+        liveNameInput.addEventListener('input', function () {
+          state.liveName = liveNameInput.value;
+        });
+      }
+      if (venueInput) {
+        venueInput.addEventListener('input', function () {
+          state.venue = venueInput.value;
+        });
+      }
+    }
+
+    /**
+     * コピーボタン（#btn-copy）を結線する（5.1, 5.5–5.7）。
+     * タップで最新 state から buildOutputText → copyToClipboard を実行し、
+     * 解決した真偽値に応じて成功／失敗トーストを表示する。
+     * @returns {void}
+     */
+    function initCopyAction() {
+      const copyButton = document.getElementById('btn-copy');
+      if (!copyButton) {
+        return;
+      }
+      copyButton.addEventListener('click', async function () {
+        const text = buildOutputText(state);     // 最新 state から生成（5.2）
+        const succeeded = await copyToClipboard(text); // API→フォールバック（5.5）
+        showToast(succeeded ? COPY_SUCCESS_MESSAGE : COPY_FAILURE_MESSAGE);
+      });
+    }
+
+    /**
+     * アプリ起動時の一括初期化（一度だけ実行）。
+     * 入力欄・コピーボタンを結線し、ポップアップ開閉の結線は冪等な
+     * initAddSongPopup() に委譲（再結線しない）。最後に初期描画する。
+     * @returns {void}
+     */
+    let appBootstrapped = false;
+    function bootstrap() {
+      if (appBootstrapped) {
+        return;
+      }
+      appBootstrapped = true;
+
+      initLiveInfoInputs();  // 入力反映（1.2, 1.3）
+      initCopyAction();      // コピー結線（5.1, 5.5–5.7）
+      initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
+      renderAll();           // 初期描画（メイン画面を動作可能状態に）
+    }
+
+    // DOM 構築タイミングに依存しないよう、状態に応じて即時／DOMContentLoaded で一度だけ実行。
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
+</script>
+</body>
+</html>
