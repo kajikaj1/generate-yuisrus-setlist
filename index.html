@@ -234,8 +234,16 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
       gap: var(--gap);
       padding: var(--gap) 0 0;
+    }
+
+    /* フッター右側のアクション群（リセット＋コピーをまとめて右端に寄せる） */
+    .app__footer-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--gap);
     }
 
     .btn {
@@ -266,6 +274,14 @@
       background-color: var(--color-surface);
       color: var(--color-text);
       border-color: var(--color-border);
+    }
+
+    /* リセット（全削除）ボタン: 破壊的操作なので危険色のアウトライン表示にして、
+       塗りつぶしのコピーボタンと差別化し誤タップを避ける。 */
+    .btn--danger {
+      background-color: var(--color-surface);
+      color: var(--color-danger);
+      border-color: var(--color-danger);
     }
 
     .btn:active {
@@ -436,7 +452,10 @@
     <!-- ===== Footer: actions ===== -->
     <footer class="app__footer">
       <button type="button" class="btn btn--add" id="btn-add" data-role="add-button">＋ 曲を追加</button>
-      <button type="button" class="btn btn--copy" id="btn-copy" data-role="copy-button">コピー</button>
+      <div class="app__footer-actions">
+        <button type="button" class="btn btn--danger" id="btn-reset" data-role="reset-button">リセット</button>
+        <button type="button" class="btn btn--copy" id="btn-copy" data-role="copy-button">コピー</button>
+      </div>
     </footer>
   </div>
 
@@ -591,6 +610,18 @@
       const [moved] = state.setlist.splice(fromIndex, 1);
       state.setlist.splice(toIndex, 0, moved);
       return true;
+    }
+
+    /**
+     * 全状態を初期化する（リセット / 全削除）。セトリ・日付・ライブ名・会場名を空へ戻す。
+     * 状態を更新するのみで DOM には触れない（入力欄の同期・描画は呼び出し側で行う）。
+     * @returns {void}
+     */
+    function resetState() {
+      state.setlist.length = 0;
+      state.date = '';
+      state.liveName = '';
+      state.venue = '';
     }
 
     // ============================================================
@@ -1393,6 +1424,43 @@
     }
 
     /**
+     * リセットボタン（#btn-reset）を結線する。
+     * タップで確認ダイアログを出し、承諾時のみ全状態を初期化する（全削除）。
+     * state と入力欄（日付・ライブ名・会場名）の両方をクリアし、renderAll で再描画する。
+     * @returns {void}
+     */
+    function initResetAction() {
+      const resetButton = document.getElementById('btn-reset');
+      if (!resetButton) {
+        return;
+      }
+      resetButton.addEventListener('click', function () {
+        // 破壊的操作のため確認（誤タップ防止）。承諾しなければ何もしない。
+        if (!window.confirm('セトリと入力内容をすべて削除します。よろしいですか？')) {
+          return;
+        }
+        resetState(); // 状態をクリア（DOM には触れない）
+
+        // 入力欄の表示値も state に合わせてクリアする。
+        const dateInput = document.getElementById('input-date');
+        const liveNameInput = document.getElementById('input-live-name');
+        const venueInput = document.getElementById('input-venue');
+        if (dateInput) {
+          dateInput.value = '';
+        }
+        if (liveNameInput) {
+          liveNameInput.value = '';
+        }
+        if (venueInput) {
+          venueInput.value = '';
+        }
+
+        renderAll(); // セトリ表を空状態へ再描画
+        showToast('すべて削除しました');
+      });
+    }
+
+    /**
      * アプリ起動時の一括初期化（一度だけ実行）。
      * 入力欄・コピーボタンを結線し、ポップアップ開閉の結線は冪等な
      * initAddSongPopup() に委譲（再結線しない）。最後に初期描画する。
@@ -1407,6 +1475,7 @@
 
       initLiveInfoInputs();  // 入力反映（1.2, 1.3）
       initCopyAction();      // コピー結線（5.1, 5.5–5.7）
+      initResetAction();     // リセット（全削除）結線
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
     }
