@@ -625,6 +625,70 @@
     }
 
     // ============================================================
+    // Persistence: localStorage への自動保存／復元（PersistenceController）
+    // ------------------------------------------------------------
+    // 間違って閉じても直前の内容を復元できるよう、状態変更のたびに state を
+    // localStorage へ保存し、起動時に読み込んで自動復元する。localStorage は
+    // タブ／ブラウザを閉じても残るため本用途に適する（sessionStorage は閉じると
+    // 消えるため不可）。保存不可・データ破損時は無視して通常起動する（try/catch）。
+    // ============================================================
+
+    /** localStorage 保存キー（保存形式を変えたら末尾の版番号を上げる）。 */
+    const STORAGE_KEY = 'yuisrus-setlist:v1';
+
+    /**
+     * 現在の state を localStorage へ保存する。
+     * プライベートモードや容量超過で保存できない場合は無視する（アプリは継続動作）。
+     * @returns {void}
+     */
+    function saveState() {
+      try {
+        const snapshot = {
+          date: state.date,
+          liveName: state.liveName,
+          venue: state.venue,
+          setlist: state.setlist
+        };
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      } catch (err) {
+        // 保存できなくても動作は継続する。
+      }
+    }
+
+    /**
+     * localStorage の保存データを読み込み、妥当なら state へ復元する。
+     * データが無い／壊れている場合は何もしない（通常の初期状態で起動）。
+     * 各フィールドは型を検証し、不正値は既定値へフォールバックする。
+     * @returns {void}
+     */
+    function loadState() {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(STORAGE_KEY);
+      } catch (err) {
+        return; // localStorage 参照不可
+      }
+      if (!raw) {
+        return;
+      }
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        return; // 壊れた JSON は無視
+      }
+      if (!data || typeof data !== 'object') {
+        return;
+      }
+      state.date = typeof data.date === 'string' ? data.date : '';
+      state.liveName = typeof data.liveName === 'string' ? data.liveName : '';
+      state.venue = typeof data.venue === 'string' ? data.venue : '';
+      state.setlist = Array.isArray(data.setlist)
+        ? data.setlist.filter(function (title) { return typeof title === 'string'; })
+        : [];
+    }
+
+    // ============================================================
     // Text Generator: 出力テキストの純粋生成（TextGenerator）
     // ------------------------------------------------------------
     // formatDate / buildOutputText は純粋関数。引数のみから出力を決定し、
@@ -943,6 +1007,7 @@
      */
     function renderAll() {
       renderSetlist();
+      saveState(); // 状態変更のたびに保存（間違って閉じても直前の内容を復元できる）
     }
 
     // ============================================================
@@ -1399,16 +1464,19 @@
         state.date = dateInput.value;
         dateInput.addEventListener('input', function () {
           state.date = dateInput.value;
+          saveState(); // 入力欄は renderAll を呼ばないためここで保存
         });
       }
       if (liveNameInput) {
         liveNameInput.addEventListener('input', function () {
           state.liveName = liveNameInput.value;
+          saveState();
         });
       }
       if (venueInput) {
         venueInput.addEventListener('input', function () {
           state.venue = venueInput.value;
+          saveState();
         });
       }
     }
@@ -1471,9 +1539,32 @@
     }
 
     /**
+     * 復元した state を入力欄（日付・ライブ名・会場名）へ反映する。
+     * 日付が空なら本日を既定値にし、state.date も同期する。
+     * loadState() の直後・入力結線の前に呼ぶことで、初期化処理が復元値を
+     * 上書きしないようにする。
+     * @returns {void}
+     */
+    function applyStateToInputs() {
+      const dateInput = document.getElementById('input-date');
+      const liveNameInput = document.getElementById('input-live-name');
+      const venueInput = document.getElementById('input-venue');
+      if (dateInput) {
+        dateInput.value = state.date || todayString();
+        state.date = dateInput.value;
+      }
+      if (liveNameInput) {
+        liveNameInput.value = state.liveName;
+      }
+      if (venueInput) {
+        venueInput.value = state.venue;
+      }
+    }
+
+    /**
      * アプリ起動時の一括初期化（一度だけ実行）。
-     * 入力欄・コピーボタンを結線し、ポップアップ開閉の結線は冪等な
-     * initAddSongPopup() に委譲（再結線しない）。最後に初期描画する。
+     * 保存データを復元 → 入力欄へ反映 → 各種結線 → 初期描画の順で実行する。
+     * ポップアップ開閉の結線は冪等な initAddSongPopup() に委譲（再結線しない）。
      * @returns {void}
      */
     let appBootstrapped = false;
@@ -1483,6 +1574,8 @@
       }
       appBootstrapped = true;
 
+      loadState();           // 保存データを復元（間違って閉じても直前の内容へ）
+      applyStateToInputs();  // 復元値を入力欄へ反映（日付未設定なら本日）
       initLiveInfoInputs();  // 入力反映（1.2, 1.3）
       initCopyAction();      // コピー結線（5.1, 5.5–5.7）
       initResetAction();     // リセット（全削除）結線
