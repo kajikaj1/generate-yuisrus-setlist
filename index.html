@@ -22,6 +22,7 @@
       --color-accent-text: #ffffff;
       --color-danger: #dc2626;
       --color-overlay: rgba(0, 0, 0, 0.5);
+      --color-drop-indicator: #38bdf8; /* 挿入位置ライン（水色） */
       --radius: 10px;
       --tap-min: 48px;
       --gap: 12px;
@@ -171,6 +172,31 @@
     .setlist__row--dragging .setlist__handle {
       cursor: grabbing;
       color: var(--color-accent);
+    }
+
+    /* ドラッグ中に挿入先を示す水色ライン（DropIndicator / body直下に固定配置）。
+       viewport 座標で毎 pointermove ごとに再配置するため position:fixed とする。 */
+    .reorder-indicator {
+      position: fixed;
+      height: 3px;
+      background-color: var(--color-drop-indicator);
+      border-radius: 2px;
+      box-shadow: 0 0 4px rgba(56, 189, 248, 0.9);
+      pointer-events: none;
+      z-index: 50;
+      /* 端に丸い目印を付けて挿入位置を分かりやすくする */
+    }
+
+    .reorder-indicator::before {
+      content: '';
+      position: absolute;
+      left: -3px;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background-color: var(--color-drop-indicator);
+      transform: translateY(-50%);
     }
 
     /* 曲名（非編集の表示テキスト・長い場合は省略表示 …） */
@@ -917,6 +943,84 @@
     let activeDrag = null;
 
     /**
+     * 挿入位置を示す水色ライン要素（DropIndicator）。初回利用時に生成し body 直下へ置く。
+     * ドラッグ中のみ表示し、確定/中断で hideInsertionIndicator により隠す。
+     * @type {HTMLElement | null}
+     */
+    let insertionIndicator = null;
+
+    /**
+     * 挿入ラインの要素を返す（未生成なら生成して body へ追加）。
+     * @returns {HTMLElement}
+     */
+    function getInsertionIndicator() {
+      if (!insertionIndicator) {
+        insertionIndicator = document.createElement('div');
+        insertionIndicator.className = 'reorder-indicator';
+        insertionIndicator.setAttribute('aria-hidden', 'true');
+        insertionIndicator.style.display = 'none';
+        document.body.appendChild(insertionIndicator);
+      }
+      return insertionIndicator;
+    }
+
+    /**
+     * ポインタの現在Y座標から、挿入ラインを描くべき境界（行間）のviewport Y座標を返す。
+     * 各行の垂直中心と比較し、中心より上に来た最初の行の上端を境界とする。
+     * どの中心よりも下なら最終行の下端を境界とする。ドラッグ中の行自身も基準に含める
+     * （視覚的な「隙間」をそのまま示すため）。
+     * @param {number} clientY ポインタの現在 clientY
+     * @param {HTMLTableRowElement[]} rows 並び替え可能な行配列
+     * @returns {number} 境界の viewport Y 座標
+     */
+    function computeInsertionBoundaryY(clientY, rows) {
+      for (let i = 0; i < rows.length; i++) {
+        const rect = rows[i].getBoundingClientRect();
+        const center = rect.top + rect.height / 2;
+        if (clientY < center) {
+          return rect.top;
+        }
+      }
+      const lastRect = rows[rows.length - 1].getBoundingClientRect();
+      return lastRect.bottom;
+    }
+
+    /**
+     * ドラッグ中の挿入位置に水色ラインを表示・再配置する。
+     * @param {number} clientY ポインタの現在 clientY
+     * @returns {void}
+     */
+    function showInsertionIndicator(clientY) {
+      const rows = getReorderRows();
+      if (rows.length === 0) {
+        hideInsertionIndicator();
+        return;
+      }
+      const table = document.getElementById('setlist-table');
+      const bounds = table
+        ? table.getBoundingClientRect()
+        : rows[0].getBoundingClientRect();
+      const boundaryY = computeInsertionBoundaryY(clientY, rows);
+
+      const indicator = getInsertionIndicator();
+      const half = indicator.offsetHeight / 2 || 1.5;
+      indicator.style.display = 'block';
+      indicator.style.left = bounds.left + 'px';
+      indicator.style.width = bounds.width + 'px';
+      indicator.style.top = (boundaryY - half) + 'px';
+    }
+
+    /**
+     * 挿入ラインを非表示にする。
+     * @returns {void}
+     */
+    function hideInsertionIndicator() {
+      if (insertionIndicator) {
+        insertionIndicator.style.display = 'none';
+      }
+    }
+
+    /**
      * セトリ表本体（tbody）内の並び替え可能な行要素を配列で返す。
      * 空状態のプレースホルダ行は data-index を持たないため除外される。
      * @returns {HTMLTableRowElement[]}
@@ -973,6 +1077,9 @@
       const drag = activeDrag;
       activeDrag = null;
 
+      // 挿入ラインを消す（確定・中断いずれの場合も）。
+      hideInsertionIndicator();
+
       if (drag.row) {
         drag.row.classList.remove('setlist__row--dragging');
       }
@@ -1006,6 +1113,8 @@
       }
       const target = computeTargetIndex(event.clientY, activeDrag.currentIndex);
       activeDrag.currentIndex = target;
+      // 挿入先の水色ラインを追従表示（どこに入るか分かりやすくする）。
+      showInsertionIndicator(event.clientY);
     }
 
     /**
@@ -1054,6 +1163,7 @@
         };
 
         row.classList.add('setlist__row--dragging');
+        showInsertionIndicator(event.clientY); // 掴んだ瞬間に挿入ラインを表示
         try {
           handle.setPointerCapture(event.pointerId);
         } catch (err) {
