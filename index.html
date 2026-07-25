@@ -1374,6 +1374,18 @@
      * テキスト生成は state を参照するため、出力時に常に最新値が使われる。
      * @returns {void}
      */
+    /**
+     * ローカルの今日を <input type="date"> 用の YYYY-MM-DD 文字列で返す。
+     * @returns {string}
+     */
+    function todayString() {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      return yyyy + '-' + mm + '-' + dd;
+    }
+
     function initLiveInfoInputs() {
       const dateInput = document.getElementById('input-date');
       const liveNameInput = document.getElementById('input-live-name');
@@ -1382,11 +1394,7 @@
       if (dateInput) {
         // 初期値: アクセス日（ローカルの今日）を YYYY-MM-DD で設定（未入力時のみ）
         if (!dateInput.value) {
-          const now = new Date();
-          const yyyy = now.getFullYear();
-          const mm = String(now.getMonth() + 1).padStart(2, '0');
-          const dd = String(now.getDate()).padStart(2, '0');
-          dateInput.value = yyyy + '-' + mm + '-' + dd;
+          dateInput.value = todayString();
         }
         state.date = dateInput.value;
         dateInput.addEventListener('input', function () {
@@ -1441,12 +1449,14 @@
         }
         resetState(); // 状態をクリア（DOM には触れない）
 
-        // 入力欄の表示値も state に合わせてクリアする。
+        // 入力欄の表示値も state に合わせて更新する。
+        // 日付だけは空ではなく本日へ戻し、state.date も同期する。
         const dateInput = document.getElementById('input-date');
         const liveNameInput = document.getElementById('input-live-name');
         const venueInput = document.getElementById('input-venue');
         if (dateInput) {
-          dateInput.value = '';
+          dateInput.value = todayString();
+          state.date = dateInput.value;
         }
         if (liveNameInput) {
           liveNameInput.value = '';
