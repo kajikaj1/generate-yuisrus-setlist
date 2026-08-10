@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ドラム譜面プレーヤー</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #232733;
+      --border: #333846;
+      --text: #e7e9ee;
+      --muted: #9aa0ac;
+      --accent: #f97316;
+      --accent-2: #38bdf8;
+      --danger: #ef4444;
+      --ok: #22c55e;
+      --radius: 10px;
+      --gap: 12px;
+    }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .app {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: var(--gap);
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+
+    header h1 {
+      font-size: 20px;
+      margin: 4px 0 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--gap);
+    }
+
+    .card h2 {
+      font-size: 14px;
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    label { font-size: 13px; color: var(--muted); }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--gap);
+      align-items: center;
+    }
+
+    input[type="file"] { color: var(--text); font-size: 13px; max-width: 100%; }
+
+    input[type="number"], input[type="text"] {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 15px;
+      width: 90px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: "SFMono-Regular", Consolas, "Roboto Mono", monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      resize: vertical;
+      white-space: pre;
+      overflow-wrap: normal;
+    }
+    textarea:focus, input:focus { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+
+    button {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent-2); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #1a1002;
+      font-weight: 700;
+    }
+    button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+    .slider-field { display: flex; flex-direction: column; gap: 2px; min-width: 140px; flex: 1; }
+    .slider-field .val { color: var(--text); font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    .transport { gap: 10px; align-items: stretch; }
+    .transport button { flex: 1; min-width: 90px; font-size: 15px; }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .status .time { font-variant-numeric: tabular-nums; color: var(--text); }
+
+    .progress {
+      height: 6px;
+      background: var(--surface-2);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .progress > div { height: 100%; width: 0; background: var(--accent-2); transition: width 0.08s linear; }
+
+    /* Grid visualization */
+    #grid-wrap { overflow-x: auto; margin-top: 4px; }
+    table.grid { border-collapse: collapse; font-size: 12px; }
+    table.grid th {
+      text-align: right;
+      padding: 2px 8px 2px 0;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+      position: sticky;
+      left: 0;
+      background: var(--surface);
+    }
+    table.grid td {
+      width: 20px;
+      height: 20px;
+      border: 1px solid var(--border);
+      text-align: center;
+      color: transparent;
+      background: var(--surface-2);
+    }
+    table.grid td.beat { background: #2a2f3d; }
+    table.grid td.hit { background: var(--accent); }
+    table.grid td.hit.accent { background: #ffd28a; }
+    table.grid td.playhead { box-shadow: inset 0 0 0 2px var(--accent-2); }
+    table.grid td.hit.playhead { box-shadow: inset 0 0 0 2px #fff; }
+
+    .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .legend code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+
+    details { margin-top: 8px; }
+    summary { cursor: pointer; color: var(--accent-2); font-size: 13px; }
+    .help { font-size: 13px; color: var(--muted); }
+    .help table { border-collapse: collapse; margin: 8px 0; }
+    .help table td { padding: 2px 10px 2px 0; }
+    .help code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+
+    .error { color: var(--danger); font-size: 13px; white-space: pre-wrap; }
+    .muted { color: var(--muted); }
+    .toolbar { gap: 8px; }
+    .toolbar button { min-height: 34px; padding: 5px 10px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>🥁 ドラム譜面プレーヤー</h1>
+      <p>音楽ファイルとドラム譜面を指定すると、譜面通りにドラムを合成して一緒に再生します。</p>
+    </header>
+
+    <!-- 1. 音楽ファイル -->
+    <section class="card">
+      <h2>1. 音楽ファイル</h2>
+      <div class="row">
+        <input type="file" id="audio-file" accept="audio/*">
+        <span id="audio-status" class="muted">未読み込み</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="slider-field">
+          <label>音楽の音量 <span class="val" id="music-vol-val">100%</span></label>
+          <input type="range" id="music-vol" min="0" max="150" value="100">
+        </div>
+        <div class="slider-field">
+          <label>ドラムの音量 <span class="val" id="drum-vol-val">100%</span></label>
+          <input type="range" id="drum-vol" min="0" max="150" value="100">
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. ドラム譜面 -->
+    <section class="card">
+      <h2>2. ドラム譜面</h2>
+      <div class="row toolbar">
+        <button id="sample-btn" type="button">サンプル譜面を入れる</button>
+        <button id="load-txt-btn" type="button">テキスト読込</button>
+        <input type="file" id="txt-file" accept=".txt,text/plain" hidden>
+        <button id="save-txt-btn" type="button">テキスト保存</button>
+      </div>
+      <textarea id="sheet" spellcheck="false" placeholder="ここに譜面を入力（下の書き方を参照）"></textarea>
+      <div id="parse-error" class="error"></div>
+      <div class="legend">
+        <code>x</code> ヒット / <code>X</code> アクセント（強打） / <code>-</code> または <code>.</code> 休符 / <code>|</code> 小節区切り（見た目のみ）
+      </div>
+      <details>
+        <summary>譜面の書き方</summary>
+        <div class="help">
+          <p>1行目付近に <code>BPM 120</code> のようにテンポを書きます。各行は「楽器名: パターン」で、
+          1文字が16分音符1つ（既定）に対応します。<code>STEP 8</code> のように分解能も変えられます。</p>
+          <table>
+            <tr><td><code>BD</code></td><td>バスドラム（キック）</td></tr>
+            <tr><td><code>SD</code></td><td>スネア</td></tr>
+            <tr><td><code>HH</code></td><td>ハイハット（クローズ）</td></tr>
+            <tr><td><code>OH</code></td><td>オープンハイハット</td></tr>
+            <tr><td><code>HT/MT/LT</code></td><td>ハイ/ミッド/ロータム</td></tr>
+            <tr><td><code>CR</code></td><td>クラッシュシンバル</td></tr>
+            <tr><td><code>RD</code></td><td>ライドシンバル</td></tr>
+            <tr><td><code>CL</code></td><td>クラップ（手拍子）</td></tr>
+            <tr><td><code>RS</code></td><td>リムショット</td></tr>
+          </table>
+          <p>ヘッダー: <code>BPM 120</code> テンポ / <code>STEP 16</code> 1拍あたりの分割は STEP/4（16なら16分）/
+          <code>OFFSET 0.0</code> 音楽に対するドラムのズレ（秒）/ <code>SWING 0</code> スウィング（0〜60%）。</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- 3. 再生設定 -->
+    <section class="card">
+      <h2>3. 再生設定</h2>
+      <div class="row">
+        <div><label>テンポ (BPM)</label><br><input type="number" id="bpm" min="20" max="400" step="1" value="120"></div>
+        <div><label>ズレ調整 (秒)</label><br><input type="number" id="offset" step="0.01" value="0"></div>
+        <div class="slider-field">
+          <label>スウィング <span class="val" id="swing-val">0%</span></label>
+          <input type="range" id="swing" min="0" max="60" value="0">
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:14px">
+          <input type="checkbox" id="loop-drums"> 音楽が無くてもドラムをループ
+        </label>
+      </div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">
+        テンポ・ズレ調整・スウィングは譜面のヘッダーより優先されます（ここで微調整できます）。
+      </p>
+    </section>
+
+    <!-- 4. 再生 -->
+    <section class="card">
+      <h2>4. 再生</h2>
+      <div class="row transport">
+        <button id="play-btn" class="primary" type="button" disabled>▶ 再生</button>
+        <button id="pause-btn" type="button" disabled>⏸ 一時停止</button>
+        <button id="stop-btn" type="button" disabled>⏹ 停止</button>
+      </div>
+      <div class="status" style="margin-top:10px">
+        <span id="state-label">停止中</span>
+        <span class="time"><span id="cur-time">0:00.0</span> / <span id="dur-time">0:00.0</span></span>
+      </div>
+      <div class="progress"><div id="progress-bar"></div></div>
+      <div id="grid-wrap"></div>
+    </section>
+
+    <footer class="muted" style="font-size:12px;text-align:center;padding:8px">
+      すべてブラウザ内で処理されます。ファイルはどこにも送信されません。
+    </footer>
+  </div>
+
+  <audio id="audio-el" preload="auto"></audio>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---------- Element refs ----------
+    const $ = (id) => document.getElementById(id);
+    const audioFileInput = $("audio-file");
+    const audioStatus = $("audio-status");
+    const audioEl = $("audio-el");
+    const sheetEl = $("sheet");
+    const parseError = $("parse-error");
+    const bpmInput = $("bpm");
+    const offsetInput = $("offset");
+    const swingInput = $("swing");
+    const swingVal = $("swing-val");
+    const loopDrums = $("loop-drums");
+    const playBtn = $("play-btn");
+    const pauseBtn = $("pause-btn");
+    const stopBtn = $("stop-btn");
+    const stateLabel = $("state-label");
+    const curTimeEl = $("cur-time");
+    const durTimeEl = $("dur-time");
+    const progressBar = $("progress-bar");
+    const gridWrap = $("grid-wrap");
+    const musicVol = $("music-vol");
+    const drumVol = $("drum-vol");
+
+    // ---------- Audio graph ----------
+    let audioCtx = null;
+    let musicGain = null;   // gain for the uploaded music
+    let drumGain = null;    // gain for synthesized drums
+    let mediaSource = null; // MediaElementSourceNode (created once)
+    let noiseBuffer = null;
+
+    function ensureCtx() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      musicGain = audioCtx.createGain();
+      drumGain = audioCtx.createGain();
+      musicGain.connect(audioCtx.destination);
+      drumGain.connect(audioCtx.destination);
+      applyVolumes();
+      // Route the <audio> element through Web Audio so its volume is controllable
+      mediaSource = audioCtx.createMediaElementSource(audioEl);
+      mediaSource.connect(musicGain);
+      noiseBuffer = makeNoiseBuffer(audioCtx);
+    }
+
+    function applyVolumes() {
+      if (musicGain) musicGain.gain.value = Number(musicVol.value) / 100;
+      if (drumGain) drumGain.gain.value = Number(drumVol.value) / 100;
+    }
+
+    function makeNoiseBuffer(ctx) {
+      const len = ctx.sampleRate * 1.0;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+
+    // ---------- Drum synthesis ----------
+    // Each function schedules a one-shot voice at absolute AudioContext time `t`.
+    function noiseSource() {
+      const s = audioCtx.createBufferSource();
+      s.buffer = noiseBuffer;
+      s.loop = true;
+      return s;
+    }
+
+    function kick(t, vel) {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(150, t);
+      o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
+      g.gain.setValueAtTime(vel, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.connect(g).connect(drumGain);
+      o.start(t); o.stop(t + 0.4);
+    }
+
+    function snare(t, vel) {
+      // noise body
+      const n = noiseSource();
+      const nf = audioCtx.createBiquadFilter();
+      nf.type = "highpass"; nf.frequency.value = 1400;
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(vel, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      n.connect(nf).connect(ng).connect(drumGain);
+      n.start(t); n.stop(t + 0.2);
+      // tonal body
+      const o = audioCtx.createOscillator();
+      const og = audioCtx.createGain();
+      o.type = "triangle"; o.frequency.setValueAtTime(190, t);
+      o.frequency.exponentialRampToValueAtTime(140, t + 0.1);
+      og.gain.setValueAtTime(vel * 0.5, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      o.connect(og).connect(drumGain);
+      o.start(t); o.stop(t + 0.13);
+    }
+
+    function hat(t, vel, open) {
+      const n = noiseSource();
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = "highpass"; hp.frequency.value = 7000;
+      const g = audioCtx.createGain();
+      const dur = open ? 0.32 : 0.06;
+      g.gain.setValueAtTime(vel * 0.7, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      n.connect(hp).connect(g).connect(drumGain);
+      n.start(t); n.stop(t + dur + 0.02);
+    }
+
+    function tom(t, vel, freq) {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(freq, t);
+      o.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.25);
+      g.gain.setValueAtTime(vel, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      o.connect(g).connect(drumGain);
+      o.start(t); o.stop(t + 0.35);
+    }
+
+    function cymbal(t, vel, ride) {
+      const n = noiseSource();
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = "bandpass"; bp.frequency.value = ride ? 7000 : 5000; bp.Q.value = 0.4;
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = "highpass"; hp.frequency.value = 4000;
+      const g = audioCtx.createGain();
+      const dur = ride ? 0.5 : 1.2;
+      g.gain.setValueAtTime(vel * 0.55, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      n.connect(bp).connect(hp).connect(g).connect(drumGain);
+      n.start(t); n.stop(t + dur + 0.05);
+    }
+
+    function clap(t, vel) {
+      const dur = 0.02;
+      for (let i = 0; i < 3; i++) {
+        const n = noiseSource();
+        const bp = audioCtx.createBiquadFilter();
+        bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 0.7;
+        const g = audioCtx.createGain();
+        const start = t + i * 0.012;
+        g.gain.setValueAtTime(vel * 0.8, start);
+        g.gain.exponentialRampToValueAtTime(0.001, start + dur * 3);
+        n.connect(bp).connect(g).connect(drumGain);
+        n.start(start); n.stop(start + 0.1);
+      }
+    }
+
+    function rimshot(t, vel) {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = "square"; o.frequency.value = 330;
+      g.gain.setValueAtTime(vel * 0.6, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      o.connect(g).connect(drumGain);
+      o.start(t); o.stop(t + 0.06);
+    }
+
+    // Map instrument key -> play function
+    const VOICES = {
+      BD: (t, v) => kick(t, v),
+      SD: (t, v) => snare(t, v),
+      HH: (t, v) => hat(t, v, false),
+      OH: (t, v) => hat(t, v, true),
+      HT: (t, v) => tom(t, v, 260),
+      MT: (t, v) => tom(t, v, 200),
+      LT: (t, v) => tom(t, v, 150),
+      CR: (t, v) => cymbal(t, v, false),
+      RD: (t, v) => cymbal(t, v, true),
+      CL: (t, v) => clap(t, v),
+      RS: (t, v) => rimshot(t, v),
+    };
+    // Accepted aliases -> canonical key
+    const ALIASES = {
+      BD: "BD", KICK: "BD", K: "BD", BASS: "BD",
+      SD: "SD", SNARE: "SD", S: "SD", SN: "SD",
+      HH: "HH", CH: "HH", HAT: "HH", HHC: "HH",
+      OH: "OH", HHO: "OH", OPENHAT: "OH",
+      HT: "HT", MT: "MT", LT: "LT", FT: "LT",
+      TOM1: "HT", TOM2: "MT", TOM3: "LT",
+      CR: "CR", CRASH: "CR", CY: "CR", CC: "CR",
+      RD: "RD", RIDE: "RD", RC: "RD",
+      CL: "CL", CLAP: "CL", HC: "CL",
+      RS: "RS", RIM: "RS", SS: "RS",
+    };
+    const DISPLAY_ORDER = ["CR", "RD", "OH", "HH", "HT", "MT", "LT", "SD", "RS", "CL", "BD"];
+    const DISPLAY_NAME = {
+      BD: "BD ｷｯｸ", SD: "SD ｽﾈｱ", HH: "HH ﾊｲﾊｯﾄ", OH: "OH ｵｰﾌﾟﾝ",
+      HT: "HT ﾊｲﾀﾑ", MT: "MT ﾐｯﾄﾞﾀﾑ", LT: "LT ﾛｰﾀﾑ", CR: "CR ｸﾗｯｼｭ",
+      RD: "RD ﾗｲﾄﾞ", CL: "CL ｸﾗｯﾌﾟ", RS: "RS ﾘﾑ",
+    };
+
+    // ---------- Sheet parsing ----------
+    // Returns { bpm, step, offset, swing, tracks: [{key, steps:[{on,accent}]}], length }
+    function parseSheet(text) {
+      const header = { bpm: null, step: 16, offset: null, swing: null };
+      const tracks = [];
+      let maxLen = 0;
+
+      const lines = text.split(/\r?\n/);
+      lines.forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith("#") || line.startsWith("//")) return;
+
+        // Header directives: KEYWORD value
+        const hdr = line.match(/^(BPM|STEP|OFFSET|SWING|TEMPO)\s+(-?[\d.]+)$/i);
+        if (hdr) {
+          const kw = hdr[1].toUpperCase();
+          const num = parseFloat(hdr[2]);
+          if (kw === "BPM" || kw === "TEMPO") header.bpm = num;
+          else if (kw === "STEP") header.step = Math.max(1, Math.round(num));
+          else if (kw === "OFFSET") header.offset = num;
+          else if (kw === "SWING") header.swing = num;
+          return;
+        }
+
+        // Track line: NAME: pattern
+        const m = line.match(/^([A-Za-z0-9]+)\s*[:：]\s*(.*)$/);
+        if (!m) {
+          throw new Error(`${idx + 1}行目: 解釈できません → "${raw}"\n楽器名: パターン の形式か、BPM 120 のようなヘッダーで書いてください。`);
+        }
+        const nameRaw = m[1].toUpperCase();
+        const key = ALIASES[nameRaw];
+        if (!key) {
+          throw new Error(`${idx + 1}行目: 未知の楽器名 "${m[1]}"。BD/SD/HH/OH/HT/MT/LT/CR/RD/CL/RS などを使ってください。`);
+        }
+        const steps = [];
+        for (const ch of m[2]) {
+          if (ch === "|" || ch === " ") continue; // bar separators / spacing ignored
+          if (ch === "-" || ch === "." || ch === "_" || ch === "0") { steps.push({ on: false, accent: false }); }
+          else if (ch === "X") { steps.push({ on: true, accent: true }); }
+          else if (ch === "x" || ch === "o" || ch === "1") { steps.push({ on: true, accent: false }); }
+          else { steps.push({ on: false, accent: false }); } // unknown char = rest
+        }
+        maxLen = Math.max(maxLen, steps.length);
+        tracks.push({ key, steps });
+      });
+
+      if (tracks.length === 0) throw new Error("楽器の行がありません。例: BD: x---x---x---x---");
+
+      // Merge duplicate instrument lines (OR them together, keep accents)
+      const merged = {};
+      const orderSeen = [];
+      for (const tr of tracks) {
+        if (!merged[tr.key]) { merged[tr.key] = []; orderSeen.push(tr.key); }
+        const dest = merged[tr.key];
+        tr.steps.forEach((s, i) => {
+          if (!dest[i]) dest[i] = { on: false, accent: false };
+          if (s.on) { dest[i].on = true; if (s.accent) dest[i].accent = true; }
+        });
+      }
+      const mergedTracks = orderSeen.map((k) => {
+        const steps = merged[k];
+        for (let i = 0; i < maxLen; i++) if (!steps[i]) steps[i] = { on: false, accent: false };
+        return { key: k, steps };
+      });
+
+      return {
+        bpm: header.bpm,
+        step: header.step,
+        offset: header.offset,
+        swing: header.swing,
+        tracks: mergedTracks,
+        length: maxLen,
+      };
+    }
+
+    let sheet = null; // last successfully parsed sheet
+
+    function currentBpm() {
+      const v = parseFloat(bpmInput.value);
+      return isFinite(v) && v > 0 ? v : 120;
+    }
+    function currentOffset() {
+      const v = parseFloat(offsetInput.value);
+      return isFinite(v) ? v : 0;
+    }
+    function currentSwing() {
+      const v = parseFloat(swingInput.value);
+      return isFinite(v) ? v / 100 : 0;
+    }
+
+    // Seconds per step given bpm & step resolution (step = subdivisions per quarter*4? No: step per beat = step/4)
+    function stepDuration() {
+      const bpm = currentBpm();
+      const stepsPerBeat = sheet ? sheet.step / 4 : 4; // STEP 16 => 4 sixteenths per beat
+      return (60 / bpm) / stepsPerBeat;
+    }
+
+    // ---------- Grid visualization ----------
+    function renderGrid() {
+      gridWrap.innerHTML = "";
+      if (!sheet) return;
+      const len = sheet.length;
+      const stepsPerBeat = Math.max(1, Math.round(sheet.step / 4));
+      const ordered = DISPLAY_ORDER.filter((k) => sheet.tracks.some((t) => t.key === k));
+      const table = document.createElement("table");
+      table.className = "grid";
+      const tbody = document.createElement("tbody");
+
+      for (const key of ordered) {
+        const track = sheet.tracks.find((t) => t.key === key);
+        const tr = document.createElement("tr");
+        const th = document.createElement("th");
+        th.textContent = DISPLAY_NAME[key] || key;
+        tr.appendChild(th);
+        for (let i = 0; i < len; i++) {
+          const td = document.createElement("td");
+          td.dataset.step = i;
+          if (i % stepsPerBeat === 0) td.classList.add("beat");
+          const s = track.steps[i];
+          if (s && s.on) { td.classList.add("hit"); if (s.accent) td.classList.add("accent"); }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      gridWrap.appendChild(table);
+    }
+
+    let lastPlayheadStep = -1;
+    function updatePlayhead(step) {
+      if (step === lastPlayheadStep) return;
+      const cells = gridWrap.querySelectorAll("td.playhead");
+      cells.forEach((c) => c.classList.remove("playhead"));
+      if (step >= 0 && sheet) {
+        const col = step % sheet.length;
+        gridWrap.querySelectorAll(`td[data-step="${col}"]`).forEach((c) => c.classList.add("playhead"));
+      }
+      lastPlayheadStep = step;
+    }
+
+    // ---------- Playback scheduling ----------
+    let playing = false;
+    let paused = false;
+    let hasAudioFile = false;
+    let startCtxTime = 0;      // audioCtx.currentTime at drum-timeline position 0
+    let nextStepIndex = 0;     // next step to schedule (absolute, can exceed length when looping)
+    let schedulerTimer = null;
+    let rafId = null;
+    const SCHED_AHEAD = 0.12;  // seconds to schedule ahead
+    const SCHED_INTERVAL = 25; // ms
+
+    function totalDrumDuration() {
+      return sheet ? sheet.length * stepDuration() : 0;
+    }
+
+    // Absolute audioCtx time for a given drum step index (already offset-adjusted)
+    function timeForStep(i) {
+      const sd = stepDuration();
+      const stepsPerBeat = Math.max(1, Math.round(sheet.step / 4));
+      let t = i * sd;
+      // Swing: delay odd sub-steps within each beat
+      if (currentSwing() > 0 && stepsPerBeat >= 2) {
+        const posInBeat = ((i % stepsPerBeat) + stepsPerBeat) % stepsPerBeat;
+        if (posInBeat % 2 === 1) t += sd * currentSwing();
+      }
+      return startCtxTime + t + currentOffset();
+    }
+
+    function scheduler() {
+      if (!playing || paused || !sheet) return;
+      const now = audioCtx.currentTime;
+      const looping = loopDrums.checked || !hasAudioFile;
+      const len = sheet.length;
+
+      while (true) {
+        const t = timeForStep(nextStepIndex);
+        if (t > now + SCHED_AHEAD) break;
+
+        const col = nextStepIndex % len;
+        if (!looping && nextStepIndex >= len) break; // one-shot: stop after the pattern
+
+        if (t >= now - 0.02) {
+          for (const track of sheet.tracks) {
+            const s = track.steps[col];
+            if (s && s.on) {
+              const vel = s.accent ? 1.0 : 0.6;
+              const fn = VOICES[track.key];
+              if (fn) fn(t, vel);
+            }
+          }
+        }
+        nextStepIndex++;
+        if (nextStepIndex > 1e7) break; // safety
+      }
+    }
+
+    function formatTime(sec) {
+      if (!isFinite(sec) || sec < 0) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return m + ":" + s.toFixed(1).padStart(4, "0");
+    }
+
+    function tick() {
+      if (!playing) return;
+      let cur, dur;
+      if (hasAudioFile) {
+        cur = audioEl.currentTime;
+        dur = audioEl.duration || 0;
+      } else {
+        cur = audioCtx.currentTime - startCtxTime;
+        dur = totalDrumDuration();
+        if (loopDrums.checked && dur > 0) cur = cur % dur;
+      }
+      curTimeEl.textContent = formatTime(cur);
+      durTimeEl.textContent = formatTime(dur);
+      progressBar.style.width = dur > 0 ? Math.min(100, (cur / dur) * 100) + "%" : "0%";
+
+      // Playhead: which drum step corresponds to "now"
+      if (sheet) {
+        const elapsed = audioCtx.currentTime - startCtxTime - currentOffset();
+        let stepPos = Math.floor(elapsed / stepDuration());
+        if (stepPos >= 0) updatePlayhead(stepPos % sheet.length);
+        else updatePlayhead(-1);
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    async function start() {
+      if (!ensureSheetReady()) return;
+      ensureCtx();
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+
+      if (paused) {
+        // resume
+        paused = false;
+      } else {
+        nextStepIndex = 0;
+      }
+
+      // Align drum timeline zero to "now", accounting for audio position
+      const startDelay = 0.08; // small lead-in so first hit isn't clipped
+      if (hasAudioFile) {
+        // startCtxTime = ctx time that corresponds to audio currentTime 0
+        startCtxTime = audioCtx.currentTime + startDelay - audioEl.currentTime;
+        // schedule steps from current audio position
+        nextStepIndex = Math.max(0, Math.floor((audioEl.currentTime - currentOffset()) / stepDuration()));
+        try { await audioEl.play(); } catch (e) { /* ignore */ }
+      } else {
+        // Drum-only: align timeline zero so scheduling and playhead resume in sync
+        startCtxTime = audioCtx.currentTime + startDelay - nextStepIndex * stepDuration();
+      }
+
+      playing = true;
+      paused = false;
+      setState("再生中");
+      schedulerTimer = setInterval(scheduler, SCHED_INTERVAL);
+      scheduler();
+      rafId = requestAnimationFrame(tick);
+      updateButtons();
+    }
+
+    function pause() {
+      if (!playing) return;
+      paused = true;
+      playing = false;
+      if (hasAudioFile) audioEl.pause();
+      clearInterval(schedulerTimer);
+      cancelAnimationFrame(rafId);
+      // Keep nextStepIndex where audio left off for a clean resume
+      setState("一時停止");
+      updateButtons();
+    }
+
+    function stop() {
+      playing = false;
+      paused = false;
+      clearInterval(schedulerTimer);
+      cancelAnimationFrame(rafId);
+      nextStepIndex = 0;
+      if (hasAudioFile) { audioEl.pause(); audioEl.currentTime = 0; }
+      progressBar.style.width = "0%";
+      curTimeEl.textContent = "0:00.0";
+      updatePlayhead(-1);
+      setState("停止中");
+      updateButtons();
+    }
+
+    function setState(label) { stateLabel.textContent = label; }
+
+    function updateButtons() {
+      const ready = !!sheet;
+      playBtn.disabled = !ready || playing;
+      pauseBtn.disabled = !playing;
+      stopBtn.disabled = !(playing || paused);
+    }
+
+    function ensureSheetReady() {
+      const ok = compileSheet();
+      if (!ok) return false;
+      return true;
+    }
+
+    // Parse the textarea, update state + grid. Returns true on success.
+    function compileSheet() {
+      const text = sheetEl.value;
+      if (!text.trim()) {
+        sheet = null;
+        parseError.textContent = "";
+        renderGrid();
+        updateButtons();
+        return false;
+      }
+      try {
+        const parsed = parseSheet(text);
+        sheet = parsed;
+        parseError.textContent = "";
+        // Apply header values to controls only if the user hasn't overridden.
+        if (parsed.bpm != null && !bpmTouched) bpmInput.value = parsed.bpm;
+        if (parsed.offset != null && !offsetTouched) offsetInput.value = parsed.offset;
+        if (parsed.swing != null && !swingTouched) {
+          swingInput.value = parsed.swing;
+          swingVal.textContent = Math.round(parsed.swing) + "%";
+        }
+        renderGrid();
+        updateButtons();
+        return true;
+      } catch (e) {
+        sheet = null;
+        parseError.textContent = "⚠ " + e.message;
+        renderGrid();
+        updateButtons();
+        return false;
+      }
+    }
+
+    // ---------- Events ----------
+    let bpmTouched = false, offsetTouched = false, swingTouched = false;
+    bpmInput.addEventListener("input", () => { bpmTouched = true; });
+    offsetInput.addEventListener("input", () => { offsetTouched = true; });
+    swingInput.addEventListener("input", () => {
+      swingTouched = true;
+      swingVal.textContent = swingInput.value + "%";
+    });
+
+    let sheetDebounce = null;
+    sheetEl.addEventListener("input", () => {
+      clearTimeout(sheetDebounce);
+      sheetDebounce = setTimeout(compileSheet, 250);
+    });
+
+    musicVol.addEventListener("input", () => {
+      $("music-vol-val").textContent = musicVol.value + "%";
+      applyVolumes();
+    });
+    drumVol.addEventListener("input", () => {
+      $("drum-vol-val").textContent = drumVol.value + "%";
+      applyVolumes();
+    });
+
+    audioFileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      stop();
+      const url = URL.createObjectURL(file);
+      audioEl.src = url;
+      hasAudioFile = true;
+      audioStatus.textContent = "読込中… " + file.name;
+      audioEl.addEventListener("loadedmetadata", () => {
+        durTimeEl.textContent = formatTime(audioEl.duration || 0);
+        audioStatus.textContent = "✓ " + file.name + " (" + formatTime(audioEl.duration) + ")";
+      }, { once: true });
+      audioEl.addEventListener("error", () => {
+        audioStatus.textContent = "⚠ 読み込めませんでした";
+        hasAudioFile = false;
+      }, { once: true });
+    });
+
+    audioEl.addEventListener("ended", () => {
+      if (!loopDrums.checked) stop();
+    });
+
+    playBtn.addEventListener("click", start);
+    pauseBtn.addEventListener("click", pause);
+    stopBtn.addEventListener("click", stop);
+
+    // Sample sheet
+    const SAMPLE = `# サンプル: 8ビート（16分解能）
+BPM 100
+STEP 16
+SWING 0
+
+CR: X---------------
+HH: x-x-x-x-x-x-x-x-
+SD: ----x-------x---
+BD: x-------x---x---`;
+
+    $("sample-btn").addEventListener("click", () => {
+      sheetEl.value = SAMPLE;
+      bpmTouched = false; offsetTouched = false; swingTouched = false;
+      compileSheet();
+    });
+
+    // Load / save text
+    $("load-txt-btn").addEventListener("click", () => $("txt-file").click());
+    $("txt-file").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        sheetEl.value = String(reader.result);
+        bpmTouched = false; offsetTouched = false; swingTouched = false;
+        compileSheet();
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+
+    $("save-txt-btn").addEventListener("click", () => {
+      const blob = new Blob([sheetEl.value], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "drum-sheet.txt";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    loopDrums.addEventListener("change", () => {
+      audioEl.loop = false; // we handle drum looping ourselves; keep audio non-looping
+    });
+
+    // Spacebar = play/pause when not typing
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && document.activeElement.tagName !== "TEXTAREA" &&
+          document.activeElement.tagName !== "INPUT") {
+        e.preventDefault();
+        if (playing) pause(); else start();
+      }
+    });
+
+    // Init
+    sheetEl.value = SAMPLE;
+    compileSheet();
+  })();
+  </script>
+</body>
+</html>
