@@ -881,8 +881,14 @@
     // ============================================================
     // Data: 曲マスタ（HTML内固定埋め込み / Requirements 3.7）
     // ------------------------------------------------------------
-    // 各要素は { title, reading, short? }。reading はあいうえお順ソート用の
+    // 各要素は { id, title, reading, short? }。reading はあいうえお順ソート用の
     // 読み仮名（ひらがな）。実運用ではファイルを直接編集して差し替える。
+    //
+    // id は曲を一意に指す不変の番号。保存データ・書き出し JSON はタイトルではなく
+    // この id で曲を持つため、次の約束を必ず守る:
+    //   - 一度振った id は変更しない（タイトルを直しても id はそのまま）。
+    //   - 曲を消しても id は再利用しない（過去の保存データが別の曲になってしまう）。
+    //   - 新しい曲は未使用の最大値+1 を振る（配列の並び順と id は無関係）。
     // 以下は動作確認用サンプル。五十音の各行から読み仮名がバラけるよう収録。
     //
     // short は表示用の省略名称（任意）。絞り込み条件のチップなど幅の限られた
@@ -892,39 +898,39 @@
 
     /** @type {ReadonlyArray<Song>} */
     const SONG_MASTER = [
-      { title: 'よーいすとっぷ',                 reading: 'よーいすとっぷ' },
-      { title: '途中下車スーサイド',             reading: 'とちゅうげしゃすーさいど', short: '途中下車' },
-      { title: '宵夢バタフライ',                 reading: 'よいゆめばたふらい', short: 'よいゆめ' },
-      { title: 'かいじるし',                     reading: 'かいじるし' },
-      { title: 'がいねん',                       reading: 'がいねん' },
-      { title: 'きのこ',                         reading: 'きのこ' },
-      { title: 'ぼくのこえきみのうた',           reading: 'ぼくのこえきみのうた', short: 'ぼくのこえ' },
-      { title: 'むげんだい∞日曜曲',              reading: 'むげんだいにちようきょく', short: '日曜曲' },
-      { title: 'らりるれほんげんば',             reading: 'らりるれほんげんば', short: 'ほんげんば' },
-      { title: 'ずんどこ後退曲',                 reading: 'ずんどここうたいきょく', short: 'ずんどこ' },
-      { title: 'そんなそんぐ',                   reading: 'そんなそんぐ' },
-      { title: 'もーぜにたのもーぜ',             reading: 'もーぜにたのもーぜ', short: 'もーぜ' },
-      { title: 'ぶら汁神',                       reading: 'ぶらじるがみ' },
-      { title: '宇宙とファンシー',               reading: 'うちゅうとふぁんしー' },
-      { title: 'えれくとりかる ぴょんぴょこ',    reading: 'えれくとりかるぴょんぴょこ', short: 'えれぴょん' },
-      { title: 'やせないで おたく',              reading: 'やせないでおたく' },
-      { title: 'たかいたかい',                   reading: 'たかいたかい' },
-      { title: '卒業ぐらじゅえーしょん',         reading: 'そつぎょうぐらじゅえーしょん', short: '卒業' },
-      { title: 'ほくいもパラダイちゅ',           reading: 'ほくいもぱらだいちゅ', short: 'ほくいも' },
-      { title: 'かんπさんしゃいん',              reading: 'かんぱいさんしゃいん', short: 'かんπ' },
-      { title: 'カニチャーハン',                 reading: 'かにちゃーはん', short: 'カニ' },
-      { title: 'お天気注意報',                   reading: 'おてんきちゅういほう', short: 'お天気' },
-      { title: '布団の前世の女の子',             reading: 'ふとんのぜんせのおんなのこ', short: '布団' },
-      { title: '人類万歳',                       reading: 'じんるいばんざい' },
-      { title: '日本の夏 ゆいざらすの夏',        reading: 'にほんのなつゆいざらすのなつ', short: 'ゆいざの夏' },
-      { title: 'おたんじょうびのうた',           reading: 'おたんじょうびのうた', short: 'おたんじょうび' },
-      { title: 'コロコロ',                       reading: 'ころころ' },
-      { title: '愛してやるからこっちにこい！',   reading: 'あいしてやるからこっちにこい', short: '愛して' },
-      { title: 'キラキラスター',                 reading: 'きらきらすたー' },
-      { title: 'かわいげ留年確定☆',             reading: 'かわいげりゅうねんかくてい', short: '留年' },
-      { title: '爆上げキュート！',               reading: 'ばくあげきゅーと', short: '爆上げ' },
-      { title: 'ざらっこ学校校歌',               reading: 'ざらっこがっこうこうか', short: '校歌' },
-      { title: '全力コロッケ',                   reading: 'ぜんりょくころっけ', short: '全コロ' }
+      { id:  1, title: 'よーいすとっぷ',               reading: 'よーいすとっぷ' },
+      { id:  2, title: '途中下車スーサイド',           reading: 'とちゅうげしゃすーさいど',     short: '途中下車' },
+      { id:  3, title: '宵夢バタフライ',               reading: 'よいゆめばたふらい',           short: 'よいゆめ' },
+      { id:  4, title: 'かいじるし',                   reading: 'かいじるし' },
+      { id:  5, title: 'がいねん',                     reading: 'がいねん' },
+      { id:  6, title: 'きのこ',                       reading: 'きのこ' },
+      { id:  7, title: 'ぼくのこえきみのうた',         reading: 'ぼくのこえきみのうた',         short: 'ぼくのこえ' },
+      { id:  8, title: 'むげんだい∞日曜曲',           reading: 'むげんだいにちようきょく',     short: '日曜曲' },
+      { id:  9, title: 'らりるれほんげんば',           reading: 'らりるれほんげんば',           short: 'ほんげんば' },
+      { id: 10, title: 'ずんどこ後退曲',               reading: 'ずんどここうたいきょく',       short: 'ずんどこ' },
+      { id: 11, title: 'そんなそんぐ',                 reading: 'そんなそんぐ' },
+      { id: 12, title: 'もーぜにたのもーぜ',           reading: 'もーぜにたのもーぜ',           short: 'もーぜ' },
+      { id: 13, title: 'ぶら汁神',                     reading: 'ぶらじるがみ' },
+      { id: 14, title: '宇宙とファンシー',             reading: 'うちゅうとふぁんしー' },
+      { id: 15, title: 'えれくとりかる ぴょんぴょこ',  reading: 'えれくとりかるぴょんぴょこ',   short: 'えれぴょん' },
+      { id: 16, title: 'やせないで おたく',            reading: 'やせないでおたく' },
+      { id: 17, title: 'たかいたかい',                 reading: 'たかいたかい' },
+      { id: 18, title: '卒業ぐらじゅえーしょん',       reading: 'そつぎょうぐらじゅえーしょん', short: '卒業' },
+      { id: 19, title: 'ほくいもパラダイちゅ',         reading: 'ほくいもぱらだいちゅ',         short: 'ほくいも' },
+      { id: 20, title: 'かんπさんしゃいん',            reading: 'かんぱいさんしゃいん',         short: 'かんπ' },
+      { id: 21, title: 'カニチャーハン',               reading: 'かにちゃーはん',               short: 'カニ' },
+      { id: 22, title: 'お天気注意報',                 reading: 'おてんきちゅういほう',         short: 'お天気' },
+      { id: 23, title: '布団の前世の女の子',           reading: 'ふとんのぜんせのおんなのこ',   short: '布団' },
+      { id: 24, title: '人類万歳',                     reading: 'じんるいばんざい' },
+      { id: 25, title: '日本の夏 ゆいざらすの夏',      reading: 'にほんのなつゆいざらすのなつ', short: 'ゆいざの夏' },
+      { id: 26, title: 'おたんじょうびのうた',         reading: 'おたんじょうびのうた',         short: 'おたんじょうび' },
+      { id: 27, title: 'コロコロ',                     reading: 'ころころ' },
+      { id: 28, title: '愛してやるからこっちにこい！', reading: 'あいしてやるからこっちにこい', short: '愛して' },
+      { id: 29, title: 'キラキラスター',               reading: 'きらきらすたー' },
+      { id: 30, title: 'かわいげ留年確定☆',           reading: 'かわいげりゅうねんかくてい',   short: '留年' },
+      { id: 31, title: '爆上げキュート！',             reading: 'ばくあげきゅーと',             short: '爆上げ' },
+      { id: 32, title: 'ざらっこ学校校歌',             reading: 'ざらっこがっこうこうか',       short: '校歌' },
+      { id: 33, title: '全力コロッケ',                 reading: 'ぜんりょくころっけ',           short: '全コロ' }
     ];
 
     /**
@@ -939,6 +945,69 @@
         SONG_SHORT_BY_TITLE.set(song.title, short);
       }
     });
+
+    /**
+     * 曲ID → 正式名称／正式名称 → 曲ID の対応表。曲マスタから一度だけ組み立てる。
+     * 保存データは ID で曲を持ち、アプリ内では常にタイトルへ解決して扱う。
+     * @type {Map<number, string>}
+     */
+    const SONG_TITLE_BY_ID = new Map();
+    /** @type {Map<string, number>} */
+    const SONG_ID_BY_TITLE = new Map();
+    SONG_MASTER.forEach(function (song) {
+      if (typeof song.id !== 'number') {
+        return; // ID未設定の曲はタイトルのまま保存される（マスタ編集時の書き忘れ対策）
+      }
+      SONG_TITLE_BY_ID.set(song.id, song.title);
+      if (!SONG_ID_BY_TITLE.has(song.title)) {
+        SONG_ID_BY_TITLE.set(song.title, song.id);
+      }
+    });
+
+    /**
+     * 保存用のセトリ表現へ変換する（純粋関数）。
+     * 曲マスタにある曲は ID（数値）へ、マスタに無い曲名は文字列のまま残す。
+     * @param {string[]} titles 曲タイトルの配列
+     * @returns {Array<number|string>} 保存・書き出しに使う配列
+     */
+    function toStoredSetlist(titles) {
+      return titles.map(function (title) {
+        const id = SONG_ID_BY_TITLE.get(title);
+        return typeof id === 'number' ? id : title;
+      });
+    }
+
+    /**
+     * 保存用のセトリ表現をタイトルの配列へ戻す（純粋関数）。
+     * 数値は曲IDとして解決し、文字列はマスタ外の曲名としてそのまま採る。
+     * マスタに無いID（曲を消した等）は復元できないため捨てる。ID を再利用しない
+     * 運用であれば、古い保存データもそのまま読める。
+     * @param {unknown} stored 保存データの setlist（ID配列／旧形式のタイトル配列）
+     * @returns {string[]} 曲タイトルの配列
+     */
+    function fromStoredSetlist(stored) {
+      if (!Array.isArray(stored)) {
+        return [];
+      }
+      const titles = [];
+      stored.forEach(function (item) {
+        if (typeof item === 'string') {
+          if (item !== '') {
+            titles.push(item); // 旧形式（タイトル配列）・マスタ外の曲名
+          }
+          return;
+        }
+        if (typeof item === 'number') {
+          const title = SONG_TITLE_BY_ID.get(item);
+          if (typeof title === 'string') {
+            titles.push(title);
+          }
+          return;
+        }
+        // それ以外（null・オブジェクト等）は壊れたデータとして捨てる。
+      });
+      return titles;
+    }
 
     /**
      * 曲名の照合キーを作る（純粋関数）。空白（全角含む）と英字の大小差を無視する。
@@ -1006,6 +1075,7 @@
     /**
      * 曲マスタの1曲を表す。
      * @typedef {Object} Song
+     * @property {number} id       曲を一意に指す不変の番号（保存データが参照する）
      * @property {string} title    表示・出力に用いる正式な曲名
      * @property {string} reading  あいうえお順ソート用の読み仮名（ひらがな）
      * @property {string} [short]  幅の狭い場所で使う省略名称（任意。未設定なら title）
@@ -1122,7 +1192,7 @@
           date: state.date,
           liveName: state.liveName,
           venue: state.venue,
-          setlist: state.setlist
+          setlist: toStoredSetlist(state.setlist) // 曲はIDで持つ
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
       } catch (err) {
@@ -1158,9 +1228,8 @@
       state.date = typeof data.date === 'string' ? data.date : '';
       state.liveName = typeof data.liveName === 'string' ? data.liveName : '';
       state.venue = typeof data.venue === 'string' ? data.venue : '';
-      state.setlist = Array.isArray(data.setlist)
-        ? data.setlist.filter(function (title) { return typeof title === 'string'; })
-        : [];
+      // 曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
+      state.setlist = fromStoredSetlist(data.setlist);
     }
 
     // ============================================================
@@ -1169,7 +1238,7 @@
     // 「DBに追加」で確定したセトリを履歴として localStorage へ蓄積する。
     // 上の自動保存（STORAGE_KEY）が作業中の1件を常に上書きするのに対し、こちらは
     // 明示操作で追加した複数件を配列で保持し、後から読み込み・削除できる。
-    // 保存するのは曲名などのテキストのみで1件あたり1KB未満のため、非同期APIの
+    // 保存するのは曲IDとライブ情報のテキストのみで1件あたり1KB未満のため、非同期APIの
     // IndexedDB は使わず同期的な localStorage で足りる（目安5MB＝数千件）。
     // 保存不可（プライベートモード・容量超過）やデータ破損時は無視して通常動作する。
     // リセット（全削除）は作業中の state のみを対象とし、この保存一覧は消さない。
@@ -1186,7 +1255,9 @@
      * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
      * @property {string} liveName  ライブ名。未入力は ""
      * @property {string} venue     会場名。未入力は ""
-     * @property {string[]} setlist 曲タイトルの配列（保存時点のコピー）
+     * @property {string[]} setlist 曲タイトルの配列（保存時点のコピー）。
+     *   localStorage・書き出し JSON では曲ID（マスタ外の曲だけ文字列）へ変換して
+     *   持ち、読み込み時にタイトルへ戻す（toStoredSetlist / fromStoredSetlist）。
      */
 
     /**
@@ -1209,9 +1280,8 @@
       if (!data || typeof data !== 'object') {
         return null;
       }
-      const setlist = Array.isArray(data.setlist)
-        ? data.setlist.filter(function (title) { return typeof title === 'string'; })
-        : [];
+      // setlist は曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
+      const setlist = fromStoredSetlist(data.setlist);
       if (setlist.length === 0) {
         return null; // 空セトリは保存しない
       }
@@ -1289,11 +1359,29 @@
      */
     function writeSavedSetlists(records) {
       try {
-        window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(records));
+        const stored = records.map(toStoredSavedSetlist);
+        window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(stored));
         return true;
       } catch (err) {
         return false;
       }
+    }
+
+    /**
+     * 保存済み1件を保存・書き出し用の形へ変換する（純粋関数）。
+     * 曲は ID（マスタ外の曲だけ曲名の文字列）で持つ。
+     * @param {SavedSetlist} record 保存済みセトリ（setlist はタイトル配列）
+     * @returns {Object} localStorage・JSON へ書き出す1件
+     */
+    function toStoredSavedSetlist(record) {
+      return {
+        id: record.id,
+        savedAt: record.savedAt,
+        date: record.date,
+        liveName: record.liveName,
+        venue: record.venue,
+        setlist: toStoredSetlist(record.setlist)
+      };
     }
 
     /**
@@ -2505,6 +2593,8 @@
     // 責務:
     //   - 「バックアップ」タップで保存一覧の全件を JSON として書き出し、コピー
     //     または .json ファイルとして保存できるようにする（機種変更・受け渡し用）。
+    //   - 書き出す setlist は曲ID（マスタ外の曲だけ曲名の文字列）。version 1 の
+    //     曲名配列も取り込めるので、古い書き出しファイルもそのまま読める。
     //   - 受け取った JSON を貼り付け／ファイル選択で取り込み、保存一覧へ追加する。
     //     取り込みは「追加」のみで、既存データを消したり置き換えたりしない。
     //   - 同じ内容のセトリ（日付・ライブ名・会場・曲順が一致）はスキップするため、
@@ -2515,7 +2605,7 @@
 
     /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
     const BACKUP_FORMAT = 'yuisrus-setlist-backup';
-    const BACKUP_VERSION = 1;
+    const BACKUP_VERSION = 2; // 2: setlist を曲名の配列から曲IDの配列へ変更
 
     /** 取り込み結果の通知文。 */
     const BACKUP_PARSE_FAILURE_MESSAGE = 'JSONを読み取れませんでした';
@@ -2531,7 +2621,7 @@
         format: BACKUP_FORMAT,
         version: BACKUP_VERSION,
         exportedAt: new Date().toISOString(),
-        setlists: loadSavedSetlists()
+        setlists: loadSavedSetlists().map(toStoredSavedSetlist) // 曲はIDで書き出す
       });
     }
 
