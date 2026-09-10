@@ -1133,10 +1133,30 @@
     }
 
     /**
-     * 保存済みセトリ一覧を localStorage から読み込む（新しい順で保存されている）。
+     * 保存済みセトリの表示順を決める比較関数（純粋関数）。
+     * 第一キー: 日付の降順（`YYYY-MM-DD` は辞書順＝日付順。未入力の '' は最後）。
+     * 第二キー: 追加時刻の降順（同じ日付のライブは後から追加したものが上）。
+     * どちらも等しい場合は元の順序を保つ（Array#sort は安定ソート）。
+     * @param {SavedSetlist} a 比較対象
+     * @param {SavedSetlist} b 比較対象
+     * @returns {number} 並べ替え用の比較結果
+     */
+    function compareSavedSetlists(a, b) {
+      if (a.date !== b.date) {
+        return a.date < b.date ? 1 : -1;
+      }
+      if (a.savedAt !== b.savedAt) {
+        return a.savedAt < b.savedAt ? 1 : -1;
+      }
+      return 0;
+    }
+
+    /**
+     * 保存済みセトリ一覧を localStorage から読み込む。
      * 参照不可・JSON破損・配列でない場合は空配列を返す（アプリは継続動作）。
      * 各要素は normalizeSavedSetlist で検証し、壊れた要素は捨てる。
-     * @returns {SavedSetlist[]} 保存済みセトリの配列（新しい順）
+     * 返す配列は compareSavedSetlists の順（日付降順→追加順降順）へ並べ替える。
+     * @returns {SavedSetlist[]} 保存済みセトリの配列（日付の新しい順）
      */
     function loadSavedSetlists() {
       let raw = null;
@@ -1164,14 +1184,14 @@
           records.push(record);
         }
       });
-      return records;
+      return records.sort(compareSavedSetlists);
     }
 
     /**
      * 保存済みセトリ一覧を localStorage へ書き込む（全置換）。
      * 容量超過・プライベートモード等で書き込めない場合は false を返す
      * （呼び出し側は失敗をトーストで通知する）。
-     * @param {SavedSetlist[]} records 保存する配列（新しい順）
+     * @param {SavedSetlist[]} records 保存する配列
      * @returns {boolean} 書き込み成功で true
      */
     function writeSavedSetlists(records) {
@@ -1184,7 +1204,7 @@
     }
 
     /**
-     * 現在の状態を1件として保存一覧の先頭（新しい順）へ追加する。
+     * 現在の状態を1件として保存一覧へ追加する（表示順は読み込み時に決まる）。
      * setlist は保存後の編集が保存データへ波及しないようコピーして持つ。
      * 曲が空の場合は呼び出し側で弾く前提だが、念のためここでも null を返す。
      * @param {AppState} source 保存元の状態
@@ -1203,7 +1223,9 @@
         return null;
       }
       const records = loadSavedSetlists();
-      records.unshift(record); // 新しいものを先頭へ
+      // savedAt を持たない古いデータと同じ日付で並んだときに新しい方が上へ来るよう、
+      // 保存時も先頭へ入れておく（通常の表示順は compareSavedSetlists が決める）。
+      records.unshift(record);
       return writeSavedSetlists(records) ? record : null;
     }
 
@@ -2072,7 +2094,7 @@
     //     セトリが空のときは保存せずトーストで知らせる。
     //   - 「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
     //     出力したテキストを parseSetlistText で読み取って1件追加する。
-    //   - 「保存一覧」タップで保存済みを新しい順に一覧表示する。
+    //   - 「保存一覧」タップで保存済みを日付の新しい順に一覧表示する。
     //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
     //   - 各項目の削除ボタンで1件削除する（確認あり）。
     // state 変更後は必ず applyStateToInputs → renderAll → saveState の順で反映する。
@@ -2148,7 +2170,7 @@
     }
 
     /**
-     * 保存一覧（#saved-list）を新しい順で全再描画する。
+     * 保存一覧（#saved-list）を日付の新しい順（同日は追加の新しい順）で全再描画する。
      * 曲での絞り込み（savedFilter）が有効な場合は該当するライブだけを描画し、
      * 条件バー（#saved-filter）も更新する。
      * 各項目は読込ボタンと削除ボタンからなる。0件なら空メッセージを出す。
@@ -2724,7 +2746,7 @@
     /**
      * 保存済みセトリを、指定した曲を **すべて** 含むものだけへ絞り込む（純粋関数）。
      * 条件が空なら元の配列をそのまま返す（全件表示）。
-     * @param {SavedSetlist[]} records 絞り込み対象（新しい順）
+     * @param {SavedSetlist[]} records 絞り込み対象
      * @param {string[]} titles 条件となる曲タイトル（AND 条件）
      * @returns {SavedSetlist[]} 条件を満たす保存済みセトリ
      */
