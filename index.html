@@ -22,6 +22,7 @@
       --color-accent-text: #ffffff;
       --color-danger: #dc2626;
       --color-overlay: rgba(0, 0, 0, 0.5);
+      --color-accent-soft: #e8f0fe; /* 選択中の項目の淡い塗り */
       --color-drop-indicator: #38bdf8; /* 挿入位置ライン（水色） */
       --radius: 10px;
       --tap-min: 48px;
@@ -339,9 +340,17 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap; /* ボタンが増えて収まらない狭い画面では折り返す */
       gap: var(--gap);
       padding: var(--gap);
       border-bottom: 1px solid var(--color-border);
+    }
+
+    /* ヘッダー右側のボタン群（検索する＋閉じる など） */
+    .popup__header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .popup__title {
@@ -439,6 +448,64 @@
       flex: 0 0 auto;
     }
 
+    /* 曲検索の項目: 先頭にチェック欄を置き、選択中は淡いアクセント色で塗る。
+       色だけに頼らずチェック記号でも選択状態が分かるようにする。 */
+    .popup__item-button--search {
+      gap: 8px;
+    }
+
+    .popup__item-check {
+      flex: 0 0 auto;
+      width: 1.25em;
+      color: var(--color-accent);
+      font-weight: 700;
+    }
+
+    .popup__item-button--selected {
+      background-color: var(--color-accent-soft);
+      color: var(--color-accent);
+      font-weight: 600;
+    }
+
+    /* 絞り込み中の条件表示バー（保存一覧の先頭） */
+    .saved-filter {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 8px;
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+      font-size: 14px;
+      color: var(--color-muted);
+    }
+
+    .saved-filter__text {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .saved-filter__clear {
+      flex: 0 0 auto;
+      min-width: var(--tap-min);
+      min-height: 32px;
+      padding: 4px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .saved-filter__clear:active {
+      filter: brightness(0.95);
+    }
+
     @media (min-width: 480px) {
       .popup-overlay {
         align-items: center;
@@ -522,11 +589,37 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="saved-title">
       <div class="popup__header">
         <h2 class="popup__title" id="saved-title">保存したセトリ</h2>
-        <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
+          <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__body">
+        <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
+          <span class="saved-filter__text" id="saved-filter-text"></span>
+          <button type="button" class="saved-filter__clear" id="btn-saved-filter-clear"
+            data-role="saved-filter-clear">解除</button>
+        </div>
         <ul class="popup__list" id="saved-list" data-role="saved-list">
           <!-- 保存済み一覧は renderSavedList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Song search popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="search-overlay" data-role="search-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="search-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="search-title">曲で検索</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--copy" id="btn-search-run" data-role="search-run">検索</button>
+          <button type="button" class="btn btn--ghost" id="btn-search-close" data-role="search-close">閉じる</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="search-list" data-role="search-list">
+          <!-- 曲一覧（複数選択トグル）は renderSearchList() が描画する -->
         </ul>
       </div>
     </div>
@@ -1706,6 +1799,8 @@
 
     /**
      * 保存一覧（#saved-list）を新しい順で全再描画する。
+     * 曲での絞り込み（savedFilter）が有効な場合は該当するライブだけを描画し、
+     * 条件バー（#saved-filter）も更新する。
      * 各項目は読込ボタンと削除ボタンからなる。0件なら空メッセージを出す。
      * @returns {void}
      */
@@ -1716,12 +1811,15 @@
       }
       list.textContent = ''; // 全再描画（既存項目をクリア）
 
-      const records = loadSavedSetlists();
+      const records = filterSavedSetlists(loadSavedSetlists(), savedFilter);
+      renderSavedFilter(records.length); // 条件バー（絞り込み中のみ表示）
 
       if (records.length === 0) {
         const emptyItem = document.createElement('li');
         emptyItem.className = 'popup__empty';
-        emptyItem.textContent = '保存したセトリはありません';
+        emptyItem.textContent = savedFilter.length > 0
+          ? '選択した曲をすべて含むライブはありません'
+          : '保存したセトリはありません';
         list.appendChild(emptyItem);
         return;
       }
@@ -1796,7 +1894,8 @@
     }
 
     /**
-     * 保存一覧ポップアップを閉じる（state は変更しない）。
+     * 保存一覧ポップアップを閉じる（作業中の state は変更しない）。
+     * 次に開いたときは常に全件から始められるよう、曲での絞り込みと選択を捨てる。
      * @returns {void}
      */
     function closeSavedPopup() {
@@ -1805,6 +1904,7 @@
         return;
       }
       overlay.hidden = true;
+      resetSearchSelection();
     }
 
     /**
@@ -1838,6 +1938,278 @@
         closeButton.addEventListener('click', closeSavedPopup);
       }
       savedSetlistWired = true;
+    }
+
+    // ============================================================
+    // Saved Setlist Search Controller: 曲での絞り込み（SavedSetlistSearchController）
+    // ------------------------------------------------------------
+    // 責務:
+    //   - 保存一覧の「検索する」タップで曲一覧ポップアップを開く。
+    //   - 曲はタップで選択／もう一度タップで解除するトグル（複数選択可）。
+    //     一覧はスクロール位置を保つため、トグル時は該当項目だけを更新する。
+    //   - ポップアップ上部の「検索」タップで、選択した曲を **すべて** 含むライブ
+    //     （AND 条件）だけを保存一覧へ表示する。未選択で検索した場合は全件へ戻す。
+    //   - 絞り込み中は条件バーを表示し、「解除」で全件へ戻せる。
+    // 絞り込みは表示だけの操作で、保存データも作業中の state も変更しない。
+    // ============================================================
+
+    /** 曲一覧で選択中の曲タイトル（検索ボタンを押すまでは確定しない）。 */
+    let searchSelection = [];
+
+    /** 保存一覧へ適用中の絞り込み条件（検索ボタン押下で確定した曲タイトル）。 */
+    let savedFilter = [];
+
+    /**
+     * 選択中の曲と絞り込み条件をどちらも捨てる（全件表示の状態へ戻す）。
+     * 描画は呼び出し側で行う。
+     * @returns {void}
+     */
+    function resetSearchSelection() {
+      searchSelection = [];
+      savedFilter = [];
+    }
+
+    /**
+     * 指定した曲が選択中かを返す。
+     * @param {string} title 曲タイトル
+     * @returns {boolean} 選択中なら true
+     */
+    function isSongSelected(title) {
+      return searchSelection.indexOf(title) !== -1;
+    }
+
+    /**
+     * 曲の選択状態を反転する（未選択→選択／選択→未選択）。
+     * @param {string} title 曲タイトル
+     * @returns {boolean} 反転後に選択中なら true
+     */
+    function toggleSongSelection(title) {
+      const index = searchSelection.indexOf(title);
+      if (index === -1) {
+        searchSelection.push(title);
+        return true;
+      }
+      searchSelection.splice(index, 1);
+      return false;
+    }
+
+    /**
+     * 保存済みセトリを、指定した曲を **すべて** 含むものだけへ絞り込む（純粋関数）。
+     * 条件が空なら元の配列をそのまま返す（全件表示）。
+     * @param {SavedSetlist[]} records 絞り込み対象（新しい順）
+     * @param {string[]} titles 条件となる曲タイトル（AND 条件）
+     * @returns {SavedSetlist[]} 条件を満たす保存済みセトリ
+     */
+    function filterSavedSetlists(records, titles) {
+      if (!Array.isArray(titles) || titles.length === 0) {
+        return records;
+      }
+      return records.filter(function (record) {
+        return titles.every(function (title) {
+          return record.setlist.indexOf(title) !== -1;
+        });
+      });
+    }
+
+    /**
+     * 絞り込み条件バー（#saved-filter）を更新する。
+     * 絞り込み中のみ表示し、条件の曲名と件数を出す。
+     * @param {number} matchedCount 条件を満たしたライブの件数
+     * @returns {void}
+     */
+    function renderSavedFilter(matchedCount) {
+      const bar = document.getElementById('saved-filter');
+      const text = document.getElementById('saved-filter-text');
+      if (!bar || !text) {
+        return;
+      }
+      if (savedFilter.length === 0) {
+        bar.hidden = true;
+        text.textContent = '';
+        return;
+      }
+      const songs = savedFilter.map(function (title) {
+        return '「' + title + '」';
+      }).join('');
+      // textContent で挿入（XSS安全）。
+      text.textContent = songs + 'を含むライブ: ' + matchedCount + '件';
+      bar.hidden = false;
+    }
+
+    /**
+     * 曲一覧の1項目の見た目・aria を選択状態に合わせて更新する。
+     * 全再描画するとスクロール位置が先頭へ戻るため、トグル時はこれだけを呼ぶ。
+     * @param {HTMLButtonElement} button 対象の項目ボタン
+     * @param {boolean} selected 選択中なら true
+     * @returns {void}
+     */
+    function updateSearchItem(button, selected) {
+      button.classList.toggle('popup__item-button--selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      const check = button.querySelector('.popup__item-check');
+      if (check) {
+        check.textContent = selected ? '✓' : '';
+      }
+    }
+
+    /**
+     * 「検索」ボタンの表示を選択件数に合わせて更新する（未選択時は件数を出さない）。
+     * @returns {void}
+     */
+    function updateSearchRunButton() {
+      const runButton = document.getElementById('btn-search-run');
+      if (!runButton) {
+        return;
+      }
+      runButton.textContent = searchSelection.length === 0
+        ? '検索'
+        : '検索（' + searchSelection.length + '曲）';
+    }
+
+    /**
+     * 検索用の曲一覧（#search-list）を SONG_MASTER のあいうえお順で描画する。
+     * 各項目はトグルボタン（aria-pressed）で、タップのたびに選択状態を反転する。
+     * 曲名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderSearchList() {
+      const list = document.getElementById('search-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const songs = getSortedSongMaster();
+
+      if (songs.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '選択できる曲がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      songs.forEach(function (song) {
+        const title = typeof song.title === 'string' ? song.title : '';
+        const selected = isSongSelected(title);
+
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button popup__item-button--search';
+        button.dataset.role = 'search-option';
+
+        const check = document.createElement('span');
+        check.className = 'popup__item-check';
+        check.setAttribute('aria-hidden', 'true'); // 状態は aria-pressed で伝える
+
+        const label = document.createElement('span');
+        label.className = 'popup__item-title';
+        label.textContent = title; // textContent で挿入（XSS安全）
+
+        button.appendChild(check);
+        button.appendChild(label);
+        updateSearchItem(button, selected); // 初期表示（選択中なら塗り＋チェック）
+
+        button.addEventListener('click', function () {
+          // トグル: 1回目のタップで選択、もう一度で解除する。
+          const nowSelected = toggleSongSelection(title);
+          updateSearchItem(button, nowSelected); // 該当項目のみ更新（スクロール維持）
+          updateSearchRunButton();
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 曲検索ポップアップを開く（保存一覧の上に重ねて表示する）。
+     * 直前の選択状態を保ったまま開き直せるよう、選択は破棄しない。
+     * @returns {void}
+     */
+    function openSearchPopup() {
+      const overlay = document.getElementById('search-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderSearchList();      // 表示直前に最新のマスタ＋選択状態を反映
+      updateSearchRunButton();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 曲検索ポップアップを閉じる（選択状態・絞り込みは変更しない）。
+     * @returns {void}
+     */
+    function closeSearchPopup() {
+      const overlay = document.getElementById('search-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 選択中の曲で保存一覧を絞り込む（AND 条件）。
+     * 未選択のまま検索した場合は絞り込みを解除して全件表示へ戻す。
+     * @returns {void}
+     */
+    function runSearch() {
+      savedFilter = searchSelection.slice(); // 押した時点の選択を確定する
+      renderSavedList();
+      closeSearchPopup();
+
+      if (savedFilter.length === 0) {
+        showToast('すべてのライブを表示しました');
+        return;
+      }
+      const matched = filterSavedSetlists(loadSavedSetlists(), savedFilter).length;
+      showToast(matched === 0 ? '該当するライブはありません' : matched + '件見つかりました');
+    }
+
+    /**
+     * 絞り込みを解除して全件表示へ戻す（曲の選択状態も捨てる）。
+     * @returns {void}
+     */
+    function clearSavedFilter() {
+      resetSearchSelection();
+      renderSavedList();
+      updateSearchRunButton();
+    }
+
+    /**
+     * 検索まわり（検索する／検索／閉じる／解除）の結線を行う初期化（冪等）。
+     * 項目のトグル結線は renderSearchList 側で都度行う。
+     * @returns {void}
+     */
+    let savedSearchWired = false;
+    function initSavedSearch() {
+      if (savedSearchWired) {
+        return;
+      }
+      const openButton = document.getElementById('btn-search-open');
+      const runButton = document.getElementById('btn-search-run');
+      const closeButton = document.getElementById('btn-search-close');
+      const clearButton = document.getElementById('btn-saved-filter-clear');
+
+      if (openButton) {
+        openButton.addEventListener('click', openSearchPopup);
+      }
+      if (runButton) {
+        runButton.addEventListener('click', runSearch);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeSearchPopup);
+      }
+      if (clearButton) {
+        clearButton.addEventListener('click', clearSavedFilter);
+      }
+      savedSearchWired = true;
     }
 
     // ============================================================
@@ -2006,6 +2378,7 @@
       initResetAction();     // リセット（全削除）結線
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
       initSavedSetlist();    // DBに追加／保存一覧の結線（冪等）
+      initSavedSearch();     // 曲での絞り込み検索の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
     }
 
