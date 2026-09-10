@@ -239,9 +239,12 @@
       padding: var(--gap) 0 0;
     }
 
-    /* フッター右側のアクション群（リセット＋コピーをまとめて右端に寄せる） */
+    /* フッター右側のアクション群（保存系＋リセット＋コピー）。
+       ボタンが4つあり1行では収まらないため2列グリッドで2行に整列させる
+       （flex の折り返しだと行ごとの個数が幅次第でばらつくため）。 */
     .app__footer-actions {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: center;
       gap: var(--gap);
     }
@@ -398,6 +401,44 @@
       color: var(--color-muted);
     }
 
+    /* 保存一覧の各項目: 読込ボタン（可変幅）＋削除ボタン（固定幅）を横並びにする。 */
+    .popup__item--saved {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .popup__item--saved .popup__item-button {
+      flex: 1 1 auto;
+      min-width: 0; /* flex 子要素の既定 min-width:auto を外し省略記号を効かせる */
+      border-bottom: none;
+    }
+
+    .popup__item-label {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* 見出し（日付＋ライブ名）と補足（会場・曲数）は1行に収め、溢れたら省略する。 */
+    .popup__item-title,
+    .popup__item-meta {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .popup__item-meta {
+      font-size: 13px;
+      color: var(--color-muted);
+    }
+
+    .popup__item-remove {
+      flex: 0 0 auto;
+    }
+
     @media (min-width: 480px) {
       .popup-overlay {
         align-items: center;
@@ -453,6 +494,8 @@
     <footer class="app__footer">
       <button type="button" class="btn btn--add" id="btn-add" data-role="add-button">＋ 曲を追加</button>
       <div class="app__footer-actions">
+        <button type="button" class="btn btn--ghost" id="btn-saved-list" data-role="saved-list-button">保存一覧</button>
+        <button type="button" class="btn btn--add" id="btn-save-db" data-role="save-button">DBに追加</button>
         <button type="button" class="btn btn--danger" id="btn-reset" data-role="reset-button">リセット</button>
         <button type="button" class="btn btn--copy" id="btn-copy" data-role="copy-button">コピー</button>
       </div>
@@ -469,6 +512,21 @@
       <div class="popup__body">
         <ul class="popup__list" id="popup-list" data-role="popup-list">
           <!-- 曲一覧は後続タスクで描画される -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Saved setlists popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="saved-overlay" data-role="saved-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="saved-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="saved-title">保存したセトリ</h2>
+        <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="saved-list" data-role="saved-list">
+          <!-- 保存済み一覧は renderSavedList() が描画する -->
         </ul>
       </div>
     </div>
@@ -686,6 +744,157 @@
       state.setlist = Array.isArray(data.setlist)
         ? data.setlist.filter(function (title) { return typeof title === 'string'; })
         : [];
+    }
+
+    // ============================================================
+    // Saved Setlist Store: 保存済みセトリの永続化（SavedSetlistStore）
+    // ------------------------------------------------------------
+    // 「DBに追加」で確定したセトリを履歴として localStorage へ蓄積する。
+    // 上の自動保存（STORAGE_KEY）が作業中の1件を常に上書きするのに対し、こちらは
+    // 明示操作で追加した複数件を配列で保持し、後から読み込み・削除できる。
+    // 保存するのは曲名などのテキストのみで1件あたり1KB未満のため、非同期APIの
+    // IndexedDB は使わず同期的な localStorage で足りる（目安5MB＝数千件）。
+    // 保存不可（プライベートモード・容量超過）やデータ破損時は無視して通常動作する。
+    // リセット（全削除）は作業中の state のみを対象とし、この保存一覧は消さない。
+    // ============================================================
+
+    /** 保存済みセトリ一覧の localStorage キー（保存形式を変えたら末尾の版番号を上げる）。 */
+    const SAVED_STORAGE_KEY = 'yuisrus-setlist:saved:v1';
+
+    /**
+     * 保存済みセトリ1件。作業中の AppState から曲順・ライブ情報を写し取ったもの。
+     * @typedef {Object} SavedSetlist
+     * @property {string} id        一意なID（生成時刻＋乱数。削除時の指定に使う）
+     * @property {string} savedAt   保存時刻（ISO 8601 文字列）
+     * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
+     * @property {string} liveName  ライブ名。未入力は ""
+     * @property {string} venue     会場名。未入力は ""
+     * @property {string[]} setlist 曲タイトルの配列（保存時点のコピー）
+     */
+
+    /**
+     * 保存済みセトリの一意なIDを生成する。
+     * 同一ミリ秒での重複を避けるため時刻（36進）と乱数を連結する。
+     * @returns {string} 生成したID
+     */
+    function createSavedId() {
+      return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    }
+
+    /**
+     * 任意の値を SavedSetlist として検証・正規化する。
+     * 各フィールドは型を検証し、不正値は既定値へフォールバックする。
+     * 曲が1件も無いものは保存対象外として null を返す。
+     * @param {unknown} data 検証する値（保存データまたは新規作成の素材）
+     * @returns {SavedSetlist|null} 正規化した1件。不正・空セトリなら null
+     */
+    function normalizeSavedSetlist(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const setlist = Array.isArray(data.setlist)
+        ? data.setlist.filter(function (title) { return typeof title === 'string'; })
+        : [];
+      if (setlist.length === 0) {
+        return null; // 空セトリは保存しない
+      }
+      return {
+        id: typeof data.id === 'string' && data.id !== '' ? data.id : createSavedId(),
+        savedAt: typeof data.savedAt === 'string' ? data.savedAt : '',
+        date: typeof data.date === 'string' ? data.date : '',
+        liveName: typeof data.liveName === 'string' ? data.liveName : '',
+        venue: typeof data.venue === 'string' ? data.venue : '',
+        setlist: setlist
+      };
+    }
+
+    /**
+     * 保存済みセトリ一覧を localStorage から読み込む（新しい順で保存されている）。
+     * 参照不可・JSON破損・配列でない場合は空配列を返す（アプリは継続動作）。
+     * 各要素は normalizeSavedSetlist で検証し、壊れた要素は捨てる。
+     * @returns {SavedSetlist[]} 保存済みセトリの配列（新しい順）
+     */
+    function loadSavedSetlists() {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(SAVED_STORAGE_KEY);
+      } catch (err) {
+        return []; // localStorage 参照不可
+      }
+      if (!raw) {
+        return [];
+      }
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        return []; // 壊れた JSON は無視
+      }
+      if (!Array.isArray(data)) {
+        return [];
+      }
+      const records = [];
+      data.forEach(function (item) {
+        const record = normalizeSavedSetlist(item);
+        if (record) {
+          records.push(record);
+        }
+      });
+      return records;
+    }
+
+    /**
+     * 保存済みセトリ一覧を localStorage へ書き込む（全置換）。
+     * 容量超過・プライベートモード等で書き込めない場合は false を返す
+     * （呼び出し側は失敗をトーストで通知する）。
+     * @param {SavedSetlist[]} records 保存する配列（新しい順）
+     * @returns {boolean} 書き込み成功で true
+     */
+    function writeSavedSetlists(records) {
+      try {
+        window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(records));
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    /**
+     * 現在の状態を1件として保存一覧の先頭（新しい順）へ追加する。
+     * setlist は保存後の編集が保存データへ波及しないようコピーして持つ。
+     * 曲が空の場合は呼び出し側で弾く前提だが、念のためここでも null を返す。
+     * @param {AppState} source 保存元の状態
+     * @returns {SavedSetlist|null} 追加した1件。空セトリ・書き込み失敗なら null
+     */
+    function appendSavedSetlist(source) {
+      const record = normalizeSavedSetlist({
+        id: createSavedId(),
+        savedAt: new Date().toISOString(),
+        date: source.date,
+        liveName: source.liveName,
+        venue: source.venue,
+        setlist: source.setlist.slice() // 参照を共有しない
+      });
+      if (!record) {
+        return null;
+      }
+      const records = loadSavedSetlists();
+      records.unshift(record); // 新しいものを先頭へ
+      return writeSavedSetlists(records) ? record : null;
+    }
+
+    /**
+     * 指定IDの保存済みセトリを削除する。
+     * @param {string} id 削除する保存データのID
+     * @returns {boolean} 削除して書き込めたら true（該当なし・失敗は false）
+     */
+    function removeSavedSetlist(id) {
+      const records = loadSavedSetlists();
+      const rest = records.filter(function (record) { return record.id !== id; });
+      if (rest.length === records.length) {
+        return false; // 該当IDなし（すでに削除済み等）
+      }
+      return writeSavedSetlists(rest);
     }
 
     // ============================================================
@@ -1416,6 +1625,222 @@
     }
 
     // ============================================================
+    // Saved Setlist Controller: 保存・一覧・読込・削除の制御（SavedSetlistController）
+    // ------------------------------------------------------------
+    // 責務:
+    //   - 「DBに追加」タップで現在の state を保存一覧へ1件追加する（明示操作）。
+    //     セトリが空のときは保存せずトーストで知らせる。
+    //   - 「保存一覧」タップで保存済みを新しい順に一覧表示する。
+    //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
+    //   - 各項目の削除ボタンで1件削除する（確認あり）。
+    // state 変更後は必ず applyStateToInputs → renderAll → saveState の順で反映する。
+    // 見出し・会場名は textContent で挿入する（XSS安全）。
+    // 結線は initSavedSetlist() で行い、フラグで冪等化する。
+    // ============================================================
+
+    /** 保存操作の通知文。 */
+    const SAVE_EMPTY_MESSAGE = 'セトリが空です';
+    const SAVE_SUCCESS_MESSAGE = 'DBに追加しました';
+    const SAVE_FAILURE_MESSAGE = '保存に失敗しました';
+
+    /**
+     * 保存済み1件の見出し（日付＋ライブ名）を組み立てる（純粋関数）。
+     * どちらも未入力なら保存時刻、それも無ければ既定文言へフォールバックする。
+     * @param {SavedSetlist} record 保存済みセトリ
+     * @returns {string} 一覧に表示する見出し
+     */
+    function formatSavedTitle(record) {
+      const parts = [];
+      const date = formatDate(record.date);
+      if (date !== '') {
+        parts.push(date);
+      }
+      if (record.liveName !== '') {
+        parts.push('『' + record.liveName + '』');
+      }
+      if (parts.length === 0) {
+        return record.savedAt !== '' ? record.savedAt.slice(0, 10) : '（無題のセトリ）';
+      }
+      return parts.join(' ');
+    }
+
+    /**
+     * 保存済み1件の補足行（会場・曲数）を組み立てる（純粋関数）。
+     * @param {SavedSetlist} record 保存済みセトリ
+     * @returns {string} 一覧に表示する補足文
+     */
+    function formatSavedMeta(record) {
+      const parts = [];
+      if (record.venue !== '') {
+        parts.push(record.venue);
+      }
+      parts.push(record.setlist.length + '曲');
+      return parts.join('・');
+    }
+
+    /**
+     * 保存済みセトリを作業中の state へ読み込む。
+     * 現在のセトリが空でない場合のみ上書き確認を出す（誤タップ防止）。
+     * 保存データを直接参照しないよう setlist はコピーして渡す。
+     * @param {SavedSetlist} record 読み込む保存データ
+     * @returns {void}
+     */
+    function applySavedSetlist(record) {
+      if (
+        state.setlist.length > 0 &&
+        !window.confirm('現在のセトリを保存データで置き換えます。よろしいですか？')
+      ) {
+        return;
+      }
+      state.date = record.date;
+      state.liveName = record.liveName;
+      state.venue = record.venue;
+      state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
+
+      applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
+      renderAll();          // セトリ表を再描画して連番同期
+      saveState();          // 作業中データとしても保存
+      closeSavedPopup();
+      showToast('読み込みました');
+    }
+
+    /**
+     * 保存一覧（#saved-list）を新しい順で全再描画する。
+     * 各項目は読込ボタンと削除ボタンからなる。0件なら空メッセージを出す。
+     * @returns {void}
+     */
+    function renderSavedList() {
+      const list = document.getElementById('saved-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const records = loadSavedSetlists();
+
+      if (records.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '保存したセトリはありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      records.forEach(function (record) {
+        const heading = formatSavedTitle(record);
+
+        const item = document.createElement('li');
+        item.className = 'popup__item popup__item--saved';
+
+        const loadButton = document.createElement('button');
+        loadButton.type = 'button';
+        loadButton.className = 'popup__item-button';
+        loadButton.dataset.role = 'saved-load';
+
+        const label = document.createElement('span');
+        label.className = 'popup__item-label';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'popup__item-title';
+        titleEl.textContent = heading; // textContent で挿入（XSS安全）
+
+        const metaEl = document.createElement('span');
+        metaEl.className = 'popup__item-meta';
+        metaEl.textContent = formatSavedMeta(record);
+
+        label.appendChild(titleEl);
+        label.appendChild(metaEl);
+        loadButton.appendChild(label);
+        loadButton.addEventListener('click', function () {
+          applySavedSetlist(record);
+        });
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'setlist__remove popup__item-remove';
+        removeButton.dataset.role = 'saved-remove';
+        removeButton.textContent = '削除';
+        removeButton.setAttribute('aria-label', heading + ' を削除');
+        removeButton.addEventListener('click', function () {
+          // 復元できない操作のため確認する（誤タップ防止）。
+          if (!window.confirm('この保存データを削除します。よろしいですか？')) {
+            return;
+          }
+          if (removeSavedSetlist(record.id)) {
+            renderSavedList(); // 一覧を最新化
+            showToast('削除しました');
+          } else {
+            showToast(SAVE_FAILURE_MESSAGE);
+          }
+        });
+
+        item.appendChild(loadButton);
+        item.appendChild(removeButton);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 保存一覧ポップアップを開く（表示直前に最新の保存データを描画する）。
+     * @returns {void}
+     */
+    function openSavedPopup() {
+      const overlay = document.getElementById('saved-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderSavedList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 保存一覧ポップアップを閉じる（state は変更しない）。
+     * @returns {void}
+     */
+    function closeSavedPopup() {
+      const overlay = document.getElementById('saved-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 「DBに追加」「保存一覧」「閉じる」ボタンの結線を行う初期化（冪等）。
+     * 二重結線を避けるため一度だけ実行する（項目側の結線は renderSavedList が都度行う）。
+     * @returns {void}
+     */
+    let savedSetlistWired = false;
+    function initSavedSetlist() {
+      if (savedSetlistWired) {
+        return;
+      }
+      const saveButton = document.getElementById('btn-save-db');
+      const listButton = document.getElementById('btn-saved-list');
+      const closeButton = document.getElementById('btn-saved-close');
+
+      if (saveButton) {
+        saveButton.addEventListener('click', function () {
+          if (state.setlist.length === 0) {
+            showToast(SAVE_EMPTY_MESSAGE); // 空セトリは保存しない
+            return;
+          }
+          const record = appendSavedSetlist(state);
+          showToast(record ? SAVE_SUCCESS_MESSAGE : SAVE_FAILURE_MESSAGE);
+        });
+      }
+      if (listButton) {
+        listButton.addEventListener('click', openSavedPopup);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeSavedPopup);
+      }
+      savedSetlistWired = true;
+    }
+
+    // ============================================================
     // Bootstrap: DOM取得・イベント結線・初期描画（タスク4.1 / design Bootstrap）
     // ------------------------------------------------------------
     // 責務（Requirements 1.2, 1.3, 5.1, 5.5–5.7 / design「テキスト生成とコピー」）:
@@ -1580,6 +2005,7 @@
       initCopyAction();      // コピー結線（5.1, 5.5–5.7）
       initResetAction();     // リセット（全削除）結線
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
+      initSavedSetlist();    // DBに追加／保存一覧の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
     }
 
