@@ -398,6 +398,47 @@
       color: var(--color-muted);
     }
 
+    /* ===== 省略名称モード ===== */
+    /* ヘッダー右側のボタン群（省略名称トグル＋閉じる） */
+    .popup__header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ヘッダーに2つ並べるため、既定の .btn より横幅を抑える */
+    .popup__header-actions .btn {
+      min-width: 0;
+      padding: 12px 16px;
+    }
+
+    /* トグルON時は塗りつぶしにして、現在どちらの表示かひと目で分かるようにする */
+    .btn--toggle[aria-pressed="true"] {
+      background-color: var(--color-accent);
+      color: var(--color-accent-text);
+      border-color: var(--color-accent);
+    }
+
+    /* 省略名称モードの一覧: 1行1件のレコード表示をやめ、ボタンを折り返して詰める */
+    .popup__list--compact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .popup__list--compact .popup__item-button {
+      width: auto;
+      min-height: 44px;
+      padding: 10px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      white-space: nowrap;
+    }
+
+    .popup__list--compact .popup__item-button:focus {
+      outline-offset: 1px;
+    }
+
     @media (min-width: 480px) {
       .popup-overlay {
         align-items: center;
@@ -464,7 +505,10 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
       <div class="popup__header">
         <h2 class="popup__title" id="popup-title">曲を選択</h2>
-        <button type="button" class="btn btn--ghost" id="btn-popup-close" data-role="popup-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost btn--toggle" id="btn-popup-short" data-role="popup-short-toggle" aria-pressed="false">省略名称</button>
+          <button type="button" class="btn btn--ghost" id="btn-popup-close" data-role="popup-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__body">
         <ul class="popup__list" id="popup-list" data-role="popup-list">
@@ -483,46 +527,48 @@
     // ============================================================
     // Data: 曲マスタ（HTML内固定埋め込み / Requirements 3.7）
     // ------------------------------------------------------------
-    // 各要素は { title, reading }。reading はあいうえお順ソート用の
-    // 読み仮名（ひらがな）。実運用ではファイルを直接編集して差し替える。
+    // 各要素は { title, reading, short }。reading はあいうえお順ソート用の
+    // 読み仮名（ひらがな）、short は曲選択ポップアップの「省略名称」表示で使う
+    // 短縮名（省略しない曲は title と同じ文字列でよい／未設定なら title で代用）。
+    // 実運用ではファイルを直接編集して差し替える。
     // 以下は動作確認用サンプル。五十音の各行から読み仮名がバラけるよう収録。
     // ============================================================
 
     /** @type {ReadonlyArray<Song>} */
     const SONG_MASTER = [
-      { title: 'よーいすとっぷ',                 reading: 'よーいすとっぷ' },
-      { title: '途中下車スーサイド',             reading: 'とちゅうげしゃすーさいど' },
-      { title: '宵夢バタフライ',                 reading: 'よいゆめばたふらい' },
-      { title: 'かいじるし',                     reading: 'かいじるし' },
-      { title: 'がいねん',                       reading: 'がいねん' },
-      { title: 'きのこ',                         reading: 'きのこ' },
-      { title: 'ぼくのこえきみのうた',           reading: 'ぼくのこえきみのうた' },
-      { title: 'むげんだい∞日曜曲',              reading: 'むげんだいにちようきょく' },
-      { title: 'らりるれほんげんば',             reading: 'らりるれほんげんば' },
-      { title: 'ずんどこ後退曲',                 reading: 'ずんどここうたいきょく' },
-      { title: 'そんなそんぐ',                   reading: 'そんなそんぐ' },
-      { title: 'もーぜにたのもーぜ',             reading: 'もーぜにたのもーぜ' },
-      { title: 'ぶら汁神',                       reading: 'ぶらじるがみ' },
-      { title: '宇宙とファンシー',               reading: 'うちゅうとふぁんしー' },
-      { title: 'えれくとりかる ぴょんぴょこ',    reading: 'えれくとりかるぴょんぴょこ' },
-      { title: 'やせないで おたく',              reading: 'やせないでおたく' },
-      { title: 'たかいたかい',                   reading: 'たかいたかい' },
-      { title: '卒業ぐらじゅえーしょん',         reading: 'そつぎょうぐらじゅえーしょん' },
-      { title: 'ほくいもパラダイちゅ',           reading: 'ほくいもぱらだいちゅ' },
-      { title: 'かんπさんしゃいん',              reading: 'かんぱいさんしゃいん' },
-      { title: 'カニチャーハン',                 reading: 'かにちゃーはん' },
-      { title: 'お天気注意報',                   reading: 'おてんきちゅういほう' },
-      { title: '布団の前世の女の子',             reading: 'ふとんのぜんせのおんなのこ' },
-      { title: '人類万歳',                       reading: 'じんるいばんざい' },
-      { title: '日本の夏 ゆいざらすの夏',        reading: 'にほんのなつゆいざらすのなつ' },
-      { title: 'おたんじょうびのうた',           reading: 'おたんじょうびのうた' },
-      { title: 'コロコロ',                       reading: 'ころころ' },
-      { title: '愛してやるからこっちにこい！',   reading: 'あいしてやるからこっちにこい' },
-      { title: 'キラキラスター',                 reading: 'きらきらすたー' },
-      { title: 'かわいげ留年確定☆',             reading: 'かわいげりゅうねんかくてい' },
-      { title: '爆上げキュート！',               reading: 'ばくあげきゅーと' },
-      { title: 'ざらっこ学校校歌',               reading: 'ざらっこがっこうこうか' },
-      { title: '全力コロッケ',                   reading: 'ぜんりょくころっけ' }
+      { title: 'よーいすとっぷ',               reading: 'よーいすとっぷ',               short: 'よーいすとっぷ' },
+      { title: '途中下車スーサイド',           reading: 'とちゅうげしゃすーさいど',     short: '途中下車' },
+      { title: '宵夢バタフライ',               reading: 'よいゆめばたふらい',           short: '宵夢' },
+      { title: 'かいじるし',                   reading: 'かいじるし',                   short: 'かいじるし' },
+      { title: 'がいねん',                     reading: 'がいねん',                     short: 'がいねん' },
+      { title: 'きのこ',                       reading: 'きのこ',                       short: 'きのこ' },
+      { title: 'ぼくのこえきみのうた',         reading: 'ぼくのこえきみのうた',         short: 'ぼくきみ' },
+      { title: 'むげんだい∞日曜曲',           reading: 'むげんだいにちようきょく',     short: '日曜曲' },
+      { title: 'らりるれほんげんば',           reading: 'らりるれほんげんば',           short: 'らりるれ' },
+      { title: 'ずんどこ後退曲',               reading: 'ずんどここうたいきょく',       short: 'ずんどこ' },
+      { title: 'そんなそんぐ',                 reading: 'そんなそんぐ',                 short: 'そんなそんぐ' },
+      { title: 'もーぜにたのもーぜ',           reading: 'もーぜにたのもーぜ',           short: 'もーぜ' },
+      { title: 'ぶら汁神',                     reading: 'ぶらじるがみ',                 short: 'ぶら汁神' },
+      { title: '宇宙とファンシー',             reading: 'うちゅうとふぁんしー',         short: '宇宙' },
+      { title: 'えれくとりかる ぴょんぴょこ',  reading: 'えれくとりかるぴょんぴょこ',   short: 'ぴょんぴょこ' },
+      { title: 'やせないで おたく',            reading: 'やせないでおたく',             short: 'やせないで' },
+      { title: 'たかいたかい',                 reading: 'たかいたかい',                 short: 'たかいたかい' },
+      { title: '卒業ぐらじゅえーしょん',       reading: 'そつぎょうぐらじゅえーしょん', short: '卒業' },
+      { title: 'ほくいもパラダイちゅ',         reading: 'ほくいもぱらだいちゅ',         short: 'ほくいも' },
+      { title: 'かんπさんしゃいん',            reading: 'かんぱいさんしゃいん',         short: 'かんπ' },
+      { title: 'カニチャーハン',               reading: 'かにちゃーはん',               short: 'カニチャ' },
+      { title: 'お天気注意報',                 reading: 'おてんきちゅういほう',         short: 'お天気' },
+      { title: '布団の前世の女の子',           reading: 'ふとんのぜんせのおんなのこ',   short: '布団' },
+      { title: '人類万歳',                     reading: 'じんるいばんざい',             short: '人類万歳' },
+      { title: '日本の夏 ゆいざらすの夏',      reading: 'にほんのなつゆいざらすのなつ', short: '日本の夏' },
+      { title: 'おたんじょうびのうた',         reading: 'おたんじょうびのうた',         short: 'たんじょうび' },
+      { title: 'コロコロ',                     reading: 'ころころ',                     short: 'コロコロ' },
+      { title: '愛してやるからこっちにこい！', reading: 'あいしてやるからこっちにこい', short: '愛してやる' },
+      { title: 'キラキラスター',               reading: 'きらきらすたー',               short: 'キラキラ' },
+      { title: 'かわいげ留年確定☆',           reading: 'かわいげりゅうねんかくてい',   short: 'かわいげ' },
+      { title: '爆上げキュート！',             reading: 'ばくあげきゅーと',             short: '爆上げ' },
+      { title: 'ざらっこ学校校歌',             reading: 'ざらっこがっこうこうか',       short: '校歌' },
+      { title: '全力コロッケ',                 reading: 'ぜんりょくころっけ',           short: '全力コロッケ' }
     ];
 
     // ============================================================
@@ -534,6 +580,7 @@
      * @typedef {Object} Song
      * @property {string} title   表示・出力に用いる曲名
      * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
+     * @property {string} [short] 省略名称（曲選択ポップアップの省略表示用。未設定なら title）
      */
 
     /**
@@ -1287,6 +1334,9 @@
     //     に入れ、収まらない場合は縦スクロールできる。
     //   - 曲名タップで addSong(title) → renderAll() → 閉じる。
     //   - 閉じるボタンは state を変更せず閉じるのみ。
+    //   - 「省略名称」トグルで表示を short（省略名称）へ切り替え、一覧をレコード表示から
+    //     折り返しボタン（.popup__list--compact）へ詰めて表示する。追加されるのは常に
+    //     title なので、セトリ・出力テキストは表示モードに影響されない。
     // 状態変更は addSong ミューテータ経由のみ。描画は renderAll を直接呼ぶ。
     // 結線は initAddSongPopup() で行い、二重結線を防ぐためフラグで冪等化する
     // （後続 4.1 bootstrap から再度呼ばれても安全）。
@@ -1318,6 +1368,56 @@
       });
     }
 
+    /** 省略名称モードの保存キー（表示設定のみ。リセットでは消さない）。 */
+    const SHORT_MODE_STORAGE_KEY = 'yuisrus-setlist:popup-short-mode:v1';
+
+    /** 曲選択ポップアップを省略名称＋ボタン詰め表示にするか（true=省略名称）。 */
+    let popupShortMode = false;
+
+    /**
+     * 省略名称モードの保存値を localStorage から復元する。
+     * 未保存・参照不可なら既定（正式名称表示）のままにする。
+     * @returns {void}
+     */
+    function loadPopupShortMode() {
+      try {
+        popupShortMode = window.localStorage.getItem(SHORT_MODE_STORAGE_KEY) === '1';
+      } catch (err) {
+        // 参照できなくても既定値で動作を継続する。
+      }
+    }
+
+    /**
+     * 省略名称モードの現在値を localStorage へ保存する。
+     * 保存できない場合は無視する（アプリは継続動作）。
+     * @returns {void}
+     */
+    function savePopupShortMode() {
+      try {
+        window.localStorage.setItem(SHORT_MODE_STORAGE_KEY, popupShortMode ? '1' : '0');
+      } catch (err) {
+        // 保存できなくても動作は継続する。
+      }
+    }
+
+    /**
+     * ポップアップ一覧に表示する曲名を返す。
+     * 省略名称モードでは short を用い、未設定（空文字・非文字列）なら title へ
+     * フォールバックする。state に入るのは常に title なので出力テキストは変わらない。
+     * @param {Song} song 曲マスタの1曲
+     * @param {boolean} useShort 省略名称で表示するか
+     * @returns {string} 一覧に表示する文字列
+     */
+    function songDisplayName(song, useShort) {
+      const source = song || {};
+      const title = typeof source.title === 'string' ? source.title : '';
+      if (!useShort) {
+        return title;
+      }
+      const short = typeof source.short === 'string' ? source.short.trim() : '';
+      return short !== '' ? short : title;
+    }
+
     /**
      * ポップアップの曲一覧（#popup-list）を SONG_MASTER のあいうえお順で描画する。
      * 各項目はタップ追加用のボタンで、タップで addSong→renderAll→閉じる（3.4）。
@@ -1330,6 +1430,9 @@
         return;
       }
       list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      // 省略名称モードでは1行1件のレコード表示をやめ、ボタンを折り返して詰める。
+      list.className = popupShortMode ? 'popup__list popup__list--compact' : 'popup__list';
 
       const songs = getSortedSongMaster();
 
@@ -1344,6 +1447,7 @@
       const fragment = document.createDocumentFragment();
       songs.forEach(function (song) {
         const title = typeof song.title === 'string' ? song.title : '';
+        const label = songDisplayName(song, popupShortMode);
 
         const item = document.createElement('li');
         item.className = 'popup__item';
@@ -1352,7 +1456,12 @@
         button.type = 'button';
         button.className = 'popup__item-button';
         button.dataset.role = 'song-option';
-        button.textContent = title; // textContent で挿入（XSS安全）
+        button.textContent = label; // textContent で挿入（XSS安全）
+        if (label !== title) {
+          // 省略名称で表示している場合も、支援技術・ツールチップには正式名称を出す。
+          button.setAttribute('aria-label', title);
+          button.title = title;
+        }
         button.addEventListener('click', function () {
           addSong(title);          // state ミューテータ経由で末尾追加（重複許可）
           renderAll();             // 再描画して連番同期
@@ -1366,6 +1475,31 @@
     }
 
     /**
+     * 省略名称トグルの押下状態（aria-pressed）を現在のモードへ同期する。
+     * CSS はこの属性を見て塗りつぶし表示に切り替える。
+     * @returns {void}
+     */
+    function syncPopupShortToggle() {
+      const toggle = document.getElementById('btn-popup-short');
+      if (!toggle) {
+        return;
+      }
+      toggle.setAttribute('aria-pressed', popupShortMode ? 'true' : 'false');
+    }
+
+    /**
+     * 省略名称モードを反転し、保存・トグル表示・一覧を更新する。
+     * state（セトリ）には触れないため、追加される曲名・出力テキストは変わらない。
+     * @returns {void}
+     */
+    function togglePopupShortMode() {
+      popupShortMode = !popupShortMode;
+      savePopupShortMode();
+      syncPopupShortToggle();
+      renderPopupSongList();
+    }
+
+    /**
      * 曲選択ポップアップを開く（Requirements 3.1）。
      * 一覧をあいうえお順で描画してからオーバーレイを表示する。
      * @returns {void}
@@ -1375,7 +1509,8 @@
       if (!overlay) {
         return;
       }
-      renderPopupSongList(); // 表示直前に最新のマスタを反映
+      syncPopupShortToggle(); // トグルの押下表示を現在のモードへ同期
+      renderPopupSongList();  // 表示直前に最新のマスタを反映
       overlay.hidden = false;
     }
 
@@ -1405,6 +1540,7 @@
       }
       const addButton = document.getElementById('btn-add');
       const closeButton = document.getElementById('btn-popup-close');
+      const shortToggle = document.getElementById('btn-popup-short');
 
       if (addButton) {
         addButton.addEventListener('click', openAddSongPopup);
@@ -1412,6 +1548,12 @@
       if (closeButton) {
         closeButton.addEventListener('click', closeAddSongPopup);
       }
+      if (shortToggle) {
+        shortToggle.addEventListener('click', togglePopupShortMode);
+      }
+
+      loadPopupShortMode();   // 前回選んだ表示モードを復元
+      syncPopupShortToggle(); // トグルの押下表示を復元値へ同期
       addSongPopupWired = true;
     }
 
