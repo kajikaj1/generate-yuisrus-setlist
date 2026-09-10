@@ -575,13 +575,6 @@
       color: var(--color-muted);
     }
 
-    .saved-songs__actions {
-      flex: 1 0 100%;
-      display: flex;
-      justify-content: flex-end;
-      padding: 0 8px 8px;
-    }
-
     /* 開閉の向きを示す三角。開いている行では回転させる。 */
     .saved-caret {
       flex: 0 0 auto;
@@ -2556,59 +2549,31 @@
     }
 
     /**
-     * 保存済みセトリを作業中の state へ読み込む。
-     * 現在のセトリが空でない場合のみ上書き確認を出す（誤タップ防止）。
-     * 保存データを直接参照しないよう setlist はコピーして渡す。
-     * @param {SavedSetlist} record 読み込む保存データ
-     * @returns {void}
-     */
-    function applySavedSetlist(record) {
-      if (loadSavedIntoState(record, false)) {
-        showToast('読み込みました');
-      }
-    }
-
-    /**
      * 保存済みセトリを「編集」として作業中の state へ読み込む。
      * 以降の保存はこの1件の上書きになる（state.editingId で紐づける）。
      * @param {SavedSetlist} record 編集する保存データ
      * @returns {void}
      */
     function editSavedSetlist(record) {
-      if (loadSavedIntoState(record, true)) {
-        showToast('編集を始めました。保存すると上書きします');
-      }
-    }
-
-    /**
-     * 保存済みセトリを作業中の state へ読み込む共通処理。
-     * 現在のセトリが空でない場合のみ上書き確認を出す（誤タップ防止）。
-     * 保存データを直接参照しないよう setlist はコピーして渡す。
-     * @param {SavedSetlist} record 読み込む保存データ
-     * @param {boolean} editing true なら編集（保存で上書き）、false なら複製として読み込む
-     * @returns {boolean} 読み込んだら true、確認で取り消したら false
-     */
-    function loadSavedIntoState(record, editing) {
-      if (state.setlist.length > 0) {
-        const message = editing
-          ? '編集を始めると、作業中のセトリは選んだ保存データで置き換わります。よろしいですか？'
-          : '現在のセトリを保存データで置き換えます。よろしいですか？';
-        if (!window.confirm(message)) {
-          return false;
-        }
+      if (
+        state.setlist.length > 0 &&
+        !window.confirm('編集を始めると、作業中のセトリは選んだ保存データで置き換わります。よろしいですか？')
+      ) {
+        return;
       }
       state.date = record.date;
       state.liveName = record.liveName;
       state.venue = record.venue;
       state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
-      state.editingId = editing ? record.id : ''; // 読み込み（複製）なら紐づけない
+      state.editingId = record.id;            // 以降の保存はこの1件の上書きになる
 
       applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
       renderAll();          // セトリ表を再描画して連番同期＋作業中データを保存
       syncEditingUi();      // 編集中の帯・保存ボタンの表示を切り替える
-      goBackToMainPage();   // 読み込んだセトリを編集できるようメイン画面へ戻る
-      return true;
+      goBackToMainPage();   // メイン画面で編集できるようにする
+      showToast('編集を始めました。保存すると上書きします');
     }
+
 
     /**
      * 編集中の表示（帯・保存ボタンのラベル）を state.editingId に合わせて更新する。
@@ -2747,23 +2712,9 @@
         toggleButton.appendChild(caret);
         toggleButton.appendChild(label);
 
-        // セトリ本体（参照用）と、そこから作業中へ持ってくるためのボタン。
+        // セトリ本体（参照用）。行タップで開閉する。
         const songs = buildSavedSongList(record);
         songs.hidden = !expanded;
-
-        const songsActions = document.createElement('div');
-        songsActions.className = 'saved-songs__actions';
-        songsActions.hidden = !expanded;
-
-        const loadButton = document.createElement('button');
-        loadButton.type = 'button';
-        loadButton.className = 'btn btn--ghost';
-        loadButton.dataset.role = 'saved-load';
-        loadButton.textContent = 'このセトリを読み込む';
-        loadButton.addEventListener('click', function () {
-          applySavedSetlist(record); // 複製として作業中へ読み込む（元データには紐づけない）
-        });
-        songsActions.appendChild(loadButton);
 
         toggleButton.addEventListener('click', function () {
           // 「このライブ何やったんだっけ」を確認するための開閉。state は変えない。
@@ -2776,7 +2727,6 @@
           toggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
           item.classList.toggle('popup__item--expanded', open); // 見出しの省略を解く
           songs.hidden = !open;
-          songsActions.hidden = !open;
         });
 
         const editButton = document.createElement('button');
@@ -2814,7 +2764,6 @@
         item.appendChild(editButton);
         item.appendChild(removeButton);
         item.appendChild(songs);
-        item.appendChild(songsActions);
         fragment.appendChild(item);
       });
       list.appendChild(fragment);
