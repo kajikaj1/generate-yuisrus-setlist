@@ -129,6 +129,32 @@
       gap: 8px;
     }
 
+    /* 保存データを編集中であることを示す帯（メイン画面の先頭）。
+       「DBに追加」が「更新」に変わることを気づけるようにする。 */
+    .editing-banner {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px var(--gap);
+      background-color: var(--color-accent-soft);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      font-size: 14px;
+      color: var(--color-accent);
+    }
+
+    .editing-banner__text {
+      /* basis 0 で先に縮ませ、ボタンを同じ行に留める */
+      flex: 1 1 0;
+      min-width: 0;
+      font-weight: 600;
+      /* 帯を1行に保つため、長いライブ名は省略記号で切る */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* ===== Setlist table area ===== */
     .app__main {
       flex: 1 1 auto;
@@ -522,6 +548,27 @@
       flex: 0 0 auto;
     }
 
+    /* 保存済み1件の編集ボタン（削除ボタンと同じ大きさ・色だけアクセント） */
+    .popup__item-edit {
+      flex: 0 0 auto;
+      min-width: var(--tap-min);
+      min-height: 32px;
+      padding: 4px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .popup__item-edit:active {
+      filter: brightness(0.95);
+    }
+
     /* 曲検索の項目: 先頭にチェック欄を置き、選択中は淡いアクセント色で塗る。
        色だけに頼らずチェック記号でも選択状態が分かるようにする。 */
     .popup__item-button--search {
@@ -711,6 +758,13 @@
 <body>
   <!-- ===== Page: セトリ作成（既定の画面） ===== -->
   <div class="app" id="page-main" data-role="page-main">
+    <!-- ===== 保存データの編集中に出る帯 ===== -->
+    <div class="editing-banner" id="editing-banner" data-role="editing-banner" hidden>
+      <span class="editing-banner__text" id="editing-banner-text" data-role="editing-banner-text"></span>
+      <button type="button" class="btn btn--ghost" id="btn-editing-cancel"
+        data-role="editing-cancel">編集をやめる</button>
+    </div>
+
     <!-- ===== Header: live info inputs ===== -->
     <header class="app__header">
       <div class="field">
@@ -1098,6 +1152,7 @@
      * @property {string} liveName ライブ名。未入力は ""
      * @property {string} venue    会場名。未入力は ""
      * @property {string[]} setlist 追加順の曲タイトル列。重複可
+     * @property {string} editingId 編集中の保存データのID。新規作成中は ""
      */
 
     // ============================================================
@@ -1112,7 +1167,8 @@
       date: '',
       liveName: '',
       venue: '',
-      setlist: []
+      setlist: [],
+      editingId: ''
     };
 
     /**
@@ -1176,6 +1232,7 @@
       state.date = '';
       state.liveName = '';
       state.venue = '';
+      state.editingId = ''; // 編集中の紐づけも解除する（新規作成へ戻る）
     }
 
     // ============================================================
@@ -1201,7 +1258,8 @@
           date: state.date,
           liveName: state.liveName,
           venue: state.venue,
-          setlist: toStoredSetlist(state.setlist) // 曲はIDで持つ
+          setlist: toStoredSetlist(state.setlist), // 曲はIDで持つ
+          editingId: state.editingId               // 編集中なら対象のID
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
       } catch (err) {
@@ -1239,6 +1297,7 @@
       state.venue = typeof data.venue === 'string' ? data.venue : '';
       // 曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
       state.setlist = fromStoredSetlist(data.setlist);
+      state.editingId = typeof data.editingId === 'string' ? data.editingId : '';
     }
 
     // ============================================================
@@ -1417,6 +1476,41 @@
       // 保存時も先頭へ入れておく（通常の表示順は compareSavedSetlists が決める）。
       records.unshift(record);
       return writeSavedSetlists(records) ? record : null;
+    }
+
+    /**
+     * 指定IDの保存済みセトリを、現在の状態で上書きする（編集の保存）。
+     * 保存時刻は更新時刻へ入れ替える（同じ日付の中では直近に触れたものが上に来る）。
+     * 該当IDが無い（別の端末・画面で消された等）場合は null を返し、
+     * 呼び出し側で新規追加へフォールバックする。
+     * @param {string} id 上書きする保存データのID
+     * @param {AppState} source 上書きする内容
+     * @returns {SavedSetlist|null} 上書き後の1件。該当なし・空セトリ・書き込み失敗なら null
+     */
+    function updateSavedSetlist(id, source) {
+      const records = loadSavedSetlists();
+      let index = -1;
+      records.forEach(function (record, i) {
+        if (record.id === id) {
+          index = i;
+        }
+      });
+      if (index === -1) {
+        return null; // 元の保存データが見つからない
+      }
+      const updated = normalizeSavedSetlist({
+        id: id,
+        savedAt: new Date().toISOString(),
+        date: source.date,
+        liveName: source.liveName,
+        venue: source.venue,
+        setlist: source.setlist.slice() // 参照を共有しない
+      });
+      if (!updated) {
+        return null; // 空セトリは保存しない
+      }
+      records[index] = updated;
+      return writeSavedSetlists(records) ? updated : null;
     }
 
     /**
@@ -2422,22 +2516,99 @@
      * @returns {void}
      */
     function applySavedSetlist(record) {
-      if (
-        state.setlist.length > 0 &&
-        !window.confirm('現在のセトリを保存データで置き換えます。よろしいですか？')
-      ) {
-        return;
+      if (loadSavedIntoState(record, false)) {
+        showToast('読み込みました');
+      }
+    }
+
+    /**
+     * 保存済みセトリを「編集」として作業中の state へ読み込む。
+     * 以降の保存はこの1件の上書きになる（state.editingId で紐づける）。
+     * @param {SavedSetlist} record 編集する保存データ
+     * @returns {void}
+     */
+    function editSavedSetlist(record) {
+      if (loadSavedIntoState(record, true)) {
+        showToast('編集を始めました。保存すると上書きします');
+      }
+    }
+
+    /**
+     * 保存済みセトリを作業中の state へ読み込む共通処理。
+     * 現在のセトリが空でない場合のみ上書き確認を出す（誤タップ防止）。
+     * 保存データを直接参照しないよう setlist はコピーして渡す。
+     * @param {SavedSetlist} record 読み込む保存データ
+     * @param {boolean} editing true なら編集（保存で上書き）、false なら複製として読み込む
+     * @returns {boolean} 読み込んだら true、確認で取り消したら false
+     */
+    function loadSavedIntoState(record, editing) {
+      if (state.setlist.length > 0) {
+        const message = editing
+          ? '編集を始めると、作業中のセトリは選んだ保存データで置き換わります。よろしいですか？'
+          : '現在のセトリを保存データで置き換えます。よろしいですか？';
+        if (!window.confirm(message)) {
+          return false;
+        }
       }
       state.date = record.date;
       state.liveName = record.liveName;
       state.venue = record.venue;
       state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
+      state.editingId = editing ? record.id : ''; // 読み込み（複製）なら紐づけない
 
       applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
-      renderAll();          // セトリ表を再描画して連番同期
-      saveState();          // 作業中データとしても保存
+      renderAll();          // セトリ表を再描画して連番同期＋作業中データを保存
+      syncEditingUi();      // 編集中の帯・保存ボタンの表示を切り替える
       goBackToMainPage();   // 読み込んだセトリを編集できるようメイン画面へ戻る
-      showToast('読み込みました');
+      return true;
+    }
+
+    /**
+     * 編集中の表示（帯・保存ボタンのラベル）を state.editingId に合わせて更新する。
+     * 紐づけ先が消えている場合は編集中を解除して新規作成へ戻す。
+     * @returns {void}
+     */
+    function syncEditingUi() {
+      const banner = document.getElementById('editing-banner');
+      const text = document.getElementById('editing-banner-text');
+      const saveButton = document.getElementById('btn-save-db');
+
+      let target = null;
+      if (state.editingId !== '') {
+        loadSavedSetlists().forEach(function (record) {
+          if (record.id === state.editingId) {
+            target = record;
+          }
+        });
+        if (!target) {
+          state.editingId = ''; // 元データが消えていたら新規作成へ戻す
+        }
+      }
+
+      if (banner) {
+        banner.hidden = target === null;
+      }
+      if (text && target) {
+        text.textContent = '編集中：' + formatSavedTitle(target);
+      }
+      if (saveButton) {
+        saveButton.textContent = target ? '更新' : 'DBに追加';
+      }
+    }
+
+    /**
+     * 編集中の紐づけを解除する（入力内容はそのまま残す）。
+     * 以降の保存は新規追加になるため、複製を作りたいときにも使える。
+     * @returns {void}
+     */
+    function cancelEditing() {
+      if (state.editingId === '') {
+        return;
+      }
+      state.editingId = '';
+      saveState();
+      syncEditingUi();
+      showToast('編集を解除しました。保存すると新規追加になります');
     }
 
     /**
@@ -2497,6 +2668,16 @@
           applySavedSetlist(record);
         });
 
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'popup__item-edit';
+        editButton.dataset.role = 'saved-edit';
+        editButton.textContent = '編集';
+        editButton.setAttribute('aria-label', heading + ' を編集');
+        editButton.addEventListener('click', function () {
+          editSavedSetlist(record);
+        });
+
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.className = 'setlist__remove popup__item-remove';
@@ -2510,6 +2691,7 @@
           }
           if (removeSavedSetlist(record.id)) {
             renderSavedList(); // 一覧を最新化
+            syncEditingUi();   // 編集中の1件を消した場合は編集中を解除する
             showToast('削除しました');
           } else {
             showToast(SAVE_FAILURE_MESSAGE);
@@ -2517,6 +2699,7 @@
         });
 
         item.appendChild(loadButton);
+        item.appendChild(editButton);
         item.appendChild(removeButton);
         fragment.appendChild(item);
       });
@@ -2935,6 +3118,7 @@
       const saveButton = document.getElementById('btn-save-db');
       const listButton = document.getElementById('btn-saved-list');
       const backButton = document.getElementById('btn-saved-back');
+      const editingCancelButton = document.getElementById('btn-editing-cancel');
       const importOpenButton = document.getElementById('btn-saved-add-open');
       const importCancelButton = document.getElementById('btn-saved-add-cancel');
       const importSubmitButton = document.getElementById('btn-saved-add-submit');
@@ -2943,6 +3127,20 @@
         saveButton.addEventListener('click', function () {
           if (state.setlist.length === 0) {
             showToast(SAVE_EMPTY_MESSAGE); // 空セトリは保存しない
+            return;
+          }
+          if (state.editingId !== '') {
+            const updated = updateSavedSetlist(state.editingId, state);
+            if (updated) {
+              showToast('更新しました');
+              return;
+            }
+            // 元の保存データが見つからない（消された等）→ 新規追加へフォールバックする。
+            state.editingId = '';
+            saveState();
+            syncEditingUi();
+            const added = appendSavedSetlist(state);
+            showToast(added ? '元の保存データが無いため新しく追加しました' : SAVE_FAILURE_MESSAGE);
             return;
           }
           const record = appendSavedSetlist(state);
@@ -2954,6 +3152,9 @@
       }
       if (backButton) {
         backButton.addEventListener('click', goBackToMainPage);
+      }
+      if (editingCancelButton) {
+        editingCancelButton.addEventListener('click', cancelEditing);
       }
       if (importOpenButton) {
         importOpenButton.addEventListener('click', openImportForm);
@@ -3809,7 +4010,8 @@
           venueInput.value = '';
         }
 
-        renderAll(); // セトリ表を空状態へ再描画
+        renderAll();     // セトリ表を空状態へ再描画
+        syncEditingUi(); // 編集中の紐づけも解除された状態へ表示を戻す
         showToast('すべて削除しました');
       });
     }
@@ -3861,6 +4063,7 @@
       initSavedBackup();     // 保存データの書き出し／取り込みの結線（冪等）
       initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
+      syncEditingUi();       // 編集中だった場合は帯と保存ボタンを復元
       initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
     }
 
