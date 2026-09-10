@@ -410,6 +410,33 @@
       color: var(--color-muted);
     }
 
+    /* トグルON時は塗りつぶしにして、現在どちらの表示かひと目で分かるようにする */
+    .btn--toggle[aria-pressed="true"] {
+      background-color: var(--color-accent);
+      color: var(--color-accent-text);
+      border-color: var(--color-accent);
+    }
+
+    /* 省略名称モードの曲一覧: 1行1件のレコード表示をやめ、ボタンを折り返して詰める */
+    .popup__list--compact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .popup__list--compact .popup__item-button {
+      width: auto;
+      min-height: 44px;
+      padding: 10px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      white-space: nowrap;
+    }
+
+    .popup__list--compact .popup__item-button:focus {
+      outline-offset: 1px;
+    }
+
     /* 保存一覧の各項目: 読込ボタン（可変幅）＋削除ボタン（固定幅）を横並びにする。 */
     .popup__item--saved {
       display: flex;
@@ -685,7 +712,10 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
       <div class="popup__header">
         <h2 class="popup__title" id="popup-title">曲を選択</h2>
-        <button type="button" class="btn btn--ghost" id="btn-popup-close" data-role="popup-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost btn--toggle" id="btn-popup-short" data-role="popup-short-toggle" aria-pressed="false">省略名称</button>
+          <button type="button" class="btn btn--ghost" id="btn-popup-close" data-role="popup-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__body">
         <ul class="popup__list" id="popup-list" data-role="popup-list">
@@ -1958,6 +1988,9 @@
     //     に入れ、収まらない場合は縦スクロールできる。
     //   - 曲名タップで addSong(title) → renderAll() → 閉じる。
     //   - 閉じるボタンは state を変更せず閉じるのみ。
+    //   - 「省略名称」トグルで表示を songShortTitle（省略名称）へ切り替え、一覧を
+    //     レコード表示から折り返しボタン（.popup__list--compact）へ詰めて表示する。
+    //     追加されるのは常に正式名称なので、セトリ・出力テキストは表示モードに依らない。
     // 状態変更は addSong ミューテータ経由のみ。描画は renderAll を直接呼ぶ。
     // 結線は initAddSongPopup() で行い、二重結線を防ぐためフラグで冪等化する
     // （後続 4.1 bootstrap から再度呼ばれても安全）。
@@ -1989,6 +2022,38 @@
       });
     }
 
+    /** 省略名称モードの保存キー（表示設定のみ。リセットや保存データとは独立）。 */
+    const SHORT_MODE_STORAGE_KEY = 'yuisrus-setlist:popup-short-mode:v1';
+
+    /** 曲選択ポップアップを省略名称＋ボタン詰め表示にするか（true=省略名称）。 */
+    let popupShortMode = false;
+
+    /**
+     * 省略名称モードの保存値を localStorage から復元する。
+     * 未保存・参照不可なら既定（正式名称表示）のままにする。
+     * @returns {void}
+     */
+    function loadPopupShortMode() {
+      try {
+        popupShortMode = window.localStorage.getItem(SHORT_MODE_STORAGE_KEY) === '1';
+      } catch (err) {
+        // 参照できなくても既定値で動作を継続する。
+      }
+    }
+
+    /**
+     * 省略名称モードの現在値を localStorage へ保存する。
+     * 保存できない場合は無視する（アプリは継続動作）。
+     * @returns {void}
+     */
+    function savePopupShortMode() {
+      try {
+        window.localStorage.setItem(SHORT_MODE_STORAGE_KEY, popupShortMode ? '1' : '0');
+      } catch (err) {
+        // 保存できなくても動作は継続する。
+      }
+    }
+
     /**
      * ポップアップの曲一覧（#popup-list）を SONG_MASTER のあいうえお順で描画する。
      * 各項目はタップ追加用のボタンで、タップで addSong→renderAll→閉じる（3.4）。
@@ -2001,6 +2066,9 @@
         return;
       }
       list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      // 省略名称モードでは1行1件のレコード表示をやめ、ボタンを折り返して詰める。
+      list.className = popupShortMode ? 'popup__list popup__list--compact' : 'popup__list';
 
       const songs = getSortedSongMaster();
 
@@ -2015,6 +2083,7 @@
       const fragment = document.createDocumentFragment();
       songs.forEach(function (song) {
         const title = typeof song.title === 'string' ? song.title : '';
+        const label = popupShortMode ? songShortTitle(title) : title;
 
         const item = document.createElement('li');
         item.className = 'popup__item';
@@ -2023,7 +2092,12 @@
         button.type = 'button';
         button.className = 'popup__item-button';
         button.dataset.role = 'song-option';
-        button.textContent = title; // textContent で挿入（XSS安全）
+        button.textContent = label; // textContent で挿入（XSS安全）
+        if (label !== title) {
+          // 省略名称で表示している場合も、支援技術・ツールチップには正式名称を出す。
+          button.setAttribute('aria-label', title);
+          button.title = title;
+        }
         button.addEventListener('click', function () {
           addSong(title);          // state ミューテータ経由で末尾追加（重複許可）
           renderAll();             // 再描画して連番同期
@@ -2037,6 +2111,31 @@
     }
 
     /**
+     * 省略名称トグルの押下状態（aria-pressed）を現在のモードへ同期する。
+     * CSS はこの属性を見て塗りつぶし表示に切り替える。
+     * @returns {void}
+     */
+    function syncPopupShortToggle() {
+      const toggle = document.getElementById('btn-popup-short');
+      if (!toggle) {
+        return;
+      }
+      toggle.setAttribute('aria-pressed', popupShortMode ? 'true' : 'false');
+    }
+
+    /**
+     * 省略名称モードを反転し、保存・トグル表示・一覧を更新する。
+     * state（セトリ）には触れないため、追加される曲名・出力テキストは変わらない。
+     * @returns {void}
+     */
+    function togglePopupShortMode() {
+      popupShortMode = !popupShortMode;
+      savePopupShortMode();
+      syncPopupShortToggle();
+      renderPopupSongList();
+    }
+
+    /**
      * 曲選択ポップアップを開く（Requirements 3.1）。
      * 一覧をあいうえお順で描画してからオーバーレイを表示する。
      * @returns {void}
@@ -2046,7 +2145,8 @@
       if (!overlay) {
         return;
       }
-      renderPopupSongList(); // 表示直前に最新のマスタを反映
+      syncPopupShortToggle(); // トグルの押下表示を現在のモードへ同期
+      renderPopupSongList();  // 表示直前に最新のマスタを反映
       overlay.hidden = false;
     }
 
@@ -2076,6 +2176,7 @@
       }
       const addButton = document.getElementById('btn-add');
       const closeButton = document.getElementById('btn-popup-close');
+      const shortToggle = document.getElementById('btn-popup-short');
 
       if (addButton) {
         addButton.addEventListener('click', openAddSongPopup);
@@ -2083,6 +2184,12 @@
       if (closeButton) {
         closeButton.addEventListener('click', closeAddSongPopup);
       }
+      if (shortToggle) {
+        shortToggle.addEventListener('click', togglePopupShortMode);
+      }
+
+      loadPopupShortMode();   // 前回選んだ表示モードを復元
+      syncPopupShortToggle(); // トグルの押下表示を復元値へ同期
       addSongPopupWired = true;
     }
 
