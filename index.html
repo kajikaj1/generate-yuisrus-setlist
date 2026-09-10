@@ -22,6 +22,7 @@
       --color-accent-text: #ffffff;
       --color-danger: #dc2626;
       --color-overlay: rgba(0, 0, 0, 0.5);
+      --color-accent-soft: #e8f0fe; /* 選択中の項目の淡い塗り */
       --color-drop-indicator: #38bdf8; /* 挿入位置ライン（水色） */
       --radius: 10px;
       --tap-min: 48px;
@@ -239,9 +240,12 @@
       padding: var(--gap) 0 0;
     }
 
-    /* フッター右側のアクション群（リセット＋コピーをまとめて右端に寄せる） */
+    /* フッター右側のアクション群（保存系＋リセット＋コピー）。
+       ボタンが4つあり1行では収まらないため2列グリッドで2行に整列させる
+       （flex の折り返しだと行ごとの個数が幅次第でばらつくため）。 */
     .app__footer-actions {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: center;
       gap: var(--gap);
     }
@@ -336,9 +340,17 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap; /* ボタンが増えて収まらない狭い画面では折り返す */
       gap: var(--gap);
       padding: var(--gap);
       border-bottom: 1px solid var(--color-border);
+    }
+
+    /* ヘッダー右側のボタン群（検索する＋閉じる など） */
+    .popup__header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .popup__title {
@@ -398,20 +410,6 @@
       color: var(--color-muted);
     }
 
-    /* ===== 省略名称モード ===== */
-    /* ヘッダー右側のボタン群（省略名称トグル＋閉じる） */
-    .popup__header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* ヘッダーに2つ並べるため、既定の .btn より横幅を抑える */
-    .popup__header-actions .btn {
-      min-width: 0;
-      padding: 12px 16px;
-    }
-
     /* トグルON時は塗りつぶしにして、現在どちらの表示かひと目で分かるようにする */
     .btn--toggle[aria-pressed="true"] {
       background-color: var(--color-accent);
@@ -419,7 +417,7 @@
       border-color: var(--color-accent);
     }
 
-    /* 省略名称モードの一覧: 1行1件のレコード表示をやめ、ボタンを折り返して詰める */
+    /* 省略名称モードの曲一覧: 1行1件のレコード表示をやめ、ボタンを折り返して詰める */
     .popup__list--compact {
       display: flex;
       flex-wrap: wrap;
@@ -437,6 +435,213 @@
 
     .popup__list--compact .popup__item-button:focus {
       outline-offset: 1px;
+    }
+
+    /* 保存一覧の各項目: 読込ボタン（可変幅）＋削除ボタン（固定幅）を横並びにする。 */
+    .popup__item--saved {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .popup__item--saved .popup__item-button {
+      flex: 1 1 auto;
+      min-width: 0; /* flex 子要素の既定 min-width:auto を外し省略記号を効かせる */
+      border-bottom: none;
+    }
+
+    .popup__item-label {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* 見出し（日付＋ライブ名）と補足（会場・曲数）は1行に収め、溢れたら省略する。 */
+    .popup__item-title,
+    .popup__item-meta {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .popup__item-meta {
+      font-size: 13px;
+      color: var(--color-muted);
+    }
+
+    .popup__item-remove {
+      flex: 0 0 auto;
+    }
+
+    /* 曲検索の項目: 先頭にチェック欄を置き、選択中は淡いアクセント色で塗る。
+       色だけに頼らずチェック記号でも選択状態が分かるようにする。 */
+    .popup__item-button--search {
+      gap: 8px;
+    }
+
+    .popup__item-check {
+      flex: 0 0 auto;
+      width: 1.25em;
+      color: var(--color-accent);
+      font-weight: 700;
+    }
+
+    .popup__item-button--selected {
+      background-color: var(--color-accent-soft);
+      color: var(--color-accent);
+      font-weight: 600;
+    }
+
+    /* 絞り込み中の条件表示バー（保存一覧の先頭） */
+    .saved-filter {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 8px;
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+      font-size: 14px;
+      color: var(--color-muted);
+    }
+
+    .saved-filter__label {
+      flex: 0 0 auto;
+    }
+
+    /* ポップアップ本文の上に固定する説明領域（一覧だけがスクロールする） */
+    .popup__notice {
+      flex: 0 0 auto;
+      padding: var(--gap);
+      background-color: var(--color-bg);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .resolve-notice__progress {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: var(--color-muted);
+    }
+
+    .resolve-notice__title {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .resolve-notice__help {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: var(--color-muted);
+    }
+
+    .resolve-notice__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* 貼り付け取り込みフォーム（保存一覧の先頭。「追加」で開閉する） */
+    .saved-add {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: var(--gap);
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+    }
+
+    .saved-add__label {
+      font-size: 14px;
+      color: var(--color-muted);
+    }
+
+    .saved-add__input {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 140px;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 16px; /* iOS で入力時に自動ズームされないよう16px以上にする */
+      line-height: 1.5;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      resize: vertical;
+    }
+
+    .saved-add__input:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    .saved-add__actions {
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* 条件の曲を並べるチップ列。曲ごとに解除ボタンを持ち、1曲ずつ外せる。 */
+    .saved-filter__list {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .saved-filter__item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 100%;
+      padding: 2px 2px 2px 8px;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .saved-filter__song {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .saved-filter__remove {
+      flex: 0 0 auto;
+      min-width: 32px;
+      min-height: 32px;
+      padding: 0 6px;
+      font-size: 14px;
+      line-height: 1;
+      color: var(--color-muted);
+      background-color: transparent;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .saved-filter__remove:active {
+      background-color: var(--color-bg);
+    }
+
+    .saved-filter__count {
+      flex: 0 0 auto;
     }
 
     @media (min-width: 480px) {
@@ -494,6 +699,8 @@
     <footer class="app__footer">
       <button type="button" class="btn btn--add" id="btn-add" data-role="add-button">＋ 曲を追加</button>
       <div class="app__footer-actions">
+        <button type="button" class="btn btn--ghost" id="btn-saved-list" data-role="saved-list-button">保存一覧</button>
+        <button type="button" class="btn btn--add" id="btn-save-db" data-role="save-button">DBに追加</button>
         <button type="button" class="btn btn--danger" id="btn-reset" data-role="reset-button">リセット</button>
         <button type="button" class="btn btn--copy" id="btn-copy" data-role="copy-button">コピー</button>
       </div>
@@ -518,6 +725,90 @@
     </div>
   </div>
 
+  <!-- ===== Saved setlists popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="saved-overlay" data-role="saved-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="saved-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="saved-title">保存したセトリ</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
+          <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
+          <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <div class="saved-add" id="saved-add" data-role="saved-add" hidden>
+          <label class="saved-add__label" for="saved-add-input">コピーしたセトリを貼り付けてください</label>
+          <textarea class="saved-add__input" id="saved-add-input" data-role="saved-add-input"
+            placeholder="2026.09.10(水)&#10;『ライブ名』&#10;会場：会場名&#10;1.曲名&#10;2.曲名"></textarea>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--ghost" id="btn-saved-add-cancel"
+              data-role="saved-add-cancel">キャンセル</button>
+            <button type="button" class="btn btn--copy" id="btn-saved-add-submit"
+              data-role="saved-add-submit">この内容で追加</button>
+          </div>
+        </div>
+        <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
+          <span class="saved-filter__label">すべて含む:</span>
+          <ul class="saved-filter__list" id="saved-filter-list" data-role="saved-filter-list">
+            <!-- 条件の曲チップは renderSavedFilter() が描画する -->
+          </ul>
+          <span class="saved-filter__count" id="saved-filter-count"></span>
+        </div>
+        <ul class="popup__list" id="saved-list" data-role="saved-list">
+          <!-- 保存済み一覧は renderSavedList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Song search popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="search-overlay" data-role="search-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="search-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="search-title">曲で検索</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--copy" id="btn-search-run" data-role="search-run">検索</button>
+          <button type="button" class="btn btn--ghost" id="btn-search-close" data-role="search-close">閉じる</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="search-list" data-role="search-list">
+          <!-- 曲一覧（複数選択トグル）は renderSearchList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Unknown song resolve popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="resolve-overlay" data-role="resolve-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="resolve-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="resolve-title">曲の確認</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-resolve-cancel"
+            data-role="resolve-cancel">中止</button>
+        </div>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__progress" id="resolve-progress" data-role="resolve-progress"></p>
+        <p class="resolve-notice__title" id="resolve-unknown" data-role="resolve-unknown"></p>
+        <p class="resolve-notice__help">曲マスタにない曲名です。どの曲か選んでください。</p>
+        <div class="resolve-notice__actions">
+          <button type="button" class="btn btn--ghost" id="btn-resolve-keep"
+            data-role="resolve-keep">このまま追加</button>
+          <button type="button" class="btn btn--danger" id="btn-resolve-skip"
+            data-role="resolve-skip">この曲を除く</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="resolve-list" data-role="resolve-list">
+          <!-- 曲一覧は renderResolveList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Toast notification (initially hidden) ===== -->
   <div class="toast" id="toast" data-role="toast" role="status" aria-live="polite" hidden></div>
 
@@ -527,49 +818,123 @@
     // ============================================================
     // Data: 曲マスタ（HTML内固定埋め込み / Requirements 3.7）
     // ------------------------------------------------------------
-    // 各要素は { title, reading, short }。reading はあいうえお順ソート用の
-    // 読み仮名（ひらがな）、short は曲選択ポップアップの「省略名称」表示で使う
-    // 短縮名（省略しない曲は title と同じ文字列でよい／未設定なら title で代用）。
-    // 実運用ではファイルを直接編集して差し替える。
+    // 各要素は { title, reading, short? }。reading はあいうえお順ソート用の
+    // 読み仮名（ひらがな）。実運用ではファイルを直接編集して差し替える。
     // 以下は動作確認用サンプル。五十音の各行から読み仮名がバラけるよう収録。
+    //
+    // short は表示用の省略名称（任意）。絞り込み条件のチップなど幅の限られた
+    // 場所でこちらを表示し、未設定（省略・空文字）ならタイトルをそのまま出す。
+    // 共有用の出力テキスト（コピー）には使わない＝文面は常に正式名称のまま。
     // ============================================================
 
     /** @type {ReadonlyArray<Song>} */
     const SONG_MASTER = [
-      { title: 'よーいすとっぷ',               reading: 'よーいすとっぷ',               short: 'よーいすとっぷ' },
-      { title: '途中下車スーサイド',           reading: 'とちゅうげしゃすーさいど',     short: '途中下車' },
-      { title: '宵夢バタフライ',               reading: 'よいゆめばたふらい',           short: '宵夢' },
-      { title: 'かいじるし',                   reading: 'かいじるし',                   short: 'かいじるし' },
-      { title: 'がいねん',                     reading: 'がいねん',                     short: 'がいねん' },
-      { title: 'きのこ',                       reading: 'きのこ',                       short: 'きのこ' },
-      { title: 'ぼくのこえきみのうた',         reading: 'ぼくのこえきみのうた',         short: 'ぼくきみ' },
-      { title: 'むげんだい∞日曜曲',           reading: 'むげんだいにちようきょく',     short: '日曜曲' },
-      { title: 'らりるれほんげんば',           reading: 'らりるれほんげんば',           short: 'らりるれ' },
-      { title: 'ずんどこ後退曲',               reading: 'ずんどここうたいきょく',       short: 'ずんどこ' },
-      { title: 'そんなそんぐ',                 reading: 'そんなそんぐ',                 short: 'そんなそんぐ' },
-      { title: 'もーぜにたのもーぜ',           reading: 'もーぜにたのもーぜ',           short: 'もーぜ' },
-      { title: 'ぶら汁神',                     reading: 'ぶらじるがみ',                 short: 'ぶら汁神' },
-      { title: '宇宙とファンシー',             reading: 'うちゅうとふぁんしー',         short: '宇宙' },
-      { title: 'えれくとりかる ぴょんぴょこ',  reading: 'えれくとりかるぴょんぴょこ',   short: 'ぴょんぴょこ' },
-      { title: 'やせないで おたく',            reading: 'やせないでおたく',             short: 'やせないで' },
-      { title: 'たかいたかい',                 reading: 'たかいたかい',                 short: 'たかいたかい' },
-      { title: '卒業ぐらじゅえーしょん',       reading: 'そつぎょうぐらじゅえーしょん', short: '卒業' },
-      { title: 'ほくいもパラダイちゅ',         reading: 'ほくいもぱらだいちゅ',         short: 'ほくいも' },
-      { title: 'かんπさんしゃいん',            reading: 'かんぱいさんしゃいん',         short: 'かんπ' },
-      { title: 'カニチャーハン',               reading: 'かにちゃーはん',               short: 'カニチャ' },
-      { title: 'お天気注意報',                 reading: 'おてんきちゅういほう',         short: 'お天気' },
-      { title: '布団の前世の女の子',           reading: 'ふとんのぜんせのおんなのこ',   short: '布団' },
-      { title: '人類万歳',                     reading: 'じんるいばんざい',             short: '人類万歳' },
-      { title: '日本の夏 ゆいざらすの夏',      reading: 'にほんのなつゆいざらすのなつ', short: '日本の夏' },
-      { title: 'おたんじょうびのうた',         reading: 'おたんじょうびのうた',         short: 'たんじょうび' },
-      { title: 'コロコロ',                     reading: 'ころころ',                     short: 'コロコロ' },
-      { title: '愛してやるからこっちにこい！', reading: 'あいしてやるからこっちにこい', short: '愛してやる' },
-      { title: 'キラキラスター',               reading: 'きらきらすたー',               short: 'キラキラ' },
-      { title: 'かわいげ留年確定☆',           reading: 'かわいげりゅうねんかくてい',   short: 'かわいげ' },
-      { title: '爆上げキュート！',             reading: 'ばくあげきゅーと',             short: '爆上げ' },
-      { title: 'ざらっこ学校校歌',             reading: 'ざらっこがっこうこうか',       short: '校歌' },
-      { title: '全力コロッケ',                 reading: 'ぜんりょくころっけ',           short: '全力コロッケ' }
+      { title: 'よーいすとっぷ',                 reading: 'よーいすとっぷ' },
+      { title: '途中下車スーサイド',             reading: 'とちゅうげしゃすーさいど', short: '途中下車' },
+      { title: '宵夢バタフライ',                 reading: 'よいゆめばたふらい', short: 'よいゆめ' },
+      { title: 'かいじるし',                     reading: 'かいじるし' },
+      { title: 'がいねん',                       reading: 'がいねん' },
+      { title: 'きのこ',                         reading: 'きのこ' },
+      { title: 'ぼくのこえきみのうた',           reading: 'ぼくのこえきみのうた', short: 'ぼくのこえ' },
+      { title: 'むげんだい∞日曜曲',              reading: 'むげんだいにちようきょく', short: '日曜曲' },
+      { title: 'らりるれほんげんば',             reading: 'らりるれほんげんば', short: 'ほんげんば' },
+      { title: 'ずんどこ後退曲',                 reading: 'ずんどここうたいきょく', short: 'ずんどこ' },
+      { title: 'そんなそんぐ',                   reading: 'そんなそんぐ' },
+      { title: 'もーぜにたのもーぜ',             reading: 'もーぜにたのもーぜ', short: 'もーぜ' },
+      { title: 'ぶら汁神',                       reading: 'ぶらじるがみ' },
+      { title: '宇宙とファンシー',               reading: 'うちゅうとふぁんしー' },
+      { title: 'えれくとりかる ぴょんぴょこ',    reading: 'えれくとりかるぴょんぴょこ', short: 'えれぴょん' },
+      { title: 'やせないで おたく',              reading: 'やせないでおたく' },
+      { title: 'たかいたかい',                   reading: 'たかいたかい' },
+      { title: '卒業ぐらじゅえーしょん',         reading: 'そつぎょうぐらじゅえーしょん', short: '卒業' },
+      { title: 'ほくいもパラダイちゅ',           reading: 'ほくいもぱらだいちゅ', short: 'ほくいも' },
+      { title: 'かんπさんしゃいん',              reading: 'かんぱいさんしゃいん', short: 'かんπ' },
+      { title: 'カニチャーハン',                 reading: 'かにちゃーはん', short: 'カニ' },
+      { title: 'お天気注意報',                   reading: 'おてんきちゅういほう', short: 'お天気' },
+      { title: '布団の前世の女の子',             reading: 'ふとんのぜんせのおんなのこ', short: '布団' },
+      { title: '人類万歳',                       reading: 'じんるいばんざい' },
+      { title: '日本の夏 ゆいざらすの夏',        reading: 'にほんのなつゆいざらすのなつ', short: 'ゆいざの夏' },
+      { title: 'おたんじょうびのうた',           reading: 'おたんじょうびのうた', short: 'おたんじょうび' },
+      { title: 'コロコロ',                       reading: 'ころころ' },
+      { title: '愛してやるからこっちにこい！',   reading: 'あいしてやるからこっちにこい', short: '愛して' },
+      { title: 'キラキラスター',                 reading: 'きらきらすたー' },
+      { title: 'かわいげ留年確定☆',             reading: 'かわいげりゅうねんかくてい', short: '留年' },
+      { title: '爆上げキュート！',               reading: 'ばくあげきゅーと', short: '爆上げ' },
+      { title: 'ざらっこ学校校歌',               reading: 'ざらっこがっこうこうか', short: '校歌' },
+      { title: '全力コロッケ',                   reading: 'ぜんりょくころっけ', short: '全コロ' }
     ];
+
+    /**
+     * 曲タイトル → 省略名称の対応表。曲マスタから一度だけ組み立てる。
+     * short が未設定・空文字の曲は登録しない（＝タイトルをそのまま使う）。
+     * @type {Map<string, string>}
+     */
+    const SONG_SHORT_BY_TITLE = new Map();
+    SONG_MASTER.forEach(function (song) {
+      const short = typeof song.short === 'string' ? song.short.trim() : '';
+      if (short !== '') {
+        SONG_SHORT_BY_TITLE.set(song.title, short);
+      }
+    });
+
+    /**
+     * 曲名の照合キーを作る（純粋関数）。空白（全角含む）と英字の大小差を無視する。
+     * @param {string} title 曲名
+     * @returns {string} 照合キー
+     */
+    function songMatchKey(title) {
+      return title.replace(/[\s\u3000]/g, '').toLowerCase();
+    }
+
+    /**
+     * 照合キー → 曲マスタの正式名称。タイトルと省略名称の両方から引ける。
+     * 先に登録した方を優先し、衝突時は上書きしない（タイトルを優先）。
+     * @type {Map<string, string>}
+     */
+    const SONG_TITLE_BY_KEY = new Map();
+    SONG_MASTER.forEach(function (song) {
+      const key = songMatchKey(song.title);
+      if (!SONG_TITLE_BY_KEY.has(key)) {
+        SONG_TITLE_BY_KEY.set(key, song.title);
+      }
+    });
+    SONG_MASTER.forEach(function (song) {
+      const short = typeof song.short === 'string' ? song.short.trim() : '';
+      if (short === '') {
+        return;
+      }
+      const key = songMatchKey(short);
+      if (!SONG_TITLE_BY_KEY.has(key)) {
+        SONG_TITLE_BY_KEY.set(key, song.title);
+      }
+    });
+
+    /**
+     * 曲名を曲マスタの正式名称へ解決する（純粋関数）。
+     * 正式名称・省略名称のどちらでも引け、前後や途中の空白差・英字の大小差は無視する。
+     * @param {string} title 照合する曲名
+     * @returns {string|null} 対応する正式名称。マスタに無ければ null
+     */
+    function resolveSongTitle(title) {
+      if (typeof title !== 'string') {
+        return null;
+      }
+      const found = SONG_TITLE_BY_KEY.get(songMatchKey(title));
+      return typeof found === 'string' ? found : null;
+    }
+
+    /**
+     * 表示用の省略名称を返す（純粋関数）。
+     * 曲マスタに short があればそれを、無ければタイトルをそのまま返す。
+     * マスタに無い曲（保存済みデータに残る旧曲名など）もタイトルを返す。
+     * 出力テキストの生成には使わない（共有する文面は常に正式名称）。
+     * @param {string} title 曲タイトル
+     * @returns {string} 省略名称、または元のタイトル
+     */
+    function songShortTitle(title) {
+      const short = SONG_SHORT_BY_TITLE.get(title);
+      return typeof short === 'string' ? short : title;
+    }
 
     // ============================================================
     // Types: JSDoc 型注釈（実装はバニラJS。any 相当の曖昧型は使わない）
@@ -578,9 +943,9 @@
     /**
      * 曲マスタの1曲を表す。
      * @typedef {Object} Song
-     * @property {string} title   表示・出力に用いる曲名
-     * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
-     * @property {string} [short] 省略名称（曲選択ポップアップの省略表示用。未設定なら title）
+     * @property {string} title    表示・出力に用いる正式な曲名
+     * @property {string} reading  あいうえお順ソート用の読み仮名（ひらがな）
+     * @property {string} [short]  幅の狭い場所で使う省略名称（任意。未設定なら title）
      */
 
     /**
@@ -736,6 +1101,179 @@
     }
 
     // ============================================================
+    // Saved Setlist Store: 保存済みセトリの永続化（SavedSetlistStore）
+    // ------------------------------------------------------------
+    // 「DBに追加」で確定したセトリを履歴として localStorage へ蓄積する。
+    // 上の自動保存（STORAGE_KEY）が作業中の1件を常に上書きするのに対し、こちらは
+    // 明示操作で追加した複数件を配列で保持し、後から読み込み・削除できる。
+    // 保存するのは曲名などのテキストのみで1件あたり1KB未満のため、非同期APIの
+    // IndexedDB は使わず同期的な localStorage で足りる（目安5MB＝数千件）。
+    // 保存不可（プライベートモード・容量超過）やデータ破損時は無視して通常動作する。
+    // リセット（全削除）は作業中の state のみを対象とし、この保存一覧は消さない。
+    // ============================================================
+
+    /** 保存済みセトリ一覧の localStorage キー（保存形式を変えたら末尾の版番号を上げる）。 */
+    const SAVED_STORAGE_KEY = 'yuisrus-setlist:saved:v1';
+
+    /**
+     * 保存済みセトリ1件。作業中の AppState から曲順・ライブ情報を写し取ったもの。
+     * @typedef {Object} SavedSetlist
+     * @property {string} id        一意なID（生成時刻＋乱数。削除時の指定に使う）
+     * @property {string} savedAt   保存時刻（ISO 8601 文字列）
+     * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
+     * @property {string} liveName  ライブ名。未入力は ""
+     * @property {string} venue     会場名。未入力は ""
+     * @property {string[]} setlist 曲タイトルの配列（保存時点のコピー）
+     */
+
+    /**
+     * 保存済みセトリの一意なIDを生成する。
+     * 同一ミリ秒での重複を避けるため時刻（36進）と乱数を連結する。
+     * @returns {string} 生成したID
+     */
+    function createSavedId() {
+      return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    }
+
+    /**
+     * 任意の値を SavedSetlist として検証・正規化する。
+     * 各フィールドは型を検証し、不正値は既定値へフォールバックする。
+     * 曲が1件も無いものは保存対象外として null を返す。
+     * @param {unknown} data 検証する値（保存データまたは新規作成の素材）
+     * @returns {SavedSetlist|null} 正規化した1件。不正・空セトリなら null
+     */
+    function normalizeSavedSetlist(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const setlist = Array.isArray(data.setlist)
+        ? data.setlist.filter(function (title) { return typeof title === 'string'; })
+        : [];
+      if (setlist.length === 0) {
+        return null; // 空セトリは保存しない
+      }
+      return {
+        id: typeof data.id === 'string' && data.id !== '' ? data.id : createSavedId(),
+        savedAt: typeof data.savedAt === 'string' ? data.savedAt : '',
+        date: typeof data.date === 'string' ? data.date : '',
+        liveName: typeof data.liveName === 'string' ? data.liveName : '',
+        venue: typeof data.venue === 'string' ? data.venue : '',
+        setlist: setlist
+      };
+    }
+
+    /**
+     * 保存済みセトリの表示順を決める比較関数（純粋関数）。
+     * 第一キー: 日付の降順（`YYYY-MM-DD` は辞書順＝日付順。未入力の '' は最後）。
+     * 第二キー: 追加時刻の降順（同じ日付のライブは後から追加したものが上）。
+     * どちらも等しい場合は元の順序を保つ（Array#sort は安定ソート）。
+     * @param {SavedSetlist} a 比較対象
+     * @param {SavedSetlist} b 比較対象
+     * @returns {number} 並べ替え用の比較結果
+     */
+    function compareSavedSetlists(a, b) {
+      if (a.date !== b.date) {
+        return a.date < b.date ? 1 : -1;
+      }
+      if (a.savedAt !== b.savedAt) {
+        return a.savedAt < b.savedAt ? 1 : -1;
+      }
+      return 0;
+    }
+
+    /**
+     * 保存済みセトリ一覧を localStorage から読み込む。
+     * 参照不可・JSON破損・配列でない場合は空配列を返す（アプリは継続動作）。
+     * 各要素は normalizeSavedSetlist で検証し、壊れた要素は捨てる。
+     * 返す配列は compareSavedSetlists の順（日付降順→追加順降順）へ並べ替える。
+     * @returns {SavedSetlist[]} 保存済みセトリの配列（日付の新しい順）
+     */
+    function loadSavedSetlists() {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(SAVED_STORAGE_KEY);
+      } catch (err) {
+        return []; // localStorage 参照不可
+      }
+      if (!raw) {
+        return [];
+      }
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        return []; // 壊れた JSON は無視
+      }
+      if (!Array.isArray(data)) {
+        return [];
+      }
+      const records = [];
+      data.forEach(function (item) {
+        const record = normalizeSavedSetlist(item);
+        if (record) {
+          records.push(record);
+        }
+      });
+      return records.sort(compareSavedSetlists);
+    }
+
+    /**
+     * 保存済みセトリ一覧を localStorage へ書き込む（全置換）。
+     * 容量超過・プライベートモード等で書き込めない場合は false を返す
+     * （呼び出し側は失敗をトーストで通知する）。
+     * @param {SavedSetlist[]} records 保存する配列
+     * @returns {boolean} 書き込み成功で true
+     */
+    function writeSavedSetlists(records) {
+      try {
+        window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(records));
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    /**
+     * 現在の状態を1件として保存一覧へ追加する（表示順は読み込み時に決まる）。
+     * setlist は保存後の編集が保存データへ波及しないようコピーして持つ。
+     * 曲が空の場合は呼び出し側で弾く前提だが、念のためここでも null を返す。
+     * @param {AppState} source 保存元の状態
+     * @returns {SavedSetlist|null} 追加した1件。空セトリ・書き込み失敗なら null
+     */
+    function appendSavedSetlist(source) {
+      const record = normalizeSavedSetlist({
+        id: createSavedId(),
+        savedAt: new Date().toISOString(),
+        date: source.date,
+        liveName: source.liveName,
+        venue: source.venue,
+        setlist: source.setlist.slice() // 参照を共有しない
+      });
+      if (!record) {
+        return null;
+      }
+      const records = loadSavedSetlists();
+      // savedAt を持たない古いデータと同じ日付で並んだときに新しい方が上へ来るよう、
+      // 保存時も先頭へ入れておく（通常の表示順は compareSavedSetlists が決める）。
+      records.unshift(record);
+      return writeSavedSetlists(records) ? record : null;
+    }
+
+    /**
+     * 指定IDの保存済みセトリを削除する。
+     * @param {string} id 削除する保存データのID
+     * @returns {boolean} 削除して書き込めたら true（該当なし・失敗は false）
+     */
+    function removeSavedSetlist(id) {
+      const records = loadSavedSetlists();
+      const rest = records.filter(function (record) { return record.id !== id; });
+      if (rest.length === records.length) {
+        return false; // 該当IDなし（すでに削除済み等）
+      }
+      return writeSavedSetlists(rest);
+    }
+
+    // ============================================================
     // Text Generator: 出力テキストの純粋生成（TextGenerator）
     // ------------------------------------------------------------
     // formatDate / buildOutputText は純粋関数。引数のみから出力を決定し、
@@ -823,6 +1361,122 @@
       lines.push(FIXED_HASHTAG);                      // 5. 固定ハッシュタグ（常に付与）
 
       return lines.join('\n');
+    }
+
+    // ============================================================
+    // Text Parser: 出力テキストの読み取り（TextParser）
+    // ------------------------------------------------------------
+    // buildOutputText の逆変換。このツールで出力してSNS等へ貼られたテキストを
+    // そのまま貼り付けて保存一覧へ取り込めるようにする（純粋関数 / 副作用なし）。
+    // 行ごとに種別を判定し、認識できない行は無視する。前後の空白・全角数字・
+    // 全角記号にも耐える。曲が1曲も読み取れないときだけ null を返す（＝失敗）。
+    // ============================================================
+
+    /**
+     * 判定用に全角の数字・記号を半角へ揃える（純粋関数）。
+     * 変換は1文字1文字の置換なので文字位置は変わらない（元の行から曲名を
+     * 切り出す際に、この文字列で得た長さをそのまま使える）。
+     * @param {string} text 変換する文字列
+     * @returns {string} 数字・記号を半角へ揃えた文字列
+     */
+    function normalizeForParse(text) {
+      return text
+        .replace(/[０-９]/g, function (ch) {
+          return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+        })
+        .replace(/[．。]/g, '.')
+        .replace(/／/g, '/')
+        .replace(/：/g, ':')
+        .replace(/）/g, ')');
+    }
+
+    /**
+     * 日付行（`YYYY.MM.DD(曜)` など）を `YYYY-MM-DD` として読み取る（純粋関数）。
+     * 区切りは `.` `/` `-` を許容し、曜日など後続の文字は無視する。
+     * 存在しない日付（2月30日など）は formatDate の検証で弾いて '' を返す。
+     * @param {string} line 1行分の文字列（前後の空白は除去済み）
+     * @returns {string} `YYYY-MM-DD`、または読み取れない場合 ''
+     */
+    function parseDateLine(line) {
+      const match = /^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/.exec(normalizeForParse(line));
+      if (!match) {
+        return '';
+      }
+      const iso = match[1] + '-' +
+        match[2].padStart(2, '0') + '-' +
+        match[3].padStart(2, '0');
+      return formatDate(iso) !== '' ? iso : ''; // カレンダー的に不正な日付は捨てる
+    }
+
+    /**
+     * 曲行（`1.曲名` など）から曲名を読み取る（純粋関数）。
+     * 連番の区切りは `.` `:` `)` を許容し、連番と曲名の間の空白は無視する。
+     * 曲名は元の行から切り出すため、全角記号の変換は曲名へ持ち込まない。
+     * @param {string} line 1行分の文字列（前後の空白は除去済み）
+     * @returns {string|null} 曲名。曲行でなければ null（曲名が空なら ''）
+     */
+    function parseSongLine(line) {
+      const match = /^\d{1,3}\s*[.:)]\s*/.exec(normalizeForParse(line));
+      if (!match) {
+        return null;
+      }
+      return line.slice(match[0].length).trim();
+    }
+
+    /**
+     * 出力テキストから保存用のセトリ情報を読み取る（純粋関数 / buildOutputText の逆）。
+     * 認識するのは日付行・『ライブ名』行・会場行・連番付きの曲行で、空行と
+     * ハッシュタグ行（`#` 始まり）、その他の行は無視する。
+     * 日付・ライブ名・会場は最初に見つかったものを採用する。
+     * @param {string} text 貼り付けられたテキスト
+     * @returns {{date: string, liveName: string, venue: string, setlist: string[]}|null}
+     *   読み取り結果。曲を1曲も読み取れない場合は null
+     */
+    function parseSetlistText(text) {
+      if (typeof text !== 'string') {
+        return null;
+      }
+      const parsed = { date: '', liveName: '', venue: '', setlist: [] };
+
+      text.replace(/\r\n?/g, '\n').split('\n').forEach(function (rawLine) {
+        // 全角空白も含めて前後の空白を落とす。
+        const line = rawLine.replace(/^[\s\u3000]+/, '').replace(/[\s\u3000]+$/, '');
+        if (line === '' || line.charAt(0) === '#') {
+          return; // 空行・ハッシュタグ行は読み飛ばす
+        }
+
+        // 日付行は曲行より先に判定する（`2026.09.10(水)` を連番と誤認しないため）。
+        if (parsed.date === '') {
+          const date = parseDateLine(line);
+          if (date !== '') {
+            parsed.date = date;
+            return;
+          }
+        }
+
+        const live = /^『([\s\S]*)』$/.exec(line);
+        if (live) {
+          if (parsed.liveName === '') {
+            parsed.liveName = live[1].trim();
+          }
+          return;
+        }
+
+        const venue = /^会場\s*[：:]\s*([\s\S]*)$/.exec(line);
+        if (venue) {
+          if (parsed.venue === '') {
+            parsed.venue = venue[1].trim();
+          }
+          return;
+        }
+
+        const song = parseSongLine(line);
+        if (song !== null && song !== '') {
+          parsed.setlist.push(song);
+        }
+      });
+
+      return parsed.setlist.length > 0 ? parsed : null;
     }
 
     // ============================================================
@@ -1334,9 +1988,9 @@
     //     に入れ、収まらない場合は縦スクロールできる。
     //   - 曲名タップで addSong(title) → renderAll() → 閉じる。
     //   - 閉じるボタンは state を変更せず閉じるのみ。
-    //   - 「省略名称」トグルで表示を short（省略名称）へ切り替え、一覧をレコード表示から
-    //     折り返しボタン（.popup__list--compact）へ詰めて表示する。追加されるのは常に
-    //     title なので、セトリ・出力テキストは表示モードに影響されない。
+    //   - 「省略名称」トグルで表示を songShortTitle（省略名称）へ切り替え、一覧を
+    //     レコード表示から折り返しボタン（.popup__list--compact）へ詰めて表示する。
+    //     追加されるのは常に正式名称なので、セトリ・出力テキストは表示モードに依らない。
     // 状態変更は addSong ミューテータ経由のみ。描画は renderAll を直接呼ぶ。
     // 結線は initAddSongPopup() で行い、二重結線を防ぐためフラグで冪等化する
     // （後続 4.1 bootstrap から再度呼ばれても安全）。
@@ -1368,7 +2022,7 @@
       });
     }
 
-    /** 省略名称モードの保存キー（表示設定のみ。リセットでは消さない）。 */
+    /** 省略名称モードの保存キー（表示設定のみ。リセットや保存データとは独立）。 */
     const SHORT_MODE_STORAGE_KEY = 'yuisrus-setlist:popup-short-mode:v1';
 
     /** 曲選択ポップアップを省略名称＋ボタン詰め表示にするか（true=省略名称）。 */
@@ -1401,24 +2055,6 @@
     }
 
     /**
-     * ポップアップ一覧に表示する曲名を返す。
-     * 省略名称モードでは short を用い、未設定（空文字・非文字列）なら title へ
-     * フォールバックする。state に入るのは常に title なので出力テキストは変わらない。
-     * @param {Song} song 曲マスタの1曲
-     * @param {boolean} useShort 省略名称で表示するか
-     * @returns {string} 一覧に表示する文字列
-     */
-    function songDisplayName(song, useShort) {
-      const source = song || {};
-      const title = typeof source.title === 'string' ? source.title : '';
-      if (!useShort) {
-        return title;
-      }
-      const short = typeof source.short === 'string' ? source.short.trim() : '';
-      return short !== '' ? short : title;
-    }
-
-    /**
      * ポップアップの曲一覧（#popup-list）を SONG_MASTER のあいうえお順で描画する。
      * 各項目はタップ追加用のボタンで、タップで addSong→renderAll→閉じる（3.4）。
      * 曲名は textContent で挿入する（XSS安全）。
@@ -1447,7 +2083,7 @@
       const fragment = document.createDocumentFragment();
       songs.forEach(function (song) {
         const title = typeof song.title === 'string' ? song.title : '';
-        const label = songDisplayName(song, popupShortMode);
+        const label = popupShortMode ? songShortTitle(title) : title;
 
         const item = document.createElement('li');
         item.className = 'popup__item';
@@ -1555,6 +2191,934 @@
       loadPopupShortMode();   // 前回選んだ表示モードを復元
       syncPopupShortToggle(); // トグルの押下表示を復元値へ同期
       addSongPopupWired = true;
+    }
+
+    // ============================================================
+    // Saved Setlist Controller: 保存・一覧・読込・削除の制御（SavedSetlistController）
+    // ------------------------------------------------------------
+    // 責務:
+    //   - 「DBに追加」タップで現在の state を保存一覧へ1件追加する（明示操作）。
+    //     セトリが空のときは保存せずトーストで知らせる。
+    //   - 「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
+    //     出力したテキストを parseSetlistText で読み取って1件追加する。
+    //   - 「保存一覧」タップで保存済みを日付の新しい順に一覧表示する。
+    //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
+    //   - 各項目の削除ボタンで1件削除する（確認あり）。
+    // state 変更後は必ず applyStateToInputs → renderAll → saveState の順で反映する。
+    // 見出し・会場名は textContent で挿入する（XSS安全）。
+    // 結線は initSavedSetlist() で行い、フラグで冪等化する。
+    // ============================================================
+
+    /** 保存操作の通知文。 */
+    const SAVE_EMPTY_MESSAGE = 'セトリが空です';
+    const SAVE_SUCCESS_MESSAGE = 'DBに追加しました';
+    const SAVE_FAILURE_MESSAGE = '保存に失敗しました';
+    const IMPORT_FAILURE_MESSAGE = 'セトリを読み取れませんでした';
+
+    /**
+     * 保存済み1件の見出し（日付＋ライブ名）を組み立てる（純粋関数）。
+     * どちらも未入力なら保存時刻、それも無ければ既定文言へフォールバックする。
+     * @param {SavedSetlist} record 保存済みセトリ
+     * @returns {string} 一覧に表示する見出し
+     */
+    function formatSavedTitle(record) {
+      const parts = [];
+      const date = formatDate(record.date);
+      if (date !== '') {
+        parts.push(date);
+      }
+      if (record.liveName !== '') {
+        parts.push('『' + record.liveName + '』');
+      }
+      if (parts.length === 0) {
+        return record.savedAt !== '' ? record.savedAt.slice(0, 10) : '（無題のセトリ）';
+      }
+      return parts.join(' ');
+    }
+
+    /**
+     * 保存済み1件の補足行（会場・曲数）を組み立てる（純粋関数）。
+     * @param {SavedSetlist} record 保存済みセトリ
+     * @returns {string} 一覧に表示する補足文
+     */
+    function formatSavedMeta(record) {
+      const parts = [];
+      if (record.venue !== '') {
+        parts.push(record.venue);
+      }
+      parts.push(record.setlist.length + '曲');
+      return parts.join('・');
+    }
+
+    /**
+     * 保存済みセトリを作業中の state へ読み込む。
+     * 現在のセトリが空でない場合のみ上書き確認を出す（誤タップ防止）。
+     * 保存データを直接参照しないよう setlist はコピーして渡す。
+     * @param {SavedSetlist} record 読み込む保存データ
+     * @returns {void}
+     */
+    function applySavedSetlist(record) {
+      if (
+        state.setlist.length > 0 &&
+        !window.confirm('現在のセトリを保存データで置き換えます。よろしいですか？')
+      ) {
+        return;
+      }
+      state.date = record.date;
+      state.liveName = record.liveName;
+      state.venue = record.venue;
+      state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
+
+      applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
+      renderAll();          // セトリ表を再描画して連番同期
+      saveState();          // 作業中データとしても保存
+      closeSavedPopup();
+      showToast('読み込みました');
+    }
+
+    /**
+     * 保存一覧（#saved-list）を日付の新しい順（同日は追加の新しい順）で全再描画する。
+     * 曲での絞り込み（savedFilter）が有効な場合は該当するライブだけを描画し、
+     * 条件バー（#saved-filter）も更新する。
+     * 各項目は読込ボタンと削除ボタンからなる。0件なら空メッセージを出す。
+     * @returns {void}
+     */
+    function renderSavedList() {
+      const list = document.getElementById('saved-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const records = filterSavedSetlists(loadSavedSetlists(), savedFilter);
+      renderSavedFilter(records.length); // 条件バー（絞り込み中のみ表示）
+
+      if (records.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = savedFilter.length > 0
+          ? '選択した曲をすべて含むライブはありません'
+          : '保存したセトリはありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      records.forEach(function (record) {
+        const heading = formatSavedTitle(record);
+
+        const item = document.createElement('li');
+        item.className = 'popup__item popup__item--saved';
+
+        const loadButton = document.createElement('button');
+        loadButton.type = 'button';
+        loadButton.className = 'popup__item-button';
+        loadButton.dataset.role = 'saved-load';
+
+        const label = document.createElement('span');
+        label.className = 'popup__item-label';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'popup__item-title';
+        titleEl.textContent = heading; // textContent で挿入（XSS安全）
+
+        const metaEl = document.createElement('span');
+        metaEl.className = 'popup__item-meta';
+        metaEl.textContent = formatSavedMeta(record);
+
+        label.appendChild(titleEl);
+        label.appendChild(metaEl);
+        loadButton.appendChild(label);
+        loadButton.addEventListener('click', function () {
+          applySavedSetlist(record);
+        });
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'setlist__remove popup__item-remove';
+        removeButton.dataset.role = 'saved-remove';
+        removeButton.textContent = '削除';
+        removeButton.setAttribute('aria-label', heading + ' を削除');
+        removeButton.addEventListener('click', function () {
+          // 復元できない操作のため確認する（誤タップ防止）。
+          if (!window.confirm('この保存データを削除します。よろしいですか？')) {
+            return;
+          }
+          if (removeSavedSetlist(record.id)) {
+            renderSavedList(); // 一覧を最新化
+            showToast('削除しました');
+          } else {
+            showToast(SAVE_FAILURE_MESSAGE);
+          }
+        });
+
+        item.appendChild(loadButton);
+        item.appendChild(removeButton);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 貼り付け取り込みフォームを開く（テキスト入力へフォーカスする）。
+     * 他の人がこのツールで出力したテキストを、そのまま貼って取り込むための入口。
+     * @returns {void}
+     */
+    function openImportForm() {
+      const form = document.getElementById('saved-add');
+      const input = document.getElementById('saved-add-input');
+      if (!form) {
+        return;
+      }
+      form.hidden = false;
+      if (input) {
+        input.focus();
+      }
+    }
+
+    /**
+     * 貼り付け取り込みフォームを閉じ、入力内容を捨てる。
+     * @returns {void}
+     */
+    function closeImportForm() {
+      const form = document.getElementById('saved-add');
+      const input = document.getElementById('saved-add-input');
+      if (!form) {
+        return;
+      }
+      form.hidden = true;
+      if (input) {
+        input.value = '';
+      }
+    }
+
+    /**
+     * 入力されたテキストを読み取り、取り込みを開始する。
+     * 曲を1曲も読み取れない場合は何もせずトーストで知らせる（入力は残す）。
+     * 曲マスタに無い曲名があれば確認へ進む（startImport）。
+     * @returns {void}
+     */
+    function submitImportForm() {
+      const input = document.getElementById('saved-add-input');
+      if (!input) {
+        return;
+      }
+      const parsed = parseSetlistText(input.value);
+      if (!parsed) {
+        showToast(IMPORT_FAILURE_MESSAGE); // 書き直せるよう入力は消さない
+        return;
+      }
+      startImport(parsed);
+    }
+
+    /**
+     * 読み取ったセトリを保存一覧へ1件追加し、一覧を最新化する。
+     * 追加した1件が絞り込みで隠れないよう、成功時は絞り込みを解除する。
+     * @param {{date: string, liveName: string, venue: string, setlist: string[]}} source 追加する内容
+     * @returns {void}
+     */
+    function commitImport(source) {
+      const record = appendSavedSetlist(source);
+      if (!record) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      closeImportForm();
+      resetSearchSelection(); // 追加した1件が絞り込みで隠れないようにする
+      renderSavedList();
+      updateSearchRunButton();
+      showToast(record.setlist.length + '曲のセトリを追加しました');
+    }
+
+    /**
+     * 保存一覧ポップアップを開く（表示直前に最新の保存データを描画する）。
+     * @returns {void}
+     */
+    function openSavedPopup() {
+      const overlay = document.getElementById('saved-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderSavedList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 保存一覧ポップアップを閉じる（作業中の state は変更しない）。
+     * 次に開いたときは常に全件から始められるよう、曲での絞り込みと選択を捨てる。
+     * @returns {void}
+     */
+    function closeSavedPopup() {
+      const overlay = document.getElementById('saved-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+      if (pendingImport) {
+        pendingImport = null; // 確認中の取り込みは持ち越さない
+        closeResolvePopup();
+      }
+      closeImportForm();
+      resetSearchSelection();
+    }
+
+    /**
+     * 「DBに追加」「保存一覧」「閉じる」ボタンの結線を行う初期化（冪等）。
+     * 二重結線を避けるため一度だけ実行する（項目側の結線は renderSavedList が都度行う）。
+     * @returns {void}
+     */
+    let savedSetlistWired = false;
+    function initSavedSetlist() {
+      if (savedSetlistWired) {
+        return;
+      }
+      const saveButton = document.getElementById('btn-save-db');
+      const listButton = document.getElementById('btn-saved-list');
+      const closeButton = document.getElementById('btn-saved-close');
+      const importOpenButton = document.getElementById('btn-saved-add-open');
+      const importCancelButton = document.getElementById('btn-saved-add-cancel');
+      const importSubmitButton = document.getElementById('btn-saved-add-submit');
+
+      if (saveButton) {
+        saveButton.addEventListener('click', function () {
+          if (state.setlist.length === 0) {
+            showToast(SAVE_EMPTY_MESSAGE); // 空セトリは保存しない
+            return;
+          }
+          const record = appendSavedSetlist(state);
+          showToast(record ? SAVE_SUCCESS_MESSAGE : SAVE_FAILURE_MESSAGE);
+        });
+      }
+      if (listButton) {
+        listButton.addEventListener('click', openSavedPopup);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeSavedPopup);
+      }
+      if (importOpenButton) {
+        importOpenButton.addEventListener('click', openImportForm);
+      }
+      if (importCancelButton) {
+        importCancelButton.addEventListener('click', closeImportForm);
+      }
+      if (importSubmitButton) {
+        importSubmitButton.addEventListener('click', submitImportForm);
+      }
+      savedSetlistWired = true;
+    }
+
+    // ============================================================
+    // Import Resolve Controller: 取り込み時の曲名確認（ImportResolveController）
+    // ------------------------------------------------------------
+    // 貼り付けたテキストの曲名を曲マスタと照合し、一致した曲は正式名称へ揃える
+    // （省略名称や空白差での表記ゆれもここで吸収する）。一致しなかった曲名は
+    // その場でユーザーへ確認する: 曲一覧から選ぶ／このまま追加／この曲を除く。
+    // 同じ曲名が複数行にある場合は1回の確認をすべての行へまとめて適用する。
+    // 確認をすべて終えたら（または未知の曲が無ければ）保存一覧へ1件追加する。
+    // ============================================================
+
+    /**
+     * 確認待ちの取り込みデータ。確認中のみ保持し、完了・中止で null へ戻す。
+     * setlist の null は「除く」と決めた行で、追加時に取り除く。
+     * @type {{date: string, liveName: string, venue: string,
+     *   setlist: Array<string|null>, queue: string[], position: number}|null}
+     */
+    let pendingImport = null;
+
+    /**
+     * 読み取ったセトリの曲名を曲マスタと照合し、取り込みを開始する。
+     * 未知の曲名が無ければそのまま追加し、あれば確認ポップアップを開く。
+     * @param {{date: string, liveName: string, venue: string, setlist: string[]}} parsed 読み取り結果
+     * @returns {void}
+     */
+    function startImport(parsed) {
+      const setlist = [];
+      const queue = [];
+
+      parsed.setlist.forEach(function (title) {
+        const resolved = resolveSongTitle(title);
+        setlist.push(resolved !== null ? resolved : title); // 一致した曲は正式名称へ揃える
+        if (resolved === null && queue.indexOf(title) === -1) {
+          queue.push(title); // 同じ曲名は1回だけ確認する
+        }
+      });
+
+      if (queue.length === 0) {
+        commitImport({
+          date: parsed.date,
+          liveName: parsed.liveName,
+          venue: parsed.venue,
+          setlist: setlist
+        });
+        return;
+      }
+
+      pendingImport = {
+        date: parsed.date,
+        liveName: parsed.liveName,
+        venue: parsed.venue,
+        setlist: setlist,
+        queue: queue,
+        position: 0
+      };
+      openResolvePopup();
+    }
+
+    /**
+     * 確認中の曲名を持つ行をまとめて置き換える。
+     * @param {string|null} value 置き換える曲名。null はその行を取り込みから除く印
+     * @returns {void}
+     */
+    function replaceResolveTarget(value) {
+      const target = pendingImport.queue[pendingImport.position];
+      pendingImport.setlist = pendingImport.setlist.map(function (title) {
+        return title === target ? value : title;
+      });
+    }
+
+    /**
+     * 次の確認へ進む。残りが無ければ取り込みを確定する。
+     * @returns {void}
+     */
+    function advanceResolve() {
+      if (!pendingImport) {
+        return;
+      }
+      pendingImport.position += 1;
+      if (pendingImport.position < pendingImport.queue.length) {
+        renderResolveStep();
+        return;
+      }
+      finishResolve();
+    }
+
+    /**
+     * すべての確認を終えて保存一覧へ追加する。
+     * 「除く」で曲が無くなった場合は追加せずトーストで知らせる。
+     * @returns {void}
+     */
+    function finishResolve() {
+      const source = pendingImport;
+      pendingImport = null;
+      closeResolvePopup();
+
+      const setlist = source.setlist.filter(function (title) {
+        return typeof title === 'string' && title !== '';
+      });
+      if (setlist.length === 0) {
+        showToast('取り込む曲がなくなりました');
+        return;
+      }
+      commitImport({
+        date: source.date,
+        liveName: source.liveName,
+        venue: source.venue,
+        setlist: setlist
+      });
+    }
+
+    /**
+     * 取り込みを中止する（貼り付けた文面は残すので書き直して再実行できる）。
+     * @returns {void}
+     */
+    function cancelResolve() {
+      pendingImport = null;
+      closeResolvePopup();
+      showToast('取り込みを中止しました');
+    }
+
+    /**
+     * 確認中の曲名を、選んだ曲マスタの曲へ置き換えて次へ進む。
+     * @param {string} title 選んだ曲の正式名称
+     * @returns {void}
+     */
+    function chooseResolveSong(title) {
+      if (!pendingImport) {
+        return;
+      }
+      replaceResolveTarget(title);
+      advanceResolve();
+    }
+
+    /**
+     * 確認中の曲名を読み取ったまま取り込んで次へ進む（マスタに無い曲名のまま残す）。
+     * @returns {void}
+     */
+    function keepResolveSong() {
+      if (!pendingImport) {
+        return;
+      }
+      advanceResolve(); // 置き換えないのでそのまま残る
+    }
+
+    /**
+     * 確認中の曲名の行を取り込みから除いて次へ進む。
+     * @returns {void}
+     */
+    function skipResolveSong() {
+      if (!pendingImport) {
+        return;
+      }
+      replaceResolveTarget(null);
+      advanceResolve();
+    }
+
+    /**
+     * 確認用の曲一覧（#resolve-list）を SONG_MASTER のあいうえお順で描画する。
+     * 曲名タップでその曲へ置き換える。曲名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderResolveList() {
+      const list = document.getElementById('resolve-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const songs = getSortedSongMaster();
+
+      if (songs.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '選択できる曲がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      songs.forEach(function (song) {
+        const title = typeof song.title === 'string' ? song.title : '';
+
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button';
+        button.dataset.role = 'resolve-option';
+        button.textContent = title; // textContent で挿入（XSS安全）
+        button.addEventListener('click', function () {
+          chooseResolveSong(title);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 確認中の1件分（進捗と対象の曲名、曲一覧）を描画する。
+     * 一覧は毎回描き直し、先頭から選べる状態にする。
+     * @returns {void}
+     */
+    function renderResolveStep() {
+      if (!pendingImport) {
+        return;
+      }
+      const progress = document.getElementById('resolve-progress');
+      const unknown = document.getElementById('resolve-unknown');
+
+      if (progress) {
+        progress.textContent = pendingImport.queue.length + '件中 ' +
+          (pendingImport.position + 1) + '件目';
+      }
+      if (unknown) {
+        // textContent で挿入（XSS安全）。
+        unknown.textContent = '「' + pendingImport.queue[pendingImport.position] + '」';
+      }
+      renderResolveList();
+      scrollResolveListTop();
+    }
+
+    /**
+     * 確認用の曲一覧を先頭までスクロールする。
+     * 非表示（hidden）の間はスクロール位置を変えられないため、表示にした
+     * 直後にも呼ぶ必要がある。
+     * @returns {void}
+     */
+    function scrollResolveListTop() {
+      const body = document.querySelector('#resolve-overlay .popup__body');
+      if (body) {
+        body.scrollTop = 0;
+      }
+    }
+
+    /**
+     * 曲名確認ポップアップを開く（保存一覧の上に重ねて表示する）。
+     * @returns {void}
+     */
+    function openResolvePopup() {
+      const overlay = document.getElementById('resolve-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderResolveStep();   // 中身を用意してから表示する
+      overlay.hidden = false;
+      scrollResolveListTop(); // 表示後でないとスクロール位置は反映されない
+    }
+
+    /**
+     * 曲名確認ポップアップを閉じる（確認状態の後始末は呼び出し側の責務）。
+     * @returns {void}
+     */
+    function closeResolvePopup() {
+      const overlay = document.getElementById('resolve-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 確認ポップアップのボタン（中止／このまま追加／この曲を除く）を結線する（冪等）。
+     * 曲一覧の結線は renderResolveList 側で都度行う。
+     * @returns {void}
+     */
+    let importResolveWired = false;
+    function initImportResolve() {
+      if (importResolveWired) {
+        return;
+      }
+      const cancelButton = document.getElementById('btn-resolve-cancel');
+      const keepButton = document.getElementById('btn-resolve-keep');
+      const skipButton = document.getElementById('btn-resolve-skip');
+
+      if (cancelButton) {
+        cancelButton.addEventListener('click', cancelResolve);
+      }
+      if (keepButton) {
+        keepButton.addEventListener('click', keepResolveSong);
+      }
+      if (skipButton) {
+        skipButton.addEventListener('click', skipResolveSong);
+      }
+      importResolveWired = true;
+    }
+
+    // ============================================================
+    // Saved Setlist Search Controller: 曲での絞り込み（SavedSetlistSearchController）
+    // ------------------------------------------------------------
+    // 責務:
+    //   - 保存一覧の「検索する」タップで曲一覧ポップアップを開く。
+    //   - 曲はタップで選択／もう一度タップで解除するトグル（複数選択可）。
+    //     一覧はスクロール位置を保つため、トグル時は該当項目だけを更新する。
+    //   - ポップアップ上部の「検索」タップで、選択した曲を **すべて** 含むライブ
+    //     （AND 条件）だけを保存一覧へ表示する。未選択で検索した場合は全件へ戻す。
+    //   - 絞り込み中は条件バーを表示し、「解除」で全件へ戻せる。
+    // 絞り込みは表示だけの操作で、保存データも作業中の state も変更しない。
+    // ============================================================
+
+    /** 曲一覧で選択中の曲タイトル（検索ボタンを押すまでは確定しない）。 */
+    let searchSelection = [];
+
+    /** 保存一覧へ適用中の絞り込み条件（検索ボタン押下で確定した曲タイトル）。 */
+    let savedFilter = [];
+
+    /**
+     * 選択中の曲と絞り込み条件をどちらも捨てる（全件表示の状態へ戻す）。
+     * 描画は呼び出し側で行う。
+     * @returns {void}
+     */
+    function resetSearchSelection() {
+      searchSelection = [];
+      savedFilter = [];
+    }
+
+    /**
+     * 指定した曲が選択中かを返す。
+     * @param {string} title 曲タイトル
+     * @returns {boolean} 選択中なら true
+     */
+    function isSongSelected(title) {
+      return searchSelection.indexOf(title) !== -1;
+    }
+
+    /**
+     * 曲の選択状態を反転する（未選択→選択／選択→未選択）。
+     * @param {string} title 曲タイトル
+     * @returns {boolean} 反転後に選択中なら true
+     */
+    function toggleSongSelection(title) {
+      const index = searchSelection.indexOf(title);
+      if (index === -1) {
+        searchSelection.push(title);
+        return true;
+      }
+      searchSelection.splice(index, 1);
+      return false;
+    }
+
+    /**
+     * 保存済みセトリを、指定した曲を **すべて** 含むものだけへ絞り込む（純粋関数）。
+     * 条件が空なら元の配列をそのまま返す（全件表示）。
+     * @param {SavedSetlist[]} records 絞り込み対象
+     * @param {string[]} titles 条件となる曲タイトル（AND 条件）
+     * @returns {SavedSetlist[]} 条件を満たす保存済みセトリ
+     */
+    function filterSavedSetlists(records, titles) {
+      if (!Array.isArray(titles) || titles.length === 0) {
+        return records;
+      }
+      return records.filter(function (record) {
+        return titles.every(function (title) {
+          return record.setlist.indexOf(title) !== -1;
+        });
+      });
+    }
+
+    /**
+     * 絞り込み条件バー（#saved-filter）を更新する。
+     * 絞り込み中のみ表示し、条件の曲を1曲ずつチップで並べる。各チップは
+     * 解除ボタンを持ち、押すとその曲だけを条件から外す。
+     * 曲名は textContent で挿入する（XSS安全）。
+     * @param {number} matchedCount 条件を満たしたライブの件数
+     * @returns {void}
+     */
+    function renderSavedFilter(matchedCount) {
+      const bar = document.getElementById('saved-filter');
+      const list = document.getElementById('saved-filter-list');
+      const count = document.getElementById('saved-filter-count');
+      if (!bar || !list || !count) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存チップをクリア）
+
+      if (savedFilter.length === 0) {
+        bar.hidden = true;
+        count.textContent = '';
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      savedFilter.forEach(function (title) {
+        // 幅を取らないよう省略名称で表示する（未設定の曲はタイトルのまま）。
+        const label = songShortTitle(title);
+
+        const item = document.createElement('li');
+        item.className = 'saved-filter__item';
+        if (label !== title) {
+          item.title = title; // 省略時はホバーで正式名称を確認できる
+        }
+
+        const song = document.createElement('span');
+        song.className = 'saved-filter__song';
+        song.textContent = '「' + label + '」'; // textContent で挿入（XSS安全）
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'saved-filter__remove';
+        removeButton.dataset.role = 'filter-remove';
+        removeButton.textContent = '✕';
+        removeButton.setAttribute('aria-label', '「' + label + '」を条件から外す');
+        removeButton.addEventListener('click', function () {
+          removeFilterSong(title);
+        });
+
+        item.appendChild(song);
+        item.appendChild(removeButton);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+
+      count.textContent = '該当 ' + matchedCount + '件';
+      bar.hidden = false;
+    }
+
+    /**
+     * 現在の絞り込み条件での該当件数をトーストで知らせる。
+     * 条件が無い場合は全件表示へ戻った旨を出す。
+     * @returns {void}
+     */
+    function showFilterResultToast() {
+      if (savedFilter.length === 0) {
+        showToast('すべてのライブを表示しました');
+        return;
+      }
+      const matched = filterSavedSetlists(loadSavedSetlists(), savedFilter).length;
+      showToast(matched === 0 ? '該当するライブはありません' : matched + '件見つかりました');
+    }
+
+    /**
+     * 条件から曲を1つ外し、残りの条件で検索し直す。
+     * 曲一覧の選択状態も揃えるので、検索ポップアップを開き直すと条件と一致する。
+     * 最後の1曲を外した場合は絞り込みが無くなり全件表示へ戻る。
+     * @param {string} title 条件から外す曲タイトル
+     * @returns {void}
+     */
+    function removeFilterSong(title) {
+      const index = savedFilter.indexOf(title);
+      if (index === -1) {
+        return;
+      }
+      savedFilter.splice(index, 1);
+
+      const selectedIndex = searchSelection.indexOf(title);
+      if (selectedIndex !== -1) {
+        searchSelection.splice(selectedIndex, 1);
+      }
+
+      renderSavedList();       // 残った条件で絞り込み直す
+      updateSearchRunButton(); // 「検索（N曲）」の件数も揃える
+      showFilterResultToast();
+    }
+
+    /**
+     * 曲一覧の1項目の見た目・aria を選択状態に合わせて更新する。
+     * 全再描画するとスクロール位置が先頭へ戻るため、トグル時はこれだけを呼ぶ。
+     * @param {HTMLButtonElement} button 対象の項目ボタン
+     * @param {boolean} selected 選択中なら true
+     * @returns {void}
+     */
+    function updateSearchItem(button, selected) {
+      button.classList.toggle('popup__item-button--selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      const check = button.querySelector('.popup__item-check');
+      if (check) {
+        check.textContent = selected ? '✓' : '';
+      }
+    }
+
+    /**
+     * 「検索」ボタンの表示を選択件数に合わせて更新する（未選択時は件数を出さない）。
+     * @returns {void}
+     */
+    function updateSearchRunButton() {
+      const runButton = document.getElementById('btn-search-run');
+      if (!runButton) {
+        return;
+      }
+      runButton.textContent = searchSelection.length === 0
+        ? '検索'
+        : '検索（' + searchSelection.length + '曲）';
+    }
+
+    /**
+     * 検索用の曲一覧（#search-list）を SONG_MASTER のあいうえお順で描画する。
+     * 各項目はトグルボタン（aria-pressed）で、タップのたびに選択状態を反転する。
+     * 曲名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderSearchList() {
+      const list = document.getElementById('search-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const songs = getSortedSongMaster();
+
+      if (songs.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '選択できる曲がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      songs.forEach(function (song) {
+        const title = typeof song.title === 'string' ? song.title : '';
+        const selected = isSongSelected(title);
+
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button popup__item-button--search';
+        button.dataset.role = 'search-option';
+
+        const check = document.createElement('span');
+        check.className = 'popup__item-check';
+        check.setAttribute('aria-hidden', 'true'); // 状態は aria-pressed で伝える
+
+        const label = document.createElement('span');
+        label.className = 'popup__item-title';
+        label.textContent = title; // textContent で挿入（XSS安全）
+
+        button.appendChild(check);
+        button.appendChild(label);
+        updateSearchItem(button, selected); // 初期表示（選択中なら塗り＋チェック）
+
+        button.addEventListener('click', function () {
+          // トグル: 1回目のタップで選択、もう一度で解除する。
+          const nowSelected = toggleSongSelection(title);
+          updateSearchItem(button, nowSelected); // 該当項目のみ更新（スクロール維持）
+          updateSearchRunButton();
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 曲検索ポップアップを開く（保存一覧の上に重ねて表示する）。
+     * 直前の選択状態を保ったまま開き直せるよう、選択は破棄しない。
+     * @returns {void}
+     */
+    function openSearchPopup() {
+      const overlay = document.getElementById('search-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderSearchList();      // 表示直前に最新のマスタ＋選択状態を反映
+      updateSearchRunButton();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 曲検索ポップアップを閉じる（選択状態・絞り込みは変更しない）。
+     * @returns {void}
+     */
+    function closeSearchPopup() {
+      const overlay = document.getElementById('search-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 選択中の曲で保存一覧を絞り込む（AND 条件）。
+     * 未選択のまま検索した場合は絞り込みを解除して全件表示へ戻す。
+     * @returns {void}
+     */
+    function runSearch() {
+      savedFilter = searchSelection.slice(); // 押した時点の選択を確定する
+      renderSavedList();
+      closeSearchPopup();
+      showFilterResultToast();
+    }
+
+    /**
+     * 検索まわり（検索する／検索／閉じる）の結線を行う初期化（冪等）。
+     * 曲一覧のトグル結線は renderSearchList、条件チップの解除結線は
+     * renderSavedFilter 側で都度行う。
+     * @returns {void}
+     */
+    let savedSearchWired = false;
+    function initSavedSearch() {
+      if (savedSearchWired) {
+        return;
+      }
+      const openButton = document.getElementById('btn-search-open');
+      const runButton = document.getElementById('btn-search-run');
+      const closeButton = document.getElementById('btn-search-close');
+
+      if (openButton) {
+        openButton.addEventListener('click', openSearchPopup);
+      }
+      if (runButton) {
+        runButton.addEventListener('click', runSearch);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeSearchPopup);
+      }
+      savedSearchWired = true;
     }
 
     // ============================================================
@@ -1722,6 +3286,9 @@
       initCopyAction();      // コピー結線（5.1, 5.5–5.7）
       initResetAction();     // リセット（全削除）結線
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
+      initSavedSetlist();    // DBに追加／保存一覧の結線（冪等）
+      initSavedSearch();     // 曲での絞り込み検索の結線（冪等）
+      initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
     }
 
