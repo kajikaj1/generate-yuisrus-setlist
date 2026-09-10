@@ -100,6 +100,28 @@
       outline-offset: 1px;
     }
 
+    /* ===== Page header（保存したセトリページの見出し行） ===== */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--gap);
+    }
+
+    .page-header__title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* ページ内の操作ボタン群（追加・検索する・バックアップ） */
+    .page-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--gap);
+    }
+
     /* ===== Setlist table area ===== */
     .app__main {
       flex: 1 1 auto;
@@ -678,7 +700,8 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <!-- ===== Page: セトリ作成（既定の画面） ===== -->
+  <div class="app" id="page-main" data-role="page-main">
     <!-- ===== Header: live info inputs ===== -->
     <header class="app__header">
       <div class="field">
@@ -746,59 +769,59 @@
     </div>
   </div>
 
-  <!-- ===== Saved setlists popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="saved-overlay" data-role="saved-overlay" hidden>
-    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="saved-title">
-      <div class="popup__header">
-        <h2 class="popup__title" id="saved-title">保存したセトリ</h2>
-        <div class="popup__header-actions">
-          <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
-          <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
-          <button type="button" class="btn btn--add" id="btn-backup-open" data-role="backup-open">バックアップ</button>
-          <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
-        </div>
-      </div>
-      <div class="popup__body">
-        <div class="saved-add" id="saved-add" data-role="saved-add" hidden>
-          <label class="saved-add__label" for="saved-add-input">コピーしたセトリを貼り付けてください</label>
-          <textarea class="saved-add__input" id="saved-add-input" data-role="saved-add-input"
-            placeholder="2026.09.10(水)&#10;『ライブ名』&#10;会場：会場名&#10;1.曲名&#10;2.曲名"></textarea>
-          <div class="saved-add__actions">
-            <button type="button" class="btn btn--ghost" id="btn-saved-add-cancel"
-              data-role="saved-add-cancel">キャンセル</button>
-            <button type="button" class="btn btn--copy" id="btn-saved-add-submit"
-              data-role="saved-add-submit">この内容で追加</button>
-          </div>
-        </div>
-        <div class="saved-add saved-backup" id="saved-backup" data-role="saved-backup" hidden>
-          <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
-          <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
-            spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
-          <div class="saved-add__actions">
-            <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
-            <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
-          </div>
-          <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
-          <div class="saved-add__actions">
-            <button type="button" class="btn btn--ghost" id="btn-backup-cancel" data-role="backup-cancel">閉じる</button>
-            <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
-            <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
-          </div>
-          <input type="file" id="saved-backup-file" data-role="saved-backup-file"
-            accept="application/json,.json" hidden>
-        </div>
-        <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
-          <span class="saved-filter__label">すべて含む:</span>
-          <ul class="saved-filter__list" id="saved-filter-list" data-role="saved-filter-list">
-            <!-- 条件の曲チップは renderSavedFilter() が描画する -->
-          </ul>
-          <span class="saved-filter__count" id="saved-filter-count"></span>
-        </div>
-        <ul class="popup__list" id="saved-list" data-role="saved-list">
-          <!-- 保存済み一覧は renderSavedList() が描画する -->
-        </ul>
-      </div>
+  <!-- ===== Page: 保存したセトリ（URL の #saved で表示する別ページ） ===== -->
+  <div class="app" id="page-saved" data-role="page-saved" hidden>
+    <header class="page-header">
+      <h1 class="page-header__title">保存したセトリ</h1>
+      <button type="button" class="btn btn--ghost" id="btn-saved-back" data-role="saved-back">← 戻る</button>
+    </header>
+
+    <div class="page-actions">
+      <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
+      <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
+      <button type="button" class="btn btn--add" id="btn-backup-open" data-role="backup-open">バックアップ</button>
     </div>
+
+    <main class="app__main">
+      <div class="saved-add" id="saved-add" data-role="saved-add" hidden>
+        <label class="saved-add__label" for="saved-add-input">コピーしたセトリを貼り付けてください</label>
+        <textarea class="saved-add__input" id="saved-add-input" data-role="saved-add-input"
+          placeholder="2026.09.10(水)&#10;『ライブ名』&#10;会場：会場名&#10;1.曲名&#10;2.曲名"></textarea>
+        <div class="saved-add__actions">
+          <button type="button" class="btn btn--ghost" id="btn-saved-add-cancel"
+            data-role="saved-add-cancel">キャンセル</button>
+          <button type="button" class="btn btn--copy" id="btn-saved-add-submit"
+            data-role="saved-add-submit">この内容で追加</button>
+        </div>
+      </div>
+      <div class="saved-add saved-backup" id="saved-backup" data-role="saved-backup" hidden>
+        <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
+        <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
+          spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
+        <div class="saved-add__actions">
+          <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
+          <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
+        </div>
+        <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
+        <div class="saved-add__actions">
+          <button type="button" class="btn btn--ghost" id="btn-backup-cancel" data-role="backup-cancel">閉じる</button>
+          <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
+          <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
+        </div>
+        <input type="file" id="saved-backup-file" data-role="saved-backup-file"
+          accept="application/json,.json" hidden>
+      </div>
+      <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
+        <span class="saved-filter__label">すべて含む:</span>
+        <ul class="saved-filter__list" id="saved-filter-list" data-role="saved-filter-list">
+          <!-- 条件の曲チップは renderSavedFilter() が描画する -->
+        </ul>
+        <span class="saved-filter__count" id="saved-filter-count"></span>
+      </div>
+      <ul class="popup__list" id="saved-list" data-role="saved-list">
+        <!-- 保存済み一覧は renderSavedList() が描画する -->
+      </ul>
+    </main>
   </div>
 
   <!-- ===== Song search popup (initially hidden) ===== -->
@@ -2242,9 +2265,10 @@
     // 責務:
     //   - 「DBに追加」タップで現在の state を保存一覧へ1件追加する（明示操作）。
     //     セトリが空のときは保存せずトーストで知らせる。
-    //   - 「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
+    //   - 保存一覧ページの「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
     //     出力したテキストを parseSetlistText で読み取って1件追加する。
-    //   - 「保存一覧」タップで保存済みを日付の新しい順に一覧表示する。
+    //   - 「保存一覧」タップで保存一覧ページ（#saved）へ移動し、保存済みを
+    //     日付の新しい順に一覧表示する。
     //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
     //   - 各項目の削除ボタンで1件削除する（確認あり）。
     // state 変更後は必ず applyStateToInputs → renderAll → saveState の順で反映する。
@@ -2315,7 +2339,7 @@
       applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
       renderAll();          // セトリ表を再描画して連番同期
       saveState();          // 作業中データとしても保存
-      closeSavedPopup();
+      goBackToMainPage();   // 読み込んだセトリを編集できるようメイン画面へ戻る
       showToast('読み込みました');
     }
 
@@ -2783,40 +2807,24 @@
     }
 
     /**
-     * 保存一覧ポップアップを開く（表示直前に最新の保存データを描画する）。
+     * 保存一覧ページを離れるときの後始末（作業中の state は変更しない）。
+     * 確認中の取り込みは持ち越さず、次に開いたときは常に全件から始められるよう
+     * 曲での絞り込みと選択も捨てる。開いたままのポップアップやパネルは閉じる。
      * @returns {void}
      */
-    function openSavedPopup() {
-      const overlay = document.getElementById('saved-overlay');
-      if (!overlay) {
-        return;
-      }
-      renderSavedList();
-      overlay.hidden = false;
-    }
-
-    /**
-     * 保存一覧ポップアップを閉じる（作業中の state は変更しない）。
-     * 次に開いたときは常に全件から始められるよう、曲での絞り込みと選択を捨てる。
-     * @returns {void}
-     */
-    function closeSavedPopup() {
-      const overlay = document.getElementById('saved-overlay');
-      if (!overlay) {
-        return;
-      }
-      overlay.hidden = true;
+    function leaveSavedPage() {
       if (pendingImport) {
-        pendingImport = null; // 確認中の取り込みは持ち越さない
+        pendingImport = null;
         closeResolvePopup();
       }
+      closeSearchPopup();
       closeImportForm();
       closeBackupPanel();
       resetSearchSelection();
     }
 
     /**
-     * 「DBに追加」「保存一覧」「閉じる」ボタンの結線を行う初期化（冪等）。
+     * 「DBに追加」「保存一覧」「戻る」ボタンの結線を行う初期化（冪等）。
      * 二重結線を避けるため一度だけ実行する（項目側の結線は renderSavedList が都度行う）。
      * @returns {void}
      */
@@ -2827,7 +2835,7 @@
       }
       const saveButton = document.getElementById('btn-save-db');
       const listButton = document.getElementById('btn-saved-list');
-      const closeButton = document.getElementById('btn-saved-close');
+      const backButton = document.getElementById('btn-saved-back');
       const importOpenButton = document.getElementById('btn-saved-add-open');
       const importCancelButton = document.getElementById('btn-saved-add-cancel');
       const importSubmitButton = document.getElementById('btn-saved-add-submit');
@@ -2843,10 +2851,10 @@
         });
       }
       if (listButton) {
-        listButton.addEventListener('click', openSavedPopup);
+        listButton.addEventListener('click', goToSavedPage);
       }
-      if (closeButton) {
-        closeButton.addEventListener('click', closeSavedPopup);
+      if (backButton) {
+        backButton.addEventListener('click', goBackToMainPage);
       }
       if (importOpenButton) {
         importOpenButton.addEventListener('click', openImportForm);
@@ -3098,7 +3106,7 @@
     }
 
     /**
-     * 曲名確認ポップアップを開く（保存一覧の上に重ねて表示する）。
+     * 曲名確認ポップアップを開く（保存一覧ページの上に重ねて表示する）。
      * @returns {void}
      */
     function openResolvePopup() {
@@ -3153,7 +3161,7 @@
     // Saved Setlist Search Controller: 曲での絞り込み（SavedSetlistSearchController）
     // ------------------------------------------------------------
     // 責務:
-    //   - 保存一覧の「検索する」タップで曲一覧ポップアップを開く。
+    //   - 保存一覧ページの「検索する」タップで曲一覧ポップアップを開く。
     //   - 曲はタップで選択／もう一度タップで解除するトグル（複数選択可）。
     //     一覧はスクロール位置を保つため、トグル時は該当項目だけを更新する。
     //   - ポップアップ上部の「検索」タップで、選択した曲を **すべて** 含むライブ
@@ -3419,7 +3427,7 @@
     }
 
     /**
-     * 曲検索ポップアップを開く（保存一覧の上に重ねて表示する）。
+     * 曲検索ポップアップを開く（保存一覧ページの上に重ねて表示する）。
      * 直前の選択状態を保ったまま開き直せるよう、選択は破棄しない。
      * @returns {void}
      */
@@ -3487,6 +3495,101 @@
         closeButton.addEventListener('click', closeSearchPopup);
       }
       savedSearchWired = true;
+    }
+
+    // ============================================================
+    // Router: 画面切り替え（Router）
+    // ------------------------------------------------------------
+    // セトリ作成画面（既定）と保存一覧画面を URL のハッシュで切り替える。
+    // 保存一覧は `#saved`。別ページとして扱えるので、ブラウザの戻る／進む・
+    // リロード・ブックマーク・リンク共有がそのまま効く。
+    // 曲選択／曲検索／曲名確認は一時的な操作なのでポップアップのまま残す。
+    // ============================================================
+
+    /** 保存一覧ページを表す URL ハッシュ。 */
+    const SAVED_PAGE_HASH = '#saved';
+
+    /** 画面内の「保存一覧」から移動してきたか（「戻る」の挙動を分けるため）。 */
+    let enteredSavedPageInApp = false;
+
+    /**
+     * 現在の URL ハッシュから表示すべき画面名を返す。
+     * 未知のハッシュはメイン画面として扱う。
+     * @returns {'main'|'saved'} 画面名
+     */
+    function currentPageName() {
+      return window.location.hash === SAVED_PAGE_HASH ? 'saved' : 'main';
+    }
+
+    /**
+     * 指定した画面を表示する（もう一方は隠す）。
+     * 保存一覧を表示するときは最新の保存データを描画し、離れるときは
+     * 取り込みフォームやバックアップパネル、絞り込みを初期化する。
+     * @param {'main'|'saved'} name 表示する画面名
+     * @returns {void}
+     */
+    function renderPage(name) {
+      const mainPage = document.getElementById('page-main');
+      const savedPage = document.getElementById('page-saved');
+      if (!mainPage || !savedPage) {
+        return;
+      }
+      const showSaved = name === 'saved';
+      mainPage.hidden = showSaved;
+      savedPage.hidden = !showSaved;
+
+      if (showSaved) {
+        renderSavedList(); // 表示直前に最新の保存データを反映
+      } else {
+        enteredSavedPageInApp = false;
+        leaveSavedPage();
+      }
+      window.scrollTo(0, 0); // 別ページへ移った体感に合わせて先頭から表示する
+    }
+
+    /**
+     * 保存一覧ページへ移動する（履歴に積むのでブラウザの戻るで帰れる）。
+     * hashchange は次のタスクで発火するため、待たずにその場でも描画する
+     * （同じ内容の再描画になるだけなので、後から届く hashchange とも矛盾しない）。
+     * @returns {void}
+     */
+    function goToSavedPage() {
+      enteredSavedPageInApp = true;
+      window.location.hash = SAVED_PAGE_HASH;
+      renderPage(currentPageName());
+    }
+
+    /**
+     * メイン画面へ戻る。
+     * 画面内の操作で保存一覧へ来た場合はブラウザの履歴を1つ戻し、`#saved` を
+     * 直接開かれていた場合はハッシュを外す（履歴を無駄に増やさないため）。
+     * @returns {void}
+     */
+    function goBackToMainPage() {
+      if (enteredSavedPageInApp) {
+        enteredSavedPageInApp = false;
+        window.history.back();
+      } else {
+        window.location.hash = '';
+      }
+      renderPage('main'); // 履歴の移動を待たずに切り替える（hashchange でも同じ結果になる）
+    }
+
+    /**
+     * ハッシュ変更の結線と初期表示を行う（冪等）。
+     * ブラウザの戻る／進むでも同じ経路（hashchange）で画面が切り替わる。
+     * @returns {void}
+     */
+    let routerWired = false;
+    function initRouter() {
+      if (routerWired) {
+        return;
+      }
+      window.addEventListener('hashchange', function () {
+        renderPage(currentPageName());
+      });
+      routerWired = true;
+      renderPage(currentPageName()); // リロード・直リンクでも現在のハッシュに従う
     }
 
     // ============================================================
@@ -3659,6 +3762,7 @@
       initSavedBackup();     // 保存データの書き出し／取り込みの結線（冪等）
       initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
+      initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
     }
 
     // DOM 構築タイミングに依存しないよう、状態に応じて即時／DOMContentLoaded で一度だけ実行。
