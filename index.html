@@ -604,6 +604,11 @@
       gap: 8px;
     }
 
+    /* 書き出し／取り込みパネル（保存一覧の先頭。「バックアップ」で開閉する） */
+    .saved-backup p.saved-add__label {
+      margin: 0;
+    }
+
     /* 条件の曲を並べるチップ列。曲ごとに解除ボタンを持ち、1曲ずつ外せる。 */
     .saved-filter__list {
       display: flex;
@@ -749,6 +754,7 @@
         <div class="popup__header-actions">
           <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
           <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
+          <button type="button" class="btn btn--add" id="btn-backup-open" data-role="backup-open">バックアップ</button>
           <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
         </div>
       </div>
@@ -763,6 +769,23 @@
             <button type="button" class="btn btn--copy" id="btn-saved-add-submit"
               data-role="saved-add-submit">この内容で追加</button>
           </div>
+        </div>
+        <div class="saved-add saved-backup" id="saved-backup" data-role="saved-backup" hidden>
+          <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
+          <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
+            spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
+            <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
+          </div>
+          <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--ghost" id="btn-backup-cancel" data-role="backup-cancel">閉じる</button>
+            <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
+            <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
+          </div>
+          <input type="file" id="saved-backup-file" data-role="saved-backup-file"
+            accept="application/json,.json" hidden>
         </div>
         <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
           <span class="saved-filter__label">すべて含む:</span>
@@ -2390,6 +2413,7 @@
       if (!form) {
         return;
       }
+      closeBackupPanel(); // バックアップパネルとは排他にする
       form.hidden = false;
       if (input) {
         input.focus();
@@ -2451,6 +2475,313 @@
       showToast(record.setlist.length + '曲のセトリを追加しました');
     }
 
+    // ============================================================
+    // Backup Controller: 保存データの書き出し／取り込み（BackupController）
+    // ------------------------------------------------------------
+    // 責務:
+    //   - 「バックアップ」タップで保存一覧の全件を JSON として書き出し、コピー
+    //     または .json ファイルとして保存できるようにする（機種変更・受け渡し用）。
+    //   - 受け取った JSON を貼り付け／ファイル選択で取り込み、保存一覧へ追加する。
+    //     取り込みは「追加」のみで、既存データを消したり置き換えたりしない。
+    //   - 同じ内容のセトリ（日付・ライブ名・会場・曲順が一致）はスキップするため、
+    //     同じファイルを二度取り込んでも増えない。IDだけが衝突した場合は新しいID
+    //     を振り直して追加する（別物を取りこぼさないため）。
+    // 検証は既存の normalizeSavedSetlist に委ね、壊れた要素は静かに捨てる。
+    // ============================================================
+
+    /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
+    const BACKUP_FORMAT = 'yuisrus-setlist-backup';
+    const BACKUP_VERSION = 1;
+
+    /** 取り込み結果の通知文。 */
+    const BACKUP_PARSE_FAILURE_MESSAGE = 'JSONを読み取れませんでした';
+    const BACKUP_EMPTY_MESSAGE = '取り込めるセトリがありませんでした';
+
+    /**
+     * 保存一覧の全件を書き出し用の JSON 文字列にする。
+     * 人が読むものではないため字下げは付けない（コピーする文字数を減らす）。
+     * @returns {string} 書き出す JSON
+     */
+    function buildBackupJson() {
+      return JSON.stringify({
+        format: BACKUP_FORMAT,
+        version: BACKUP_VERSION,
+        exportedAt: new Date().toISOString(),
+        setlists: loadSavedSetlists()
+      });
+    }
+
+    /**
+     * 保存済み1件の内容キーを作る（純粋関数）。IDと保存時刻は含めないので、
+     * 別の端末で保存された同じライブのセトリも同一と判定できる。
+     * @param {SavedSetlist} record 保存済みセトリ
+     * @returns {string} 内容の同一性を比べるキー
+     */
+    function savedSetlistKey(record) {
+      return [record.date, record.liveName, record.venue, record.setlist.join('\u0000')].join('\u0001');
+    }
+
+    /**
+     * 書き出した JSON（または保存済みセトリの配列）を読み取る（純粋関数）。
+     * 形式が違う・壊れている場合は null を返し、要素単位の不正は捨てる。
+     * @param {string} text 貼り付けられた JSON 文字列
+     * @returns {SavedSetlist[]|null} 取り込み候補の配列。読み取れなければ null
+     */
+    function parseBackupJson(text) {
+      if (typeof text !== 'string' || text.trim() === '') {
+        return null;
+      }
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        return null; // JSON として読めない
+      }
+      // { setlists: [...] } と、配列そのものの両方を受け付ける。
+      const list = Array.isArray(data)
+        ? data
+        : (data && typeof data === 'object' && Array.isArray(data.setlists) ? data.setlists : null);
+      if (!list) {
+        return null;
+      }
+      const records = [];
+      list.forEach(function (item) {
+        const record = normalizeSavedSetlist(item);
+        if (record) {
+          records.push(record); // 壊れた要素・空セトリは静かに捨てる
+        }
+      });
+      return records;
+    }
+
+    /**
+     * 取り込み候補を保存一覧へ追加する（既存は消さない）。
+     * 内容が同じセトリはスキップし、IDだけ衝突した場合は新しいIDを振って追加する。
+     * @param {SavedSetlist[]} incoming 取り込む候補
+     * @returns {{added: number, skipped: number, ok: boolean}} 追加件数・スキップ件数・書き込み成否
+     */
+    function mergeSavedSetlists(incoming) {
+      const records = loadSavedSetlists();
+      const usedIds = {};
+      const usedKeys = {};
+      records.forEach(function (record) {
+        usedIds[record.id] = true;
+        usedKeys[savedSetlistKey(record)] = true;
+      });
+
+      let added = 0;
+      let skipped = 0;
+      incoming.forEach(function (record) {
+        const key = savedSetlistKey(record);
+        if (usedKeys[key]) {
+          skipped += 1; // すでに同じ内容を持っている
+          return;
+        }
+        const id = usedIds[record.id] ? createSavedId() : record.id;
+        usedIds[id] = true;
+        usedKeys[key] = true;
+        records.push({
+          id: id,
+          savedAt: record.savedAt,
+          date: record.date,
+          liveName: record.liveName,
+          venue: record.venue,
+          setlist: record.setlist.slice()
+        });
+        added += 1;
+      });
+
+      if (added === 0) {
+        return { added: 0, skipped: skipped, ok: true }; // 書き込む必要なし
+      }
+      return { added: added, skipped: skipped, ok: writeSavedSetlists(records) };
+    }
+
+    /**
+     * バックアップパネルを開く（書き出し JSON を入力欄へ入れておく）。
+     * 貼り付け取り込みフォームとは同時に開かない。
+     * @returns {void}
+     */
+    function openBackupPanel() {
+      const panel = document.getElementById('saved-backup');
+      const input = document.getElementById('saved-backup-input');
+      if (!panel) {
+        return;
+      }
+      closeImportForm(); // 「追加」フォームとは排他にする
+      if (input) {
+        input.value = buildBackupJson();
+      }
+      panel.hidden = false;
+    }
+
+    /**
+     * バックアップパネルを閉じ、入力欄の内容を捨てる。
+     * @returns {void}
+     */
+    function closeBackupPanel() {
+      const panel = document.getElementById('saved-backup');
+      const input = document.getElementById('saved-backup-input');
+      const file = document.getElementById('saved-backup-file');
+      if (!panel) {
+        return;
+      }
+      panel.hidden = true;
+      if (input) {
+        input.value = '';
+      }
+      if (file) {
+        file.value = ''; // 同じファイルを選び直せるようにする
+      }
+    }
+
+    /**
+     * 書き出し欄に表示している JSON を返す（空なら現在の全件を書き出す）。
+     * 「見えているものがコピー・保存される」ようにするための小さなヘルパ。
+     * @returns {string} コピー／保存する JSON
+     */
+    function currentBackupJson() {
+      const input = document.getElementById('saved-backup-input');
+      const value = input && typeof input.value === 'string' ? input.value.trim() : '';
+      return value !== '' ? value : buildBackupJson();
+    }
+
+    /**
+     * 書き出した JSON を .json ファイルとして保存する。
+     * Blob URL は使い終わったら解放する（メモリを掴んだままにしない）。
+     * @returns {void}
+     */
+    function downloadBackupFile() {
+      const json = currentBackupJson();
+      const stamp = todayString().replace(/-/g, ''); // ファイル名は YYYYMMDD
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'yuisrus-setlist-' + stamp + '.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // 一部ブラウザは click 直後の解放でダウンロードが中断するため少し待つ。
+      window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    /**
+     * 選ばれた .json ファイルを読み、入力欄へ入れてそのまま取り込む。
+     * @param {File} file 選択されたファイル
+     * @returns {void}
+     */
+    function readBackupFile(file) {
+      if (!file) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function () {
+        const input = document.getElementById('saved-backup-input');
+        const text = typeof reader.result === 'string' ? reader.result : '';
+        if (input) {
+          input.value = text; // 中身を見せてから取り込む
+        }
+        submitBackupImport();
+      };
+      reader.onerror = function () {
+        showToast(BACKUP_PARSE_FAILURE_MESSAGE);
+      };
+      reader.readAsText(file);
+    }
+
+    /**
+     * 入力欄の JSON を取り込み、結果をトーストで知らせる。
+     * 読み取れない場合は書き直せるよう入力は消さない。
+     * @returns {void}
+     */
+    function submitBackupImport() {
+      const input = document.getElementById('saved-backup-input');
+      if (!input) {
+        return;
+      }
+      const incoming = parseBackupJson(input.value);
+      if (!incoming) {
+        showToast(BACKUP_PARSE_FAILURE_MESSAGE);
+        return;
+      }
+      if (incoming.length === 0) {
+        showToast(BACKUP_EMPTY_MESSAGE);
+        return;
+      }
+
+      const result = mergeSavedSetlists(incoming);
+      if (!result.ok) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      resetSearchSelection(); // 取り込んだ分が絞り込みで隠れないようにする
+      renderSavedList();
+      updateSearchRunButton();
+
+      if (result.added === 0) {
+        showToast('すべて取り込み済みでした（' + result.skipped + '件）');
+        return;
+      }
+      closeBackupPanel();
+      showToast(
+        result.skipped === 0
+          ? result.added + '件を取り込みました'
+          : result.added + '件を取り込みました（' + result.skipped + '件は取り込み済み）'
+      );
+    }
+
+    /**
+     * バックアップまわり（開く／コピー／ファイル保存／ファイル選択／取り込み／閉じる）
+     * の結線を行う初期化（冪等）。
+     * @returns {void}
+     */
+    let savedBackupWired = false;
+    function initSavedBackup() {
+      if (savedBackupWired) {
+        return;
+      }
+      const openButton = document.getElementById('btn-backup-open');
+      const copyButton = document.getElementById('btn-backup-copy');
+      const downloadButton = document.getElementById('btn-backup-download');
+      const fileOpenButton = document.getElementById('btn-backup-file-open');
+      const importButton = document.getElementById('btn-backup-import');
+      const cancelButton = document.getElementById('btn-backup-cancel');
+      const fileInput = document.getElementById('saved-backup-file');
+
+      if (openButton) {
+        openButton.addEventListener('click', openBackupPanel);
+      }
+      if (copyButton) {
+        copyButton.addEventListener('click', async function () {
+          const ok = await copyToClipboard(currentBackupJson());
+          showToast(ok ? COPY_SUCCESS_MESSAGE : COPY_FAILURE_MESSAGE);
+        });
+      }
+      if (downloadButton) {
+        downloadButton.addEventListener('click', downloadBackupFile);
+      }
+      if (fileOpenButton && fileInput) {
+        fileOpenButton.addEventListener('click', function () {
+          fileInput.click(); // 見た目を揃えるため input は隠してボタンから開く
+        });
+      }
+      if (fileInput) {
+        fileInput.addEventListener('change', function () {
+          readBackupFile(fileInput.files && fileInput.files[0]);
+          fileInput.value = ''; // 同じファイルを続けて選べるようにする
+        });
+      }
+      if (importButton) {
+        importButton.addEventListener('click', submitBackupImport);
+      }
+      if (cancelButton) {
+        cancelButton.addEventListener('click', closeBackupPanel);
+      }
+      savedBackupWired = true;
+    }
+
     /**
      * 保存一覧ポップアップを開く（表示直前に最新の保存データを描画する）。
      * @returns {void}
@@ -2480,6 +2811,7 @@
         closeResolvePopup();
       }
       closeImportForm();
+      closeBackupPanel();
       resetSearchSelection();
     }
 
@@ -3324,6 +3656,7 @@
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
       initSavedSetlist();    // DBに追加／保存一覧の結線（冪等）
       initSavedSearch();     // 曲での絞り込み検索の結線（冪等）
+      initSavedBackup();     // 保存データの書き出し／取り込みの結線（冪等）
       initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
     }
