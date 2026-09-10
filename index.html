@@ -485,6 +485,49 @@
       flex: 0 0 auto;
     }
 
+    /* 貼り付け取り込みフォーム（保存一覧の先頭。「追加」で開閉する） */
+    .saved-add {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: var(--gap);
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+    }
+
+    .saved-add__label {
+      font-size: 14px;
+      color: var(--color-muted);
+    }
+
+    .saved-add__input {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 140px;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 16px; /* iOS で入力時に自動ズームされないよう16px以上にする */
+      line-height: 1.5;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      resize: vertical;
+    }
+
+    .saved-add__input:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    .saved-add__actions {
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     /* 条件の曲を並べるチップ列。曲ごとに解除ボタンを持ち、1曲ずつ外せる。 */
     .saved-filter__list {
       display: flex;
@@ -625,11 +668,23 @@
       <div class="popup__header">
         <h2 class="popup__title" id="saved-title">保存したセトリ</h2>
         <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
           <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
           <button type="button" class="btn btn--ghost" id="btn-saved-close" data-role="saved-close">閉じる</button>
         </div>
       </div>
       <div class="popup__body">
+        <div class="saved-add" id="saved-add" data-role="saved-add" hidden>
+          <label class="saved-add__label" for="saved-add-input">コピーしたセトリを貼り付けてください</label>
+          <textarea class="saved-add__input" id="saved-add-input" data-role="saved-add-input"
+            placeholder="2026.09.10(水)&#10;『ライブ名』&#10;会場：会場名&#10;1.曲名&#10;2.曲名"></textarea>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--ghost" id="btn-saved-add-cancel"
+              data-role="saved-add-cancel">キャンセル</button>
+            <button type="button" class="btn btn--copy" id="btn-saved-add-submit"
+              data-role="saved-add-submit">この内容で追加</button>
+          </div>
+        </div>
         <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
           <span class="saved-filter__label">すべて含む:</span>
           <ul class="saved-filter__list" id="saved-filter-list" data-role="saved-filter-list">
@@ -1146,6 +1201,122 @@
       lines.push(FIXED_HASHTAG);                      // 5. 固定ハッシュタグ（常に付与）
 
       return lines.join('\n');
+    }
+
+    // ============================================================
+    // Text Parser: 出力テキストの読み取り（TextParser）
+    // ------------------------------------------------------------
+    // buildOutputText の逆変換。このツールで出力してSNS等へ貼られたテキストを
+    // そのまま貼り付けて保存一覧へ取り込めるようにする（純粋関数 / 副作用なし）。
+    // 行ごとに種別を判定し、認識できない行は無視する。前後の空白・全角数字・
+    // 全角記号にも耐える。曲が1曲も読み取れないときだけ null を返す（＝失敗）。
+    // ============================================================
+
+    /**
+     * 判定用に全角の数字・記号を半角へ揃える（純粋関数）。
+     * 変換は1文字1文字の置換なので文字位置は変わらない（元の行から曲名を
+     * 切り出す際に、この文字列で得た長さをそのまま使える）。
+     * @param {string} text 変換する文字列
+     * @returns {string} 数字・記号を半角へ揃えた文字列
+     */
+    function normalizeForParse(text) {
+      return text
+        .replace(/[０-９]/g, function (ch) {
+          return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+        })
+        .replace(/[．。]/g, '.')
+        .replace(/／/g, '/')
+        .replace(/：/g, ':')
+        .replace(/）/g, ')');
+    }
+
+    /**
+     * 日付行（`YYYY.MM.DD(曜)` など）を `YYYY-MM-DD` として読み取る（純粋関数）。
+     * 区切りは `.` `/` `-` を許容し、曜日など後続の文字は無視する。
+     * 存在しない日付（2月30日など）は formatDate の検証で弾いて '' を返す。
+     * @param {string} line 1行分の文字列（前後の空白は除去済み）
+     * @returns {string} `YYYY-MM-DD`、または読み取れない場合 ''
+     */
+    function parseDateLine(line) {
+      const match = /^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/.exec(normalizeForParse(line));
+      if (!match) {
+        return '';
+      }
+      const iso = match[1] + '-' +
+        match[2].padStart(2, '0') + '-' +
+        match[3].padStart(2, '0');
+      return formatDate(iso) !== '' ? iso : ''; // カレンダー的に不正な日付は捨てる
+    }
+
+    /**
+     * 曲行（`1.曲名` など）から曲名を読み取る（純粋関数）。
+     * 連番の区切りは `.` `:` `)` を許容し、連番と曲名の間の空白は無視する。
+     * 曲名は元の行から切り出すため、全角記号の変換は曲名へ持ち込まない。
+     * @param {string} line 1行分の文字列（前後の空白は除去済み）
+     * @returns {string|null} 曲名。曲行でなければ null（曲名が空なら ''）
+     */
+    function parseSongLine(line) {
+      const match = /^\d{1,3}\s*[.:)]\s*/.exec(normalizeForParse(line));
+      if (!match) {
+        return null;
+      }
+      return line.slice(match[0].length).trim();
+    }
+
+    /**
+     * 出力テキストから保存用のセトリ情報を読み取る（純粋関数 / buildOutputText の逆）。
+     * 認識するのは日付行・『ライブ名』行・会場行・連番付きの曲行で、空行と
+     * ハッシュタグ行（`#` 始まり）、その他の行は無視する。
+     * 日付・ライブ名・会場は最初に見つかったものを採用する。
+     * @param {string} text 貼り付けられたテキスト
+     * @returns {{date: string, liveName: string, venue: string, setlist: string[]}|null}
+     *   読み取り結果。曲を1曲も読み取れない場合は null
+     */
+    function parseSetlistText(text) {
+      if (typeof text !== 'string') {
+        return null;
+      }
+      const parsed = { date: '', liveName: '', venue: '', setlist: [] };
+
+      text.replace(/\r\n?/g, '\n').split('\n').forEach(function (rawLine) {
+        // 全角空白も含めて前後の空白を落とす。
+        const line = rawLine.replace(/^[\s\u3000]+/, '').replace(/[\s\u3000]+$/, '');
+        if (line === '' || line.charAt(0) === '#') {
+          return; // 空行・ハッシュタグ行は読み飛ばす
+        }
+
+        // 日付行は曲行より先に判定する（`2026.09.10(水)` を連番と誤認しないため）。
+        if (parsed.date === '') {
+          const date = parseDateLine(line);
+          if (date !== '') {
+            parsed.date = date;
+            return;
+          }
+        }
+
+        const live = /^『([\s\S]*)』$/.exec(line);
+        if (live) {
+          if (parsed.liveName === '') {
+            parsed.liveName = live[1].trim();
+          }
+          return;
+        }
+
+        const venue = /^会場\s*[：:]\s*([\s\S]*)$/.exec(line);
+        if (venue) {
+          if (parsed.venue === '') {
+            parsed.venue = venue[1].trim();
+          }
+          return;
+        }
+
+        const song = parseSongLine(line);
+        if (song !== null && song !== '') {
+          parsed.setlist.push(song);
+        }
+      });
+
+      return parsed.setlist.length > 0 ? parsed : null;
     }
 
     // ============================================================
@@ -1791,6 +1962,8 @@
     // 責務:
     //   - 「DBに追加」タップで現在の state を保存一覧へ1件追加する（明示操作）。
     //     セトリが空のときは保存せずトーストで知らせる。
+    //   - 「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
+    //     出力したテキストを parseSetlistText で読み取って1件追加する。
     //   - 「保存一覧」タップで保存済みを新しい順に一覧表示する。
     //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
     //   - 各項目の削除ボタンで1件削除する（確認あり）。
@@ -1803,6 +1976,7 @@
     const SAVE_EMPTY_MESSAGE = 'セトリが空です';
     const SAVE_SUCCESS_MESSAGE = 'DBに追加しました';
     const SAVE_FAILURE_MESSAGE = '保存に失敗しました';
+    const IMPORT_FAILURE_MESSAGE = 'セトリを読み取れませんでした';
 
     /**
      * 保存済み1件の見出し（日付＋ライブ名）を組み立てる（純粋関数）。
@@ -1949,6 +2123,68 @@
     }
 
     /**
+     * 貼り付け取り込みフォームを開く（テキスト入力へフォーカスする）。
+     * 他の人がこのツールで出力したテキストを、そのまま貼って取り込むための入口。
+     * @returns {void}
+     */
+    function openImportForm() {
+      const form = document.getElementById('saved-add');
+      const input = document.getElementById('saved-add-input');
+      if (!form) {
+        return;
+      }
+      form.hidden = false;
+      if (input) {
+        input.focus();
+      }
+    }
+
+    /**
+     * 貼り付け取り込みフォームを閉じ、入力内容を捨てる。
+     * @returns {void}
+     */
+    function closeImportForm() {
+      const form = document.getElementById('saved-add');
+      const input = document.getElementById('saved-add-input');
+      if (!form) {
+        return;
+      }
+      form.hidden = true;
+      if (input) {
+        input.value = '';
+      }
+    }
+
+    /**
+     * 入力されたテキストを読み取り、保存一覧へ1件追加する。
+     * 曲を1曲も読み取れない場合は追加せずトーストで知らせる（入力は残す）。
+     * 追加した1件が絞り込みで隠れないよう、成功時は絞り込みを解除する。
+     * @returns {void}
+     */
+    function submitImportForm() {
+      const input = document.getElementById('saved-add-input');
+      if (!input) {
+        return;
+      }
+      const parsed = parseSetlistText(input.value);
+      if (!parsed) {
+        showToast(IMPORT_FAILURE_MESSAGE); // 書き直せるよう入力は消さない
+        return;
+      }
+      const record = appendSavedSetlist(parsed);
+      if (!record) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      closeImportForm();
+      resetSearchSelection(); // 追加した1件が絞り込みで隠れないようにする
+      renderSavedList();
+      updateSearchRunButton();
+      showToast(record.setlist.length + '曲のセトリを追加しました');
+    }
+
+    /**
      * 保存一覧ポップアップを開く（表示直前に最新の保存データを描画する）。
      * @returns {void}
      */
@@ -1972,6 +2208,7 @@
         return;
       }
       overlay.hidden = true;
+      closeImportForm();
       resetSearchSelection();
     }
 
@@ -1988,6 +2225,9 @@
       const saveButton = document.getElementById('btn-save-db');
       const listButton = document.getElementById('btn-saved-list');
       const closeButton = document.getElementById('btn-saved-close');
+      const importOpenButton = document.getElementById('btn-saved-add-open');
+      const importCancelButton = document.getElementById('btn-saved-add-cancel');
+      const importSubmitButton = document.getElementById('btn-saved-add-submit');
 
       if (saveButton) {
         saveButton.addEventListener('click', function () {
@@ -2004,6 +2244,15 @@
       }
       if (closeButton) {
         closeButton.addEventListener('click', closeSavedPopup);
+      }
+      if (importOpenButton) {
+        importOpenButton.addEventListener('click', openImportForm);
+      }
+      if (importCancelButton) {
+        importCancelButton.addEventListener('click', closeImportForm);
+      }
+      if (importSubmitButton) {
+        importSubmitButton.addEventListener('click', submitImportForm);
       }
       savedSetlistWired = true;
     }
