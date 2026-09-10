@@ -481,29 +481,64 @@
       color: var(--color-muted);
     }
 
-    .saved-filter__text {
-      flex: 1 1 auto;
-      min-width: 0;
+    .saved-filter__label {
+      flex: 0 0 auto;
     }
 
-    .saved-filter__clear {
-      flex: 0 0 auto;
-      min-width: var(--tap-min);
-      min-height: 32px;
-      padding: 4px 12px;
-      font-size: 14px;
-      font-weight: 600;
+    /* 条件の曲を並べるチップ列。曲ごとに解除ボタンを持ち、1曲ずつ外せる。 */
+    .saved-filter__list {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .saved-filter__item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 100%;
+      padding: 2px 2px 2px 8px;
       color: var(--color-text);
       background-color: var(--color-surface);
       border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .saved-filter__song {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .saved-filter__remove {
+      flex: 0 0 auto;
+      min-width: 32px;
+      min-height: 32px;
+      padding: 0 6px;
+      font-size: 14px;
+      line-height: 1;
+      color: var(--color-muted);
+      background-color: transparent;
+      border: none;
       border-radius: var(--radius);
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
 
-    .saved-filter__clear:active {
-      filter: brightness(0.95);
+    .saved-filter__remove:active {
+      background-color: var(--color-bg);
+    }
+
+    .saved-filter__count {
+      flex: 0 0 auto;
     }
 
     @media (min-width: 480px) {
@@ -596,9 +631,11 @@
       </div>
       <div class="popup__body">
         <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
-          <span class="saved-filter__text" id="saved-filter-text"></span>
-          <button type="button" class="saved-filter__clear" id="btn-saved-filter-clear"
-            data-role="saved-filter-clear">解除</button>
+          <span class="saved-filter__label">すべて含む:</span>
+          <ul class="saved-filter__list" id="saved-filter-list" data-role="saved-filter-list">
+            <!-- 条件の曲チップは renderSavedFilter() が描画する -->
+          </ul>
+          <span class="saved-filter__count" id="saved-filter-count"></span>
         </div>
         <ul class="popup__list" id="saved-list" data-role="saved-list">
           <!-- 保存済み一覧は renderSavedList() が描画する -->
@@ -2013,27 +2050,92 @@
 
     /**
      * 絞り込み条件バー（#saved-filter）を更新する。
-     * 絞り込み中のみ表示し、条件の曲名と件数を出す。
+     * 絞り込み中のみ表示し、条件の曲を1曲ずつチップで並べる。各チップは
+     * 解除ボタンを持ち、押すとその曲だけを条件から外す。
+     * 曲名は textContent で挿入する（XSS安全）。
      * @param {number} matchedCount 条件を満たしたライブの件数
      * @returns {void}
      */
     function renderSavedFilter(matchedCount) {
       const bar = document.getElementById('saved-filter');
-      const text = document.getElementById('saved-filter-text');
-      if (!bar || !text) {
+      const list = document.getElementById('saved-filter-list');
+      const count = document.getElementById('saved-filter-count');
+      if (!bar || !list || !count) {
         return;
       }
+      list.textContent = ''; // 全再描画（既存チップをクリア）
+
       if (savedFilter.length === 0) {
         bar.hidden = true;
-        text.textContent = '';
+        count.textContent = '';
         return;
       }
-      const songs = savedFilter.map(function (title) {
-        return '「' + title + '」';
-      }).join('');
-      // textContent で挿入（XSS安全）。
-      text.textContent = songs + 'を含むライブ: ' + matchedCount + '件';
+
+      const fragment = document.createDocumentFragment();
+      savedFilter.forEach(function (title) {
+        const item = document.createElement('li');
+        item.className = 'saved-filter__item';
+
+        const song = document.createElement('span');
+        song.className = 'saved-filter__song';
+        song.textContent = '「' + title + '」'; // textContent で挿入（XSS安全）
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'saved-filter__remove';
+        removeButton.dataset.role = 'filter-remove';
+        removeButton.textContent = '✕';
+        removeButton.setAttribute('aria-label', '「' + title + '」を条件から外す');
+        removeButton.addEventListener('click', function () {
+          removeFilterSong(title);
+        });
+
+        item.appendChild(song);
+        item.appendChild(removeButton);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+
+      count.textContent = '該当 ' + matchedCount + '件';
       bar.hidden = false;
+    }
+
+    /**
+     * 現在の絞り込み条件での該当件数をトーストで知らせる。
+     * 条件が無い場合は全件表示へ戻った旨を出す。
+     * @returns {void}
+     */
+    function showFilterResultToast() {
+      if (savedFilter.length === 0) {
+        showToast('すべてのライブを表示しました');
+        return;
+      }
+      const matched = filterSavedSetlists(loadSavedSetlists(), savedFilter).length;
+      showToast(matched === 0 ? '該当するライブはありません' : matched + '件見つかりました');
+    }
+
+    /**
+     * 条件から曲を1つ外し、残りの条件で検索し直す。
+     * 曲一覧の選択状態も揃えるので、検索ポップアップを開き直すと条件と一致する。
+     * 最後の1曲を外した場合は絞り込みが無くなり全件表示へ戻る。
+     * @param {string} title 条件から外す曲タイトル
+     * @returns {void}
+     */
+    function removeFilterSong(title) {
+      const index = savedFilter.indexOf(title);
+      if (index === -1) {
+        return;
+      }
+      savedFilter.splice(index, 1);
+
+      const selectedIndex = searchSelection.indexOf(title);
+      if (selectedIndex !== -1) {
+        searchSelection.splice(selectedIndex, 1);
+      }
+
+      renderSavedList();       // 残った条件で絞り込み直す
+      updateSearchRunButton(); // 「検索（N曲）」の件数も揃える
+      showFilterResultToast();
     }
 
     /**
@@ -2163,28 +2265,13 @@
       savedFilter = searchSelection.slice(); // 押した時点の選択を確定する
       renderSavedList();
       closeSearchPopup();
-
-      if (savedFilter.length === 0) {
-        showToast('すべてのライブを表示しました');
-        return;
-      }
-      const matched = filterSavedSetlists(loadSavedSetlists(), savedFilter).length;
-      showToast(matched === 0 ? '該当するライブはありません' : matched + '件見つかりました');
+      showFilterResultToast();
     }
 
     /**
-     * 絞り込みを解除して全件表示へ戻す（曲の選択状態も捨てる）。
-     * @returns {void}
-     */
-    function clearSavedFilter() {
-      resetSearchSelection();
-      renderSavedList();
-      updateSearchRunButton();
-    }
-
-    /**
-     * 検索まわり（検索する／検索／閉じる／解除）の結線を行う初期化（冪等）。
-     * 項目のトグル結線は renderSearchList 側で都度行う。
+     * 検索まわり（検索する／検索／閉じる）の結線を行う初期化（冪等）。
+     * 曲一覧のトグル結線は renderSearchList、条件チップの解除結線は
+     * renderSavedFilter 側で都度行う。
      * @returns {void}
      */
     let savedSearchWired = false;
@@ -2195,7 +2282,6 @@
       const openButton = document.getElementById('btn-search-open');
       const runButton = document.getElementById('btn-search-run');
       const closeButton = document.getElementById('btn-search-close');
-      const clearButton = document.getElementById('btn-saved-filter-clear');
 
       if (openButton) {
         openButton.addEventListener('click', openSearchPopup);
@@ -2205,9 +2291,6 @@
       }
       if (closeButton) {
         closeButton.addEventListener('click', closeSearchPopup);
-      }
-      if (clearButton) {
-        clearButton.addEventListener('click', clearSavedFilter);
       }
       savedSearchWired = true;
     }
