@@ -350,6 +350,7 @@
     .popup__header-actions {
       display: flex;
       align-items: center;
+      flex-wrap: wrap; /* 狭い画面でボタンが増えても溢れさせず折り返す */
       gap: 8px;
     }
 
@@ -410,6 +411,11 @@
       color: var(--color-muted);
     }
 
+    /* トグルのラベルは狭い画面でも2行に割らない（「省略名／称」を防ぐ） */
+    .btn--toggle {
+      white-space: nowrap;
+    }
+
     /* トグルON時は塗りつぶしにして、現在どちらの表示かひと目で分かるようにする */
     .btn--toggle[aria-pressed="true"] {
       background-color: var(--color-accent);
@@ -435,6 +441,16 @@
 
     .popup__list--compact .popup__item-button:focus {
       outline-offset: 1px;
+    }
+
+    /* 詰めた検索項目はチェック欄を狭めて、チップの横幅が広がりすぎないようにする */
+    .popup__list--compact .popup__item-button--search {
+      gap: 4px;
+    }
+
+    .popup__list--compact .popup__item-check {
+      width: 1em;
+      text-align: center;
     }
 
     /* 保存一覧の各項目: 読込ボタン（可変幅）＋削除ボタン（固定幅）を横並びにする。 */
@@ -768,6 +784,7 @@
       <div class="popup__header">
         <h2 class="popup__title" id="search-title">曲で検索</h2>
         <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost btn--toggle" id="btn-search-short" data-role="popup-short-toggle" aria-pressed="false">省略名称</button>
           <button type="button" class="btn btn--copy" id="btn-search-run" data-role="search-run">検索</button>
           <button type="button" class="btn btn--ghost" id="btn-search-close" data-role="search-close">閉じる</button>
         </div>
@@ -2112,27 +2129,30 @@
 
     /**
      * 省略名称トグルの押下状態（aria-pressed）を現在のモードへ同期する。
-     * CSS はこの属性を見て塗りつぶし表示に切り替える。
+     * 「曲を選択」「曲で検索」の両ポップアップが同じモードを共有するため、
+     * data-role で全トグルをまとめて更新する。CSS はこの属性を見て塗りつぶす。
      * @returns {void}
      */
     function syncPopupShortToggle() {
-      const toggle = document.getElementById('btn-popup-short');
-      if (!toggle) {
-        return;
-      }
-      toggle.setAttribute('aria-pressed', popupShortMode ? 'true' : 'false');
+      const toggles = document.querySelectorAll('[data-role="popup-short-toggle"]');
+      Array.prototype.forEach.call(toggles, function (toggle) {
+        toggle.setAttribute('aria-pressed', popupShortMode ? 'true' : 'false');
+      });
     }
 
     /**
      * 省略名称モードを反転し、保存・トグル表示・一覧を更新する。
-     * state（セトリ）には触れないため、追加される曲名・出力テキストは変わらない。
+     * 表示中でない側の一覧も描き直しておき、次に開いたときのズレを防ぐ。
+     * state（セトリ・検索の選択）には触れないため、追加される曲名・出力テキスト・
+     * 絞り込み条件は変わらない。
      * @returns {void}
      */
     function togglePopupShortMode() {
       popupShortMode = !popupShortMode;
       savePopupShortMode();
       syncPopupShortToggle();
-      renderPopupSongList();
+      renderPopupSongList(); // 曲を選択
+      renderSearchList();    // 曲で検索
     }
 
     /**
@@ -2997,6 +3017,7 @@
     /**
      * 検索用の曲一覧（#search-list）を SONG_MASTER のあいうえお順で描画する。
      * 各項目はトグルボタン（aria-pressed）で、タップのたびに選択状態を反転する。
+     * 省略名称モード（「曲を選択」と共有）では short 表示＋ボタン詰め表示にする。
      * 曲名は textContent で挿入する（XSS安全）。
      * @returns {void}
      */
@@ -3006,6 +3027,9 @@
         return;
       }
       list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      // 省略名称モードでは1行1件のレコード表示をやめ、ボタンを折り返して詰める。
+      list.className = popupShortMode ? 'popup__list popup__list--compact' : 'popup__list';
 
       const songs = getSortedSongMaster();
 
@@ -3034,9 +3058,16 @@
         check.className = 'popup__item-check';
         check.setAttribute('aria-hidden', 'true'); // 状態は aria-pressed で伝える
 
+        const labelText = popupShortMode ? songShortTitle(title) : title;
+
         const label = document.createElement('span');
         label.className = 'popup__item-title';
-        label.textContent = title; // textContent で挿入（XSS安全）
+        label.textContent = labelText; // textContent で挿入（XSS安全）
+        if (labelText !== title) {
+          // 省略名称で表示している場合も、支援技術・ツールチップには正式名称を出す。
+          button.setAttribute('aria-label', title);
+          button.title = title;
+        }
 
         button.appendChild(check);
         button.appendChild(label);
@@ -3065,6 +3096,7 @@
       if (!overlay) {
         return;
       }
+      syncPopupShortToggle();  // トグルの押下表示を現在のモードへ同期
       renderSearchList();      // 表示直前に最新のマスタ＋選択状態を反映
       updateSearchRunButton();
       overlay.hidden = false;
@@ -3108,9 +3140,13 @@
       const openButton = document.getElementById('btn-search-open');
       const runButton = document.getElementById('btn-search-run');
       const closeButton = document.getElementById('btn-search-close');
+      const shortToggle = document.getElementById('btn-search-short');
 
       if (openButton) {
         openButton.addEventListener('click', openSearchPopup);
+      }
+      if (shortToggle) {
+        shortToggle.addEventListener('click', togglePopupShortMode);
       }
       if (runButton) {
         runButton.addEventListener('click', runSearch);
