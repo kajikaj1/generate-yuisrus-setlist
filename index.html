@@ -26,6 +26,7 @@
       --color-drop-indicator: #38bdf8; /* 挿入位置ライン（水色） */
       --radius: 10px;
       --tap-min: 48px;
+      --btn-min-height: 38px; /* ボタンの標準の高さ（上下の余白を詰めた値） */
       --gap: 12px;
       --max-width: 640px;
     }
@@ -126,14 +127,6 @@
        主役はセトリ一覧なので、常時出ているこれらのボタンは控えめな高さにする。 */
     .page-saved {
       gap: 8px;
-    }
-
-    .page-header .btn,
-    .page-actions .btn {
-      min-height: 38px;
-      min-width: 0;
-      padding: 6px 14px;
-      font-size: 15px;
     }
 
     /* ===== Setlist table area ===== */
@@ -272,8 +265,8 @@
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: var(--gap);
-      padding: var(--gap) 0 0;
+      gap: 8px;
+      padding: 8px 0 0;
     }
 
     /* フッター右側のアクション群（保存系＋リセット＋コピー）。
@@ -283,14 +276,16 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: center;
-      gap: var(--gap);
+      gap: 8px;
     }
 
+    /* ボタンは上下の余白を詰めた控えめな高さに揃える（--btn-min-height）。
+       主役は入力欄とセトリ一覧なので、ボタンで画面を占有しない。 */
     .btn {
-      min-height: var(--tap-min);
-      min-width: 96px;
-      padding: 12px 20px;
-      font-size: 16px;
+      min-height: var(--btn-min-height);
+      min-width: 0;
+      padding: 6px 14px;
+      font-size: 15px;
       font-weight: 600;
       border: 1px solid transparent;
       border-radius: var(--radius);
@@ -377,7 +372,7 @@
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap; /* ボタンが増えて収まらない狭い画面では折り返す */
-      gap: var(--gap);
+      gap: 8px;
       padding: var(--gap);
       border-bottom: 1px solid var(--color-border);
     }
@@ -418,8 +413,8 @@
       display: flex;
       align-items: center;
       width: 100%;
-      min-height: var(--tap-min);
-      padding: 12px 8px;
+      min-height: 40px;
+      padding: 8px;
       font-size: 16px;
       text-align: left;
       color: var(--color-text);
@@ -468,8 +463,8 @@
 
     .popup__list--compact .popup__item-button {
       width: auto;
-      min-height: 44px;
-      padding: 10px 14px;
+      min-height: var(--btn-min-height);
+      padding: 8px 12px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius);
       white-space: nowrap;
