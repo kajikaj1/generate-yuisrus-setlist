@@ -362,6 +362,7 @@
       border-radius: var(--radius);
       font-size: 14px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      pointer-events: none; /* 通知が下のボタンのタップを奪わないようにする */
     }
 
     [hidden] {
@@ -514,12 +515,15 @@
     .popup__item--saved {
       display: flex;
       align-items: center;
+      flex-wrap: wrap; /* 展開したセトリを行の下へ回り込ませる */
       gap: 8px;
       border-bottom: 1px solid var(--color-border);
     }
 
     .popup__item--saved .popup__item-button {
-      flex: 1 1 auto;
+      /* basis 0 で先に縮ませ、編集・削除ボタンを同じ行に留める（折り返すのは
+         下に回り込ませるセトリ本体だけにする） */
+      flex: 1 1 0;
       min-width: 0; /* flex 子要素の既定 min-width:auto を外し省略記号を効かせる */
       border-bottom: none;
     }
@@ -549,6 +553,49 @@
     }
 
     /* 保存済み1件の編集ボタン（削除ボタンと同じ大きさ・色だけアクセント） */
+    /* 開いている行は見出しの省略をやめ、ライブ名・会場名を最後まで見せる。 */
+    .popup__item--expanded .popup__item-title,
+    .popup__item--expanded .popup__item-meta {
+      white-space: normal;
+      overflow: visible;
+    }
+
+    /* 行をタップして開くセトリ（「何やったんだっけ」を確認するための参照表示）。
+       flex-basis 100% で操作ボタンの下へ回り込ませる。 */
+    .saved-songs {
+      flex: 1 0 100%;
+      margin: 0;
+      padding: 4px 8px 8px 40px;
+      list-style: decimal;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .saved-songs__item::marker {
+      color: var(--color-muted);
+    }
+
+    .saved-songs__actions {
+      flex: 1 0 100%;
+      display: flex;
+      justify-content: flex-end;
+      padding: 0 8px 8px;
+    }
+
+    /* 開閉の向きを示す三角。開いている行では回転させる。 */
+    .saved-caret {
+      flex: 0 0 auto;
+      width: 1em;
+      margin-right: 4px;
+      color: var(--color-muted);
+      font-size: 12px;
+      transition: transform 0.15s ease;
+    }
+
+    .popup__item-button[aria-expanded="true"] .saved-caret {
+      transform: rotate(90deg);
+    }
+
     .popup__item-edit {
       flex: 0 0 auto;
       min-width: var(--tap-min);
@@ -2618,6 +2665,31 @@
      * 各項目は読込ボタンと削除ボタンからなる。0件なら空メッセージを出す。
      * @returns {void}
      */
+    /**
+     * 一覧で展開中（セトリを開いている）保存データのID。
+     * 再描画をまたいで開閉を保つため、描画関数の外に置く。保存はしない。
+     * @type {Set<string>}
+     */
+    const expandedSavedIds = new Set();
+
+    /**
+     * 展開したセトリの中身（曲順のリスト）を組み立てる。
+     * 参照用の表示なので曲名は正式名称のまま出す。
+     * @param {SavedSetlist} record 表示する保存データ
+     * @returns {HTMLOListElement} 曲順のリスト要素
+     */
+    function buildSavedSongList(record) {
+      const songs = document.createElement('ol');
+      songs.className = 'saved-songs';
+      record.setlist.forEach(function (title) {
+        const song = document.createElement('li');
+        song.className = 'saved-songs__item';
+        song.textContent = title; // textContent で挿入（XSS安全）
+        songs.appendChild(song);
+      });
+      return songs;
+    }
+
     function renderSavedList() {
       const list = document.getElementById('saved-list');
       if (!list) {
@@ -2641,14 +2713,23 @@
       const fragment = document.createDocumentFragment();
       records.forEach(function (record) {
         const heading = formatSavedTitle(record);
+        const expanded = expandedSavedIds.has(record.id);
 
         const item = document.createElement('li');
-        item.className = 'popup__item popup__item--saved';
+        item.className = expanded
+          ? 'popup__item popup__item--saved popup__item--expanded'
+          : 'popup__item popup__item--saved';
 
-        const loadButton = document.createElement('button');
-        loadButton.type = 'button';
-        loadButton.className = 'popup__item-button';
-        loadButton.dataset.role = 'saved-load';
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.className = 'popup__item-button';
+        toggleButton.dataset.role = 'saved-toggle';
+        toggleButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+
+        const caret = document.createElement('span');
+        caret.className = 'saved-caret';
+        caret.textContent = '▶';
+        caret.setAttribute('aria-hidden', 'true'); // 状態は aria-expanded で伝える
 
         const label = document.createElement('span');
         label.className = 'popup__item-label';
@@ -2663,9 +2744,39 @@
 
         label.appendChild(titleEl);
         label.appendChild(metaEl);
-        loadButton.appendChild(label);
+        toggleButton.appendChild(caret);
+        toggleButton.appendChild(label);
+
+        // セトリ本体（参照用）と、そこから作業中へ持ってくるためのボタン。
+        const songs = buildSavedSongList(record);
+        songs.hidden = !expanded;
+
+        const songsActions = document.createElement('div');
+        songsActions.className = 'saved-songs__actions';
+        songsActions.hidden = !expanded;
+
+        const loadButton = document.createElement('button');
+        loadButton.type = 'button';
+        loadButton.className = 'btn btn--ghost';
+        loadButton.dataset.role = 'saved-load';
+        loadButton.textContent = 'このセトリを読み込む';
         loadButton.addEventListener('click', function () {
-          applySavedSetlist(record);
+          applySavedSetlist(record); // 複製として作業中へ読み込む（元データには紐づけない）
+        });
+        songsActions.appendChild(loadButton);
+
+        toggleButton.addEventListener('click', function () {
+          // 「このライブ何やったんだっけ」を確認するための開閉。state は変えない。
+          const open = !expandedSavedIds.has(record.id);
+          if (open) {
+            expandedSavedIds.add(record.id);
+          } else {
+            expandedSavedIds.delete(record.id);
+          }
+          toggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+          item.classList.toggle('popup__item--expanded', open); // 見出しの省略を解く
+          songs.hidden = !open;
+          songsActions.hidden = !open;
         });
 
         const editButton = document.createElement('button');
@@ -2690,6 +2801,7 @@
             return;
           }
           if (removeSavedSetlist(record.id)) {
+            expandedSavedIds.delete(record.id); // 展開状態も捨てる
             renderSavedList(); // 一覧を最新化
             syncEditingUi();   // 編集中の1件を消した場合は編集中を解除する
             showToast('削除しました');
@@ -2698,9 +2810,11 @@
           }
         });
 
-        item.appendChild(loadButton);
+        item.appendChild(toggleButton);
         item.appendChild(editButton);
         item.appendChild(removeButton);
+        item.appendChild(songs);
+        item.appendChild(songsActions);
         fragment.appendChild(item);
       });
       list.appendChild(fragment);
