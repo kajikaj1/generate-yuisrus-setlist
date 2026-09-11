@@ -129,7 +129,8 @@
       font-size: 13px;
     }
 
-    /* ===== Page header（保存したセトリページの見出し行） ===== */
+    /* ===== Page header（分析ページの見出し行） =====
+       保存したセトリページは右上のページ切替にページ名が出るので、見出しは置かない。 */
     .page-header {
       display: flex;
       justify-content: space-between;
@@ -151,7 +152,7 @@
       gap: 8px;
     }
 
-    /* 保存したセトリページの見出し・操作ボタンは上下を詰めて、一覧を広く見せる。
+    /* 保存したセトリページの操作ボタンは上下を詰めて、一覧を広く見せる。
        主役はセトリ一覧なので、常時出ているこれらのボタンは控えめな高さにする。 */
     .page-saved {
       gap: 8px;
@@ -258,6 +259,112 @@
       display: flex;
       flex-direction: column;
       gap: var(--gap);
+    }
+
+    /* セトリ表の上の道具列。左に入力の切替タブ、右に区分の追加ボタンを置く。 */
+    .main-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    /* 曲名の入力と対バン相手の入力を切り替えるタブ。選んでいる側だけ塗る。 */
+    .mode-switch {
+      display: flex;
+      gap: 2px;
+      padding: 2px;
+      background-color: var(--color-bg);
+      border-radius: 999px;
+    }
+
+    .mode-switch__button {
+      min-height: 32px;
+      padding: 4px 14px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-muted);
+      background-color: transparent;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .mode-switch__button[aria-pressed="true"] {
+      color: var(--color-accent);
+      background-color: var(--color-accent-soft);
+    }
+
+    .mode-switch__button:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    /* 対バン相手の入力（曲名の入力と入れ替わる）。入力欄の中の「＋」で
+       1組ずつ追加し、追加済みの相手は下にチップで並べる。 */
+    .band-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .band-panel__empty {
+      margin: 0;
+      font-size: 14px;
+      color: var(--color-muted);
+    }
+
+    .band-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .band-chip {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      max-width: 100%;
+      padding: 2px 2px 2px 12px;
+      font-size: 14px;
+      color: var(--color-accent);
+      background-color: var(--color-accent-soft);
+      border-radius: 999px;
+    }
+
+    .band-chip__name {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .band-chip__remove {
+      flex: 0 0 auto;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0 4px;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1;
+      color: inherit;
+      background-color: transparent;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .band-chip__remove:active {
+      background-color: var(--color-surface);
     }
 
     /* 属性（ワンマン・生誕など）の行。チップの文言で意味が分かるので見出しは
@@ -571,7 +678,6 @@
       justify-content: flex-end;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 8px;
     }
 
     .setlist-tools .btn {
@@ -1051,8 +1157,8 @@
       outline-offset: -2px;
     }
 
-    /* 会場の管理の1行（会場名＋使用件数＋操作ボタン）。 */
-    .venue-row {
+    /* マスタの管理の1行（名前＋使用件数＋操作ボタン）。会場と対バン相手で共用する。 */
+    .master-row {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -1060,32 +1166,32 @@
       border-bottom: 1px solid var(--color-border);
     }
 
-    .venue-row__label {
+    .master-row__label {
       display: flex;
       flex-direction: column;
       flex: 1 1 auto;
       min-width: 0;
     }
 
-    .venue-row__name {
+    .master-row__name {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
 
-    .venue-row__meta {
+    .master-row__meta {
       font-size: 12px;
       color: var(--color-muted);
     }
 
-    .venue-row__actions {
+    .master-row__actions {
       display: flex;
       flex: 0 0 auto;
       gap: 4px;
     }
 
     /* 管理画面の小さめボタン。行の高さを抑えつつタップ領域は確保する。 */
-    .venue-row__button {
+    .master-row__button {
       min-width: var(--tap-min);
       min-height: 36px;
       padding: 4px 10px;
@@ -1101,12 +1207,12 @@
       touch-action: manipulation;
     }
 
-    .venue-row__button--danger {
+    .master-row__button--danger {
       color: var(--color-danger);
       border-color: var(--color-danger);
     }
 
-    .venue-row__button:active {
+    .master-row__button:active {
       filter: brightness(0.95);
     }
 
@@ -1154,16 +1260,6 @@
 
     .popup__list--compact .popup__item-button:focus {
       outline-offset: 1px;
-    }
-
-    /* 詰めた検索項目はチェック欄を狭めて、チップの横幅が広がりすぎないようにする */
-    .popup__list--compact .popup__item-button--search {
-      gap: 4px;
-    }
-
-    .popup__list--compact .popup__item-check {
-      width: 1em;
-      text-align: center;
     }
 
     /* 保存一覧の各項目: 読込ボタン（可変幅）＋削除ボタン（固定幅）を横並びにする。 */
@@ -1273,19 +1369,8 @@
       filter: brightness(0.95);
     }
 
-    /* 曲検索の項目: 先頭にチェック欄を置き、選択中は淡いアクセント色で塗る。
-       色だけに頼らずチェック記号でも選択状態が分かるようにする。 */
-    .popup__item-button--search {
-      gap: 8px;
-    }
-
-    .popup__item-check {
-      flex: 0 0 auto;
-      width: 1.25em;
-      color: var(--color-accent);
-      font-weight: 700;
-    }
-
+    /* 曲検索の項目: 押すたびに切り替わるトグルなので、選択中は淡いアクセント色で
+       塗って示す（状態は aria-pressed でも伝える）。 */
     .popup__item-button--selected {
       background-color: var(--color-accent-soft);
       color: var(--color-accent);
@@ -1467,7 +1552,14 @@
       gap: 8px;
     }
 
-    /* 書き出し／取り込みパネル（保存一覧の先頭。「バックアップ」で開閉する） */
+    /* 書き出し／取り込み（「バックアップ」ポップアップの中身）。
+       入力欄・ボタン・説明は貼り付け取り込みフォームと同じ見た目を使い回す。 */
+    .saved-backup {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     .saved-backup p.saved-add__label {
       margin: 0;
     }
@@ -1614,9 +1706,17 @@
 
     <!-- ===== Main: setlist table ===== -->
     <main class="app__main app__main--setlist">
-      <div class="setlist-tools" id="setlist-tools" data-role="setlist-tools" hidden>
-        <button type="button" class="btn btn--add" id="btn-add-oa" data-role="add-oa">＋O.A</button>
-        <button type="button" class="btn btn--add" id="btn-add-en" data-role="add-en">＋アンコール</button>
+      <div class="main-tools">
+        <div class="mode-switch" role="group" aria-label="入力するものの切替">
+          <button type="button" class="mode-switch__button" id="btn-mode-songs" data-role="mode-songs"
+            aria-pressed="true">曲</button>
+          <button type="button" class="mode-switch__button" id="btn-mode-bands" data-role="mode-bands"
+            aria-pressed="false">対バン</button>
+        </div>
+        <div class="setlist-tools" id="setlist-tools" data-role="setlist-tools" hidden>
+          <button type="button" class="btn btn--add" id="btn-add-oa" data-role="add-oa">＋O.A</button>
+          <button type="button" class="btn btn--add" id="btn-add-en" data-role="add-en">＋アンコール</button>
+        </div>
       </div>
       <table class="setlist" id="setlist-table" data-role="setlist-table">
         <thead>
@@ -1640,6 +1740,34 @@
         <span class="add-area__text">曲を追加する</span>
         <span class="add-area__plus" aria-hidden="true">＋</span>
       </button>
+
+      <!-- 対バン相手の入力（上のタブで曲名の入力と入れ替わる） -->
+      <div class="band-panel" id="band-panel" data-role="band-panel" hidden>
+        <div class="field__control">
+          <input class="field__input" type="text" id="input-band" data-role="band-input"
+            placeholder="対バン相手を入力" aria-label="対バン相手" autocomplete="off" enterkeyhint="done">
+          <span class="input-icons">
+            <button type="button" class="input-icon" id="btn-band-add" data-role="band-add"
+              aria-label="このライブの対バン相手に追加する" title="このライブの対バン相手に追加する">
+              <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <button type="button" class="input-icon" id="btn-band-pick" data-role="band-pick"
+              aria-label="対バン相手を選ぶ" title="対バン相手を選ぶ">
+              <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 6h11M9 12h11M9 18h11"/>
+                <circle cx="4.5" cy="6" r="1.1"/>
+                <circle cx="4.5" cy="12" r="1.1"/>
+                <circle cx="4.5" cy="18" r="1.1"/>
+              </svg>
+            </button>
+          </span>
+        </div>
+        <div class="band-list" id="band-list" data-role="band-list" aria-label="追加した対バン相手">
+          <!-- 対バン相手のチップは renderBandChips() が描画する -->
+        </div>
+      </div>
     </main>
 
     <!-- ===== Footer: このセトリへの操作。主操作を大きく、破棄は小さく ===== -->
@@ -1707,10 +1835,6 @@
       </button>
     </nav>
 
-    <header class="page-header">
-      <h1 class="page-header__title">保存したセトリ</h1>
-    </header>
-
     <div class="page-actions">
       <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
       <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
@@ -1728,23 +1852,6 @@
           <button type="button" class="btn btn--copy" id="btn-saved-add-submit"
             data-role="saved-add-submit">この内容で追加</button>
         </div>
-      </div>
-      <div class="saved-add saved-backup" id="saved-backup" data-role="saved-backup" hidden>
-        <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
-        <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
-          spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
-        <div class="saved-add__actions">
-          <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
-          <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
-        </div>
-        <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
-        <div class="saved-add__actions">
-          <button type="button" class="btn btn--ghost" id="btn-backup-cancel" data-role="backup-cancel">閉じる</button>
-          <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
-          <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
-        </div>
-        <input type="file" id="saved-backup-file" data-role="saved-backup-file"
-          accept="application/json,.json" hidden>
       </div>
       <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
         <span class="saved-filter__label">すべて含む:</span>
@@ -1904,6 +2011,97 @@
     </div>
   </div>
 
+  <!-- ===== Band picker popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="band-overlay" data-role="band-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="band-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="band-title">対バン相手を選択</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-band-register"
+            data-role="band-register">登録</button>
+          <button type="button" class="btn btn--ghost" id="btn-band-manage"
+            data-role="band-manage">管理</button>
+          <button type="button" class="btn btn--ghost" id="btn-band-close" data-role="band-close">閉じる</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="band-pick-list" data-role="band-pick-list">
+          <!-- 登録済みの対バン相手は renderBandPickList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Band manage popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="band-manage-overlay" data-role="band-manage-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="band-manage-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="band-manage-title">対バン相手の管理</h2>
+        <button type="button" class="btn btn--ghost" id="btn-band-manage-close"
+          data-role="band-manage-close">閉じる</button>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__help">
+          表記のゆれた相手は「まとめる」で1つにできます。保存したセトリの対バン相手も付け替わります。
+        </p>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="band-manage-list" data-role="band-manage-list">
+          <!-- 対バン相手の一覧は renderBandManageList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Band merge target popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="band-merge-overlay" data-role="band-merge-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="band-merge-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="band-merge-title">まとめ先を選択</h2>
+        <button type="button" class="btn btn--ghost" id="btn-band-merge-cancel"
+          data-role="band-merge-cancel">やめる</button>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__progress" id="band-merge-source" data-role="band-merge-source"></p>
+        <p class="resolve-notice__help">まとめ先の相手を選んでください。</p>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="band-merge-list" data-role="band-merge-list">
+          <!-- まとめ先の候補は renderBandMergeList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Band register popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="band-add-overlay" data-role="band-add-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="band-add-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="band-add-title">対バン相手を登録</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-band-add-cancel"
+            data-role="band-add-cancel">キャンセル</button>
+          <button type="button" class="btn btn--copy" id="btn-band-add-submit"
+            data-role="band-add-submit">登録する</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <div class="venue-add-form">
+          <div class="field field--stacked">
+            <label class="field__label" for="band-add-name">対バン相手の名前</label>
+            <input class="field__input" type="text" id="band-add-name" data-role="band-add-name"
+              autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="band-add-reading">読み仮名（並び順に使う。省略可）</label>
+            <input class="field__input" type="text" id="band-add-reading" data-role="band-add-reading"
+              placeholder="例：ゆいざらす" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Song search popup (initially hidden) ===== -->
   <div class="popup-overlay" id="search-overlay" data-role="search-overlay" hidden>
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="search-title">
@@ -1919,6 +2117,35 @@
         <ul class="popup__list" id="search-list" data-role="search-list">
           <!-- 曲一覧（複数選択トグル）は renderSearchList() が描画する -->
         </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Backup popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="backup-overlay" data-role="backup-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="backup-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="backup-title">バックアップ</h2>
+        <button type="button" class="btn btn--ghost" id="btn-backup-cancel"
+          data-role="backup-cancel">閉じる</button>
+      </div>
+      <div class="popup__body">
+        <div class="saved-backup">
+          <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
+          <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
+            spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
+            <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
+          </div>
+          <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
+            <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
+          </div>
+          <input type="file" id="saved-backup-file" data-role="saved-backup-file"
+            accept="application/json,.json" hidden>
+        </div>
       </div>
     </div>
   </div>
@@ -2819,6 +3046,239 @@
     }
 
     // ============================================================
+    // Data / Band Store: 対バン相手のマスタ（BandStore）
+    // ------------------------------------------------------------
+    // 対バン相手は { name, reading }。会場と同じ粒度（1組＝1件）で持ち、表記が
+    // ゆれたときは「まとめる」で1つにできる。会場と違って組み込みの一覧は既定で
+    // 空にしてある（対バン相手は人によって違うため）。共通で使う相手があれば
+    // VENUE_MASTER と同じようにファイルの BAND_MASTER へ直接書ける。
+    // 登録した分は localStorage に持ち、バックアップにも含める。
+    // マスタに無い相手も手入力で追加できる（登録は必須ではない）。
+    // ============================================================
+
+    /** @type {ReadonlyArray<Band>} 組み込みの対バン相手（既定では持たない）。 */
+    const BAND_MASTER = [];
+
+    /** 登録した対バン相手の localStorage キー。 */
+    const USER_BAND_STORAGE_KEY = 'yuisrus-setlist:bands:v1';
+
+    /**
+     * 対バン相手1件を検証・正規化する（純粋関数）。名前が空なら null。
+     * @param {unknown} data 検証する値
+     * @returns {Band|null} 正規化した1件
+     */
+    function normalizeBandEntry(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const name = typeof data.name === 'string' ? data.name.trim().slice(0, BAND_NAME_MAX) : '';
+      if (name === '') {
+        return null;
+      }
+      return {
+        name: name,
+        reading: typeof data.reading === 'string' ? data.reading.trim() : ''
+      };
+    }
+
+    /**
+     * 登録した対バン相手の一覧を返す。
+     * @returns {Band[]} 追加分の対バン相手
+     */
+    function loadUserBands() {
+      return readStoredList(USER_BAND_STORAGE_KEY, normalizeBandEntry);
+    }
+
+    /**
+     * 使える対バン相手の一覧（組み込み＋登録分）を返す。
+     * @returns {Band[]} 対バン相手の一覧
+     */
+    function allBands() {
+      return mergeByName(BAND_MASTER.slice(), loadUserBands());
+    }
+
+    /**
+     * 名前で対バン相手を探す（表記の差は無視する）。
+     * @param {string} name 対バン相手の名前
+     * @returns {Band|null} 見つかった1件。無ければ null
+     */
+    function findBandByName(name) {
+      const key = masterNameKey(name);
+      if (key === '') {
+        return null;
+      }
+      const bands = allBands();
+      for (let i = 0; i < bands.length; i += 1) {
+        if (masterNameKey(bands[i].name) === key) {
+          return bands[i];
+        }
+      }
+      return null;
+    }
+
+    /**
+     * その相手が組み込みマスタ（ファイル管理）のものかを返す。
+     * 組み込みは localStorage から消せないので、削除・統合元にはできない。
+     * @param {string} name 対バン相手の名前
+     * @returns {boolean} 組み込みなら true
+     */
+    function isBuiltInBand(name) {
+      const key = masterNameKey(name);
+      return BAND_MASTER.some(function (band) {
+        return masterNameKey(band.name) === key;
+      });
+    }
+
+    /**
+     * 対バン相手を登録分へ足す（すでにある名前なら何もしない）。
+     * @param {Band} band 登録する対バン相手
+     * @returns {boolean} 書き込めたら true（既存だった場合も true）
+     */
+    function addUserBand(band) {
+      const entry = normalizeBandEntry(band);
+      if (!entry) {
+        return false;
+      }
+      if (findBandByName(entry.name)) {
+        return true;
+      }
+      const list = loadUserBands();
+      list.push(entry);
+      return writeStoredList(USER_BAND_STORAGE_KEY, list);
+    }
+
+    /**
+     * 登録分の対バン相手を削除する（組み込みは消せない）。
+     * 保存データは相手の名前を文字列で持つので、消しても過去のセトリは壊れない
+     * （一覧の選択肢から消えるだけ）。
+     * @param {string} name 対バン相手の名前
+     * @returns {boolean} 削除して書き込めたら true
+     */
+    function removeUserBand(name) {
+      const key = masterNameKey(name);
+      if (key === '' || isBuiltInBand(name)) {
+        return false;
+      }
+      const list = loadUserBands();
+      const rest = list.filter(function (band) {
+        return masterNameKey(band.name) !== key;
+      });
+      if (rest.length === list.length) {
+        return false; // 該当なし
+      }
+      return writeStoredList(USER_BAND_STORAGE_KEY, rest);
+    }
+
+    /**
+     * 登録した対バン相手の名前・読み仮名を書き換える（組み込みは変えられない）。
+     * 名前を変えた場合は保存データの対バン相手も付け替える。
+     * @param {string} oldName 変更前の名前
+     * @param {Band} next 変更後の内容
+     * @returns {{ok: boolean, updated: number}} 書き込み成否と付け替えた保存データの件数
+     */
+    function renameUserBand(oldName, next) {
+      const key = masterNameKey(oldName);
+      const entry = normalizeBandEntry(next);
+      if (key === '' || !entry || isBuiltInBand(oldName)) {
+        return { ok: false, updated: 0 };
+      }
+
+      const list = loadUserBands();
+      let found = false;
+      const updatedList = list.map(function (band) {
+        if (masterNameKey(band.name) !== key) {
+          return band;
+        }
+        found = true;
+        return entry;
+      });
+      if (!found || !writeStoredList(USER_BAND_STORAGE_KEY, updatedList)) {
+        return { ok: false, updated: 0 };
+      }
+
+      const renamed = renameSavedBand(oldName, entry.name);
+      return { ok: true, updated: renamed.updated };
+    }
+
+    /**
+     * その対バン相手が入っている保存データの件数を数える。
+     * 表記の差（全角半角・大小・空白）は同じ相手として数える。
+     * @param {string} name 対バン相手の名前
+     * @returns {number} 件数
+     */
+    function countSavedByBand(name) {
+      const key = masterNameKey(name);
+      if (key === '') {
+        return 0;
+      }
+      return loadSavedSetlists().filter(function (record) {
+        return record.bands.some(function (current) {
+          return masterNameKey(current) === key;
+        });
+      }).length;
+    }
+
+    /**
+     * 保存データの対バン相手を付け替える（統合・リネームで共用）。
+     * 表記の差は同じ相手として扱い、書き込む表記は toName に揃える。
+     * 付け替えた結果おなじ相手が2つ並ぶ場合は1つにまとめる。
+     * @param {string} fromName 付け替える前の名前
+     * @param {string} toName 付け替え後の名前
+     * @returns {{ok: boolean, updated: number}} 書き込み成否と件数
+     */
+    function renameSavedBand(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      if (fromKey === '' || typeof toName !== 'string' || toName === '') {
+        return { ok: false, updated: 0 };
+      }
+
+      const records = loadSavedSetlists();
+      let updated = 0;
+      const next = records.map(function (record) {
+        const hit = record.bands.some(function (name) {
+          return masterNameKey(name) === fromKey && name !== toName;
+        });
+        if (!hit) {
+          return record;
+        }
+        updated += 1;
+        const bands = normalizeBandNames(record.bands.map(function (name) {
+          return masterNameKey(name) === fromKey ? toName : name;
+        }));
+        return Object.assign({}, record, { bands: bands });
+      });
+      if (updated > 0 && !writeSavedSetlists(next)) {
+        return { ok: false, updated: 0 };
+      }
+      return { ok: true, updated: updated };
+    }
+
+    /**
+     * 対バン相手を別の相手へまとめる（統合）。
+     * 保存データの名前を統合先の表記へ書き換える。統合元が登録分なら
+     * マスタからも消す（組み込みは消せないので残る）。
+     * @param {string} fromName まとめられる側の名前
+     * @param {string} toName まとめ先の名前
+     * @returns {{ok: boolean, updated: number, removed: boolean}}
+     *   書き込み成否・付け替えた保存データの件数・マスタから消せたか
+     */
+    function mergeBands(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      const toKey = masterNameKey(toName);
+      if (fromKey === '' || toKey === '' || fromKey === toKey) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const result = renameSavedBand(fromName, toName);
+      if (!result.ok) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const removed = removeUserBand(fromName);
+      return { ok: true, updated: result.updated, removed: removed };
+    }
+
+    // ============================================================
     // Types: JSDoc 型注釈（実装はバニラJS。any 相当の曖昧型は使わない）
     // ============================================================
 
@@ -2828,6 +3288,13 @@
      * @property {string} name    入力欄へ入れる会場名
      * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
      * @property {string} [area]  会場の密集地（AREA_MASTER の name）。未設定は「その他」
+     */
+
+    /**
+     * 対バン相手のマスタの1件を表す。
+     * @typedef {Object} Band
+     * @property {string} name    対バン相手の名前
+     * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
      */
 
     /**
@@ -2846,6 +3313,7 @@
      * @property {string} date     <input type="date"> の値 (YYYY-MM-DD)。未入力は ""
      * @property {string} liveName ライブ名。未入力は ""
      * @property {string} venue    会場名。未入力は ""
+     * @property {string[]} bands  対バン相手の名前（追加順）。いなければ []
      * @property {string[]} setlist 追加順の曲タイトル列。重複可
      * @property {number[]} tags  ライブの属性ID（TAG_MASTER の id。並びはマスタ順）
      * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
@@ -2866,6 +3334,7 @@
       date: '',
       liveName: '',
       venue: '',
+      bands: [],
       memo: '',
       setlist: [],
       tags: [],
@@ -2884,6 +3353,57 @@
         ? state.tags.concat([id])
         : state.tags.filter(function (current) { return current !== id; });
       state.tags = normalizeTagIds(next); // マスタ順に揃える
+    }
+
+    /** 対バン相手1組の名前として受け付ける最大文字数（誤った長文の貼り付け対策）。 */
+    const BAND_NAME_MAX = 60;
+
+    /**
+     * 任意の値を対バン相手の名前の配列へ正規化する（純粋関数）。
+     * 前後の空白を落とし、空文字と重複は捨てる（同じ相手を二重に持たない）。
+     * @param {unknown} list 検証する値
+     * @returns {string[]} 正規化した名前の配列
+     */
+    function normalizeBandNames(list) {
+      if (!Array.isArray(list)) {
+        return [];
+      }
+      const names = [];
+      list.forEach(function (item) {
+        if (typeof item !== 'string') {
+          return;
+        }
+        const name = item.trim().slice(0, BAND_NAME_MAX);
+        if (name === '' || names.indexOf(name) !== -1) {
+          return;
+        }
+        names.push(name);
+      });
+      return names;
+    }
+
+    /**
+     * 対バン相手を1組追加する。DOM には触れない（描画は呼び出し側）。
+     * 空文字・すでに追加済みの相手は追加しない。
+     * @param {string} name 追加する対バン相手の名前
+     * @returns {boolean} 追加したら true（空・重複で追加しなければ false）
+     */
+    function addBand(name) {
+      const trimmed = typeof name === 'string' ? name.trim().slice(0, BAND_NAME_MAX) : '';
+      if (trimmed === '' || state.bands.indexOf(trimmed) !== -1) {
+        return false;
+      }
+      state.bands = state.bands.concat([trimmed]);
+      return true;
+    }
+
+    /**
+     * 対バン相手を1組外す。DOM には触れない（描画は呼び出し側）。
+     * @param {string} name 外す対バン相手の名前
+     * @returns {void}
+     */
+    function removeBand(name) {
+      state.bands = state.bands.filter(function (current) { return current !== name; });
     }
 
     // ============================================================
@@ -3051,6 +3571,7 @@
       state.date = '';
       state.liveName = '';
       state.venue = '';
+      state.bands = [];
       state.memo = '';
       state.editingId = ''; // 編集中の紐づけも解除する（新規作成へ戻る）
     }
@@ -3078,6 +3599,7 @@
           date: state.date,
           liveName: state.liveName,
           venue: state.venue,
+          bands: state.bands,                      // 対バン相手
           memo: state.memo,                        // MCメモ
           setlist: toStoredSetlist(state.setlist), // 曲はIDで持つ
           tags: state.tags,                        // 属性もIDで持つ
@@ -3119,6 +3641,7 @@
       state.date = typeof data.date === 'string' ? data.date : '';
       state.liveName = typeof data.liveName === 'string' ? data.liveName : '';
       state.venue = typeof data.venue === 'string' ? data.venue : '';
+      state.bands = normalizeBandNames(data.bands);
       state.memo = typeof data.memo === 'string' ? data.memo : '';
       // 曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
       state.setlist = fromStoredSetlist(data.setlist);
@@ -3152,6 +3675,7 @@
      * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
      * @property {string} liveName  ライブ名。未入力は ""
      * @property {string} venue     会場名。未入力は ""
+     * @property {string[]} bands  対バン相手の名前（追加順）。いなければ []
      * @property {string} memo      MCメモ。未入力は ""
      * @property {number[]} tags   ライブの属性ID（TAG_MASTER の id）
      * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
@@ -3193,6 +3717,7 @@
         date: typeof data.date === 'string' ? data.date : '',
         liveName: typeof data.liveName === 'string' ? data.liveName : '',
         venue: typeof data.venue === 'string' ? data.venue : '',
+        bands: normalizeBandNames(data.bands),
         memo: typeof data.memo === 'string' ? data.memo : '',
         tags: normalizeTagIds(data.tags),
         oaCount: counts.oaCount,
@@ -3288,7 +3813,11 @@
         venue: record.venue,
         setlist: toStoredSetlist(record.setlist)
       };
-      // メモ・属性・区分が無い（従来どおりのセトリ）のときは書き出さず、形も大きさも変えない。
+      // 対バン・メモ・属性・区分が無い（従来どおりのセトリ）のときは書き出さず、
+      // 形も大きさも変えない。
+      if (record.bands.length > 0) {
+        stored.bands = record.bands.slice();
+      }
       if (record.memo !== '') {
         stored.memo = record.memo;
       }
@@ -3318,6 +3847,7 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        bands: normalizeBandNames(source.bands),
         memo: source.memo,
         tags: source.tags,
         oaCount: source.oaCount,
@@ -3360,6 +3890,7 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        bands: normalizeBandNames(source.bands),
         memo: source.memo,
         tags: source.tags,
         oaCount: source.oaCount,
@@ -3976,6 +4507,53 @@
     }
 
     /**
+     * 追加した対バン相手をチップで描画する（1組もいなければ案内文を出す）。
+     * 並びは追加順を保つので、状態が変わるたびに作り直して構わない。
+     * @returns {void}
+     */
+    function renderBandChips() {
+      const list = document.getElementById('band-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      if (state.bands.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'band-panel__empty';
+        empty.textContent = '対バン相手を入力して「＋」で追加します';
+        list.appendChild(empty);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      state.bands.forEach(function (name) {
+        const chip = document.createElement('span');
+        chip.className = 'band-chip';
+
+        const label = document.createElement('span');
+        label.className = 'band-chip__name';
+        label.textContent = name; // textContent で挿入（XSS安全）
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'band-chip__remove';
+        remove.dataset.role = 'band-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', name + ' を外す');
+        remove.addEventListener('click', function () {
+          removeBand(name);
+          renderAll(); // 再描画＋作業中データの保存
+        });
+
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
      * 属性チップ（ワンマン・生誕など）を描画する。押下状態は aria-pressed で持つ。
      * 項目はマスタ順に固定なので、状態が変わるたびに作り直して構わない。
      * @returns {void}
@@ -4011,7 +4589,7 @@
     /**
      * 「＋O.A」「＋アンコール」ボタンの出し入れを状態に合わせる。
      * すでにその区分がある場合は境界行の▲▼で動かすので、ボタンは隠す。
-     * 曲が1曲も無い／本編の曲が残らない場合も隠す。
+     * 曲が1曲も無い／本編の曲が残らない場合、対バンの入力中も隠す。
      * @returns {void}
      */
     function syncSectionTools() {
@@ -4024,7 +4602,89 @@
       const canGrow = state.oaCount + state.enCount < state.setlist.length;
       addOa.hidden = state.oaCount > 0 || !canGrow;
       addEn.hidden = state.enCount > 0 || !canGrow;
-      tools.hidden = addOa.hidden && addEn.hidden;
+      tools.hidden = inputMode === 'bands' || (addOa.hidden && addEn.hidden);
+    }
+
+    /**
+     * メイン領域に出しているもの。'songs' はセトリ表（曲名の入力）、
+     * 'bands' は対バン相手の入力。画面の状態なので保存はしない。
+     * @type {'songs'|'bands'}
+     */
+    let inputMode = 'songs';
+
+    /**
+     * 現在の入力モードに合わせて、セトリ表と対バン入力を入れ替える。
+     * @returns {void}
+     */
+    function syncInputMode() {
+      const table = document.getElementById('setlist-table');
+      const addArea = document.getElementById('btn-add');
+      const panel = document.getElementById('band-panel');
+      const songsButton = document.getElementById('btn-mode-songs');
+      const bandsButton = document.getElementById('btn-mode-bands');
+      const bandsMode = inputMode === 'bands';
+
+      if (table) {
+        table.hidden = bandsMode;
+      }
+      if (addArea) {
+        addArea.hidden = bandsMode;
+      }
+      if (panel) {
+        panel.hidden = !bandsMode;
+      }
+      if (songsButton) {
+        songsButton.setAttribute('aria-pressed', bandsMode ? 'false' : 'true');
+      }
+      if (bandsButton) {
+        bandsButton.setAttribute('aria-pressed', bandsMode ? 'true' : 'false');
+      }
+      syncSectionTools(); // 区分の追加ボタンは曲の入力中だけ出す
+    }
+
+    /**
+     * 入力モードを切り替える。対バンへ移るときは入力欄へフォーカスし、
+     * 曲へ戻るときは打ちかけの相手を取りこぼさないよう確定させる。
+     * @param {'songs'|'bands'} mode 切り替え先
+     * @returns {void}
+     */
+    function setInputMode(mode) {
+      const next = mode === 'bands' ? 'bands' : 'songs';
+      if (next === inputMode) {
+        return;
+      }
+      if (inputMode === 'bands') {
+        commitBandInput(); // 「＋」を押さずにタブを離れた分を拾う
+      }
+      inputMode = next;
+      syncInputMode();
+      if (next === 'bands') {
+        const input = document.getElementById('input-band');
+        if (input) {
+          input.focus();
+        }
+      }
+    }
+
+    /**
+     * 入力の切替タブ（曲／対バン）を結線する（冪等）。
+     * @returns {void}
+     */
+    let modeSwitchWired = false;
+    function initModeSwitch() {
+      if (modeSwitchWired) {
+        return;
+      }
+      const songsButton = document.getElementById('btn-mode-songs');
+      const bandsButton = document.getElementById('btn-mode-bands');
+      if (songsButton) {
+        songsButton.addEventListener('click', function () { setInputMode('songs'); });
+      }
+      if (bandsButton) {
+        bandsButton.addEventListener('click', function () { setInputMode('bands'); });
+      }
+      syncInputMode();
+      modeSwitchWired = true;
     }
 
     /**
@@ -4092,6 +4752,7 @@
      * @returns {void}
      */
     function renderAll() {
+      renderBandChips();
       renderTagChips();
       renderSetlist();
       saveState(); // 状態変更のたびに保存（間違って閉じても直前の内容を復元できる）
@@ -4658,11 +5319,12 @@
      * @returns {void}
      */
     function editSavedSetlist(record) {
-      // 曲だけでなく、ライブ名・会場・MCメモ・属性も置き換わる。曲が空でも
+      // 曲だけでなく、ライブ名・会場・対バン・MCメモ・属性も置き換わる。曲が空でも
       // 長文のメモを書いている最中があり得るので、何か入力があれば確認する。
       const hasDraft = state.setlist.length > 0 ||
         state.liveName !== '' ||
         state.venue !== '' ||
+        state.bands.length > 0 ||
         state.memo !== '' ||
         state.tags.length > 0;
       if (
@@ -4674,6 +5336,7 @@
       state.date = record.date;
       state.liveName = record.liveName;
       state.venue = record.venue;
+      state.bands = record.bands.slice(); // 保存データと配列を共有しない
       state.memo = record.memo;
       state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
       state.tags = record.tags.slice();
@@ -4681,6 +5344,7 @@
       state.enCount = record.enCount;
       state.editingId = record.id;            // 以降の保存はこの1件の上書きになる
 
+      setInputMode('songs'); // 読み込んだセトリが見えるよう曲の入力へ戻す
       applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
       renderAll();          // セトリ表を再描画して連番同期＋作業中データを保存
       syncEditingUi();      // 編集中の帯・保存ボタンの表示を切り替える
@@ -4949,7 +5613,6 @@
       if (!form) {
         return;
       }
-      closeBackupPanel(); // バックアップパネルとは排他にする
       form.hidden = false;
       if (input) {
         input.focus();
@@ -5029,9 +5692,12 @@
 
     /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
     const BACKUP_FORMAT = 'yuisrus-setlist-backup';
+    // 6: 登録した対バン相手のマスタも書き出す（トップレベルの bands はマスタ、
+    //    setlists[].bands は各ライブの対バン相手で別物）。
+    const BACKUP_VERSION = 6; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
+    // 5: 各ライブの対バン相手を書き出す（無いセトリでは何も書き出さない）。
     // 4: 追加した会場・エリアも書き出す（古い版の取り込みでも壊れないよう、
     //    受け取り側は setlists 以外が無くても読み進める）。
-    const BACKUP_VERSION = 4; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
 
     /** 取り込み結果の通知文。 */
     const BACKUP_PARSE_FAILURE_MESSAGE = 'JSONを読み取れませんでした';
@@ -5050,14 +5716,19 @@
         setlists: loadSavedSetlists().map(toStoredSavedSetlist) // 曲はIDで書き出す
       };
 
-      // 自分で追加した会場・エリアだけを書き出す（組み込みマスタは相手側にもある）。
+      // 自分で追加した会場・エリア・対バン相手だけを書き出す
+      // （組み込みマスタは相手側にもある）。
       const areas = loadUserAreas();
       const venues = loadUserVenues();
+      const bands = loadUserBands();
       if (areas.length > 0) {
         backup.areas = areas;
       }
       if (venues.length > 0) {
         backup.venues = venues;
+      }
+      if (bands.length > 0) {
+        backup.bands = bands; // マスタ（各ライブの対バン相手は setlists の中）
       }
       return JSON.stringify(backup);
     }
@@ -5116,11 +5787,11 @@
     }
 
     /**
-     * バックアップに入っている会場・エリアを取り込む（既存は消さない）。
+     * バックアップに入っている会場・エリア・対バン相手を取り込む（既存は消さない）。
      * すでに知っている名前は飛ばすので、何度取り込んでも増えない。
-     * 会場・エリアが入っていない古いバックアップでは何もしない。
+     * それらが入っていない古いバックアップでは何もしない。
      * @param {string} text バックアップのJSON文字列
-     * @returns {{added: number}} 追加した件数（会場＋エリアの合計）
+     * @returns {{added: number}} 追加した件数（会場＋エリア＋対バン相手の合計）
      */
     function mergeBackupMasters(text) {
       let data = null;
@@ -5159,16 +5830,30 @@
         });
       }
 
+      // トップレベルの bands は対バン相手のマスタ（各ライブの相手は setlists の中）。
+      if (Array.isArray(data.bands)) {
+        data.bands.forEach(function (item) {
+          const band = normalizeBandEntry(item);
+          if (!band || findBandByName(band.name)) {
+            return;
+          }
+          if (addUserBand(band)) {
+            added += 1;
+          }
+        });
+      }
+
       return { added: added };
     }
 
     /**
      * 取り込み候補を保存一覧へ追加する（既存は消さない）。
      * 内容が同じセトリはスキップし、IDだけ衝突した場合は新しいIDを振って追加する。
-     * スキップした相手にMCメモがあり、こちらが空の場合はメモだけ埋める（filled）。
+     * スキップした相手にMCメモ・対バン相手があり、こちらが空の場合はそこだけ
+     * 埋める（filled）。
      * @param {SavedSetlist[]} incoming 取り込む候補
      * @returns {{added: number, skipped: number, filled: number, ok: boolean}}
-     *   追加件数・スキップ件数・メモを埋めた件数・書き込み成否
+     *   追加件数・スキップ件数・不足を補った件数・書き込み成否
      */
     function mergeSavedSetlists(incoming) {
       const records = loadSavedSetlists();
@@ -5185,14 +5870,25 @@
       incoming.forEach(function (record) {
         const key = savedSetlistKey(record);
         if (usedKeys[key]) {
-          // 同じライブとして扱うが、こちらにだけ無いMCメモは拾っておく
-          // （キーに memo を入れて別レコードにすると、同じライブが2件並んでしまう）。
-          if (record.memo !== '') {
+          // 同じライブとして扱うが、こちらにだけ無いMCメモ・対バン相手は拾っておく
+          // （キーに入れて別レコードにすると、同じライブが2件並んでしまう）。
+          if (record.memo !== '' || record.bands.length > 0) {
             records.forEach(function (existing, index) {
-              if (existing.memo === '' && savedSetlistKey(existing) === key) {
-                records[index] = Object.assign({}, existing, { memo: record.memo });
-                filled += 1;
+              if (savedSetlistKey(existing) !== key) {
+                return;
               }
+              const patch = {};
+              if (existing.memo === '' && record.memo !== '') {
+                patch.memo = record.memo;
+              }
+              if (existing.bands.length === 0 && record.bands.length > 0) {
+                patch.bands = record.bands.slice();
+              }
+              if (Object.keys(patch).length === 0) {
+                return;
+              }
+              records[index] = Object.assign({}, existing, patch);
+              filled += 1;
             });
           }
           skipped += 1; // すでに同じ内容を持っている
@@ -5207,6 +5903,7 @@
           date: record.date,
           liveName: record.liveName,
           venue: record.venue,
+          bands: record.bands.slice(),
           memo: record.memo,
           tags: record.tags.slice(),
           oaCount: record.oaCount,
@@ -5223,35 +5920,34 @@
     }
 
     /**
-     * バックアップパネルを開く（書き出し JSON を入力欄へ入れておく）。
-     * 貼り付け取り込みフォームとは同時に開かない。
+     * バックアップのポップアップを開く（書き出し JSON を入力欄へ入れておく）。
+     * 保存一覧の上に重ねて出すので、開いている「追加」フォームはそのまま残す。
      * @returns {void}
      */
-    function openBackupPanel() {
-      const panel = document.getElementById('saved-backup');
+    function openBackupPopup() {
+      const overlay = document.getElementById('backup-overlay');
       const input = document.getElementById('saved-backup-input');
-      if (!panel) {
+      if (!overlay) {
         return;
       }
-      closeImportForm(); // 「追加」フォームとは排他にする
       if (input) {
         input.value = buildBackupJson();
       }
-      panel.hidden = false;
+      overlay.hidden = false;
     }
 
     /**
-     * バックアップパネルを閉じ、入力欄の内容を捨てる。
+     * バックアップのポップアップを閉じ、入力欄の内容を捨てる。
      * @returns {void}
      */
-    function closeBackupPanel() {
-      const panel = document.getElementById('saved-backup');
+    function closeBackupPopup() {
+      const overlay = document.getElementById('backup-overlay');
       const input = document.getElementById('saved-backup-input');
       const file = document.getElementById('saved-backup-file');
-      if (!panel) {
+      if (!overlay) {
         return;
       }
-      panel.hidden = true;
+      overlay.hidden = true;
       if (input) {
         input.value = '';
       }
@@ -5334,13 +6030,13 @@
       // セトリが0件でも会場・エリアだけのバックアップは取り込む（機種変更のとき、
       // まだセトリを入れていない端末へ会場だけ移す使い方があるため）。
       const masters = mergeBackupMasters(input.value);
-      const masterNote = masters.added > 0 ? '／会場・エリア' + masters.added + '件' : '';
+      const masterNote = masters.added > 0 ? '／会場・エリア・対バン相手' + masters.added + '件' : '';
 
       if (incoming.length === 0) {
         if (masters.added > 0) {
           syncVenueAddButton(); // 登録済みになった会場の「登録」ボタンを引っ込める
-          closeBackupPanel();
-          showToast('会場・エリア' + masters.added + '件を取り込みました');
+          closeBackupPopup();
+          showToast('会場・エリア・対バン相手' + masters.added + '件を取り込みました');
           return;
         }
         showToast(BACKUP_EMPTY_MESSAGE);
@@ -5359,16 +6055,18 @@
 
       syncVenueAddButton(); // 取り込んだ会場がマスタに入ったので表示を合わせる
 
-      const filledNote = result.filled > 0 ? '／メモ' + result.filled + '件を補いました' : '';
+      const filledNote = result.filled > 0
+        ? '／メモ・対バンを' + result.filled + '件補いました'
+        : '';
 
       if (result.added === 0) {
         showToast('すべて取り込み済みでした（' + result.skipped + '件）' + filledNote + masterNote);
         if (result.filled > 0) {
-          closeBackupPanel();
+          closeBackupPopup();
         }
         return;
       }
-      closeBackupPanel();
+      closeBackupPopup();
       showToast(
         (result.skipped === 0
           ? result.added + '件を取り込みました'
@@ -5396,7 +6094,7 @@
       const fileInput = document.getElementById('saved-backup-file');
 
       if (openButton) {
-        openButton.addEventListener('click', openBackupPanel);
+        openButton.addEventListener('click', openBackupPopup);
       }
       if (copyButton) {
         copyButton.addEventListener('click', async function () {
@@ -5422,7 +6120,7 @@
         importButton.addEventListener('click', submitBackupImport);
       }
       if (cancelButton) {
-        cancelButton.addEventListener('click', closeBackupPanel);
+        cancelButton.addEventListener('click', closeBackupPopup);
       }
       savedBackupWired = true;
     }
@@ -5441,7 +6139,7 @@
       closeImportConfirm(); // 確認中の取り込みは持ち越さない
       closeSearchPopup();
       closeImportForm();
-      closeBackupPanel();
+      closeBackupPopup();
       resetSearchSelection();
     }
 
@@ -6032,10 +6730,6 @@
     function updateSearchItem(button, selected) {
       button.classList.toggle('popup__item-button--selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-      const check = button.querySelector('.popup__item-check');
-      if (check) {
-        check.textContent = selected ? '✓' : '';
-      }
     }
 
     /**
@@ -6089,12 +6783,8 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'popup__item-button popup__item-button--search';
+        button.className = 'popup__item-button';
         button.dataset.role = 'search-option';
-
-        const check = document.createElement('span');
-        check.className = 'popup__item-check';
-        check.setAttribute('aria-hidden', 'true'); // 状態は aria-pressed で伝える
 
         const labelText = popupShortMode ? songShortTitle(title) : title;
 
@@ -6107,9 +6797,8 @@
           button.title = title;
         }
 
-        button.appendChild(check);
         button.appendChild(label);
-        updateSearchItem(button, selected); // 初期表示（選択中なら塗り＋チェック）
+        updateSearchItem(button, selected); // 初期表示（選択中なら塗る）
 
         button.addEventListener('click', function () {
           // トグル: 1回目のタップで選択、もう一度で解除する。
@@ -6575,18 +7264,18 @@
       const used = countSavedByVenue(venue.name);
 
       const item = document.createElement('li');
-      item.className = 'venue-row';
+      item.className = 'master-row';
       item.dataset.role = 'venue-manage-row';
 
       const label = document.createElement('span');
-      label.className = 'venue-row__label';
+      label.className = 'master-row__label';
 
       const name = document.createElement('span');
-      name.className = 'venue-row__name';
+      name.className = 'master-row__name';
       name.textContent = venue.name; // textContent で挿入（XSS安全）
 
       const meta = document.createElement('span');
-      meta.className = 'venue-row__meta';
+      meta.className = 'master-row__meta';
       meta.textContent = (builtIn ? '組み込み・' : '') +
         (used > 0 ? '保存' + used + '件' : '未使用');
 
@@ -6594,11 +7283,11 @@
       label.appendChild(meta);
 
       const actions = document.createElement('span');
-      actions.className = 'venue-row__actions';
+      actions.className = 'master-row__actions';
 
       const mergeButton = document.createElement('button');
       mergeButton.type = 'button';
-      mergeButton.className = 'venue-row__button';
+      mergeButton.className = 'master-row__button';
       mergeButton.dataset.role = 'venue-merge-start';
       mergeButton.textContent = 'まとめる';
       mergeButton.setAttribute('aria-label', venue.name + ' を別の会場へまとめる');
@@ -6610,7 +7299,7 @@
       if (!builtIn) {
         const editButton = document.createElement('button');
         editButton.type = 'button';
-        editButton.className = 'venue-row__button';
+        editButton.className = 'master-row__button';
         editButton.dataset.role = 'venue-edit';
         editButton.textContent = '編集';
         editButton.setAttribute('aria-label', venue.name + ' の名前やエリアを変える');
@@ -6621,7 +7310,7 @@
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.className = 'venue-row__button venue-row__button--danger';
+        removeButton.className = 'master-row__button venue-row__button--danger';
         removeButton.dataset.role = 'venue-remove';
         removeButton.textContent = '削除';
         removeButton.setAttribute('aria-label', venue.name + ' を一覧から削除する');
@@ -7138,6 +7827,655 @@
     }
 
     // ============================================================
+    // Band Picker Controller: 対バン相手の選択・管理（BandPickerController）
+    // ------------------------------------------------------------
+    // 会場と同じ考え方で、よく対バンする相手はマスタへ登録して選べるようにする。
+    // 「選ぶ」で一覧（あいうえお順）を開き、タップでこのライブの対バン相手へ
+    // 出し入れする（もう一度タップで外す）。表記がゆれた相手は「管理」から
+    // まとめられ、保存したセトリの対バン相手も一緒に付け替わる。
+    // マスタに無い相手は入力欄から直接足せる（登録は必須ではない）。
+    // 結線は initBandPicker() で行い、フラグで冪等化する。
+    // ============================================================
+
+    /**
+     * 対バン相手のソートキーを返す。読み仮名を優先し、未設定なら名前を使う。
+     * @param {Band} band マスタの1件
+     * @returns {string} あいうえお順比較に用いるキー
+     */
+    function bandSortKey(band) {
+      const source = band || {};
+      const reading = typeof source.reading === 'string' ? source.reading.trim() : '';
+      if (reading !== '') {
+        return reading;
+      }
+      return typeof source.name === 'string' ? source.name : '';
+    }
+
+    /**
+     * 対バン相手（組み込み＋登録分）を読み仮名（フォールバック名前）昇順で返す。
+     * @returns {Band[]} あいうえお順に並んだ対バン相手
+     */
+    function getSortedBandMaster() {
+      return allBands().sort(function (a, b) {
+        return bandSortKey(a).localeCompare(bandSortKey(b), 'ja');
+      });
+    }
+
+    /**
+     * 一覧から選んだ相手を、このライブの対バン相手へ出し入れする。
+     * すでに入っていれば外す（トグル）。
+     * @param {string} name 対バン相手の名前
+     * @returns {void}
+     */
+    function toggleBandFromMaster(name) {
+      if (state.bands.indexOf(name) === -1) {
+        addBand(name);
+      } else {
+        removeBand(name);
+      }
+      renderAll();          // チップを描き直して作業中データを保存
+      renderBandPickList(); // 一覧の印も更新する（ポップアップは開いたまま）
+    }
+
+    /**
+     * 対バン相手の一覧（#band-pick-list）をあいうえお順で描画する。
+     * すでにこのライブへ入れている相手には印を付ける。
+     * 名前は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderBandPickList() {
+      const list = document.getElementById('band-pick-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const bands = getSortedBandMaster();
+      const unregistered = state.bands.filter(function (name) {
+        return findBandByName(name) === null;
+      });
+
+      if (bands.length === 0 && unregistered.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '登録した対バン相手がありません。「登録」から追加できます';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+
+      // このライブに入れたが、まだマスタに無い相手。ここから1タップで登録できる
+      // ようにしておく（手入力した相手がマスタに貯まっていく）。
+      if (unregistered.length > 0) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.textContent = 'このライブの未登録の相手';
+        fragment.appendChild(heading);
+        unregistered.forEach(function (name) {
+          fragment.appendChild(buildBandRegisterRow(name));
+        });
+
+        const registered = document.createElement('li');
+        registered.className = 'popup__group-title';
+        registered.textContent = '登録済み';
+        fragment.appendChild(registered);
+      }
+
+      bands.forEach(function (band) {
+        const name = typeof band.name === 'string' ? band.name : '';
+        const selected = state.bands.indexOf(name) !== -1;
+
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button';
+        button.dataset.role = 'band-option';
+        button.textContent = name; // textContent で挿入（XSS安全）
+        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        if (selected) {
+          button.classList.add('popup__item-button--selected');
+        }
+        button.addEventListener('click', function () {
+          toggleBandFromMaster(name);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * まだマスタに無い相手の行を組み立てる（名前＋「登録」ボタン）。
+     * 手入力した相手を、そのままマスタへ足せるようにするための入口。
+     * @param {string} name 対バン相手の名前
+     * @returns {HTMLLIElement} 一覧へ差し込む行
+     */
+    function buildBandRegisterRow(name) {
+      const item = document.createElement('li');
+      item.className = 'master-row';
+      item.dataset.role = 'band-unregistered-row';
+
+      const label = document.createElement('span');
+      label.className = 'master-row__label';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'master-row__name';
+      nameEl.textContent = name; // textContent で挿入（XSS安全）
+
+      const meta = document.createElement('span');
+      meta.className = 'master-row__meta';
+      meta.textContent = '未登録';
+
+      label.appendChild(nameEl);
+      label.appendChild(meta);
+
+      const actions = document.createElement('span');
+      actions.className = 'master-row__actions';
+
+      const registerButton = document.createElement('button');
+      registerButton.type = 'button';
+      registerButton.className = 'master-row__button';
+      registerButton.dataset.role = 'band-register-row';
+      registerButton.textContent = '登録';
+      registerButton.setAttribute('aria-label', name + ' を対バン相手として登録する');
+      registerButton.addEventListener('click', function () {
+        openBandForm({ name: name, reading: '' }, '');
+      });
+      actions.appendChild(registerButton);
+
+      item.appendChild(label);
+      item.appendChild(actions);
+      return item;
+    }
+
+    // ------------------------------------------------------------
+    // 対バン相手の管理（削除・統合）
+    // ------------------------------------------------------------
+    // 表記のゆれた相手を1つへまとめ、要らない相手を消すための画面。統合では
+    // 保存データの対バン相手も付け替えるので、過去のセトリの表記も揃う。
+    // 組み込みマスタの相手はファイル管理なので消せない（まとめ先には選べる）。
+
+    /** 統合元として選んでいる対バン相手（まとめ先を選ぶ間だけ保持する）。 */
+    let mergeSourceBand = '';
+
+    /**
+     * 対バン相手の管理一覧（#band-manage-list）をあいうえお順で描画する。
+     * 各行に、その相手が入っている保存データの件数と操作ボタンを出す。
+     * @returns {void}
+     */
+    function renderBandManageList() {
+      const list = document.getElementById('band-manage-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const bands = getSortedBandMaster();
+      if (bands.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '登録した対バン相手がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      bands.forEach(function (band) {
+        fragment.appendChild(buildBandManageRow(band));
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 対バン相手の管理の1行を組み立てる。
+     * 組み込みの相手はファイル管理なので編集・削除は出さない（まとめ先には選べる）。
+     * @param {Band} band 対象の対バン相手
+     * @returns {HTMLLIElement} 一覧へ差し込む行
+     */
+    function buildBandManageRow(band) {
+      const builtIn = isBuiltInBand(band.name);
+      const used = countSavedByBand(band.name);
+
+      const item = document.createElement('li');
+      item.className = 'master-row';
+      item.dataset.role = 'band-manage-row';
+
+      const label = document.createElement('span');
+      label.className = 'master-row__label';
+
+      const name = document.createElement('span');
+      name.className = 'master-row__name';
+      name.textContent = band.name; // textContent で挿入（XSS安全）
+
+      const meta = document.createElement('span');
+      meta.className = 'master-row__meta';
+      meta.textContent = (builtIn ? '組み込み・' : '') +
+        (used > 0 ? '保存' + used + '件' : '未使用');
+
+      label.appendChild(name);
+      label.appendChild(meta);
+
+      const actions = document.createElement('span');
+      actions.className = 'master-row__actions';
+
+      const mergeButton = document.createElement('button');
+      mergeButton.type = 'button';
+      mergeButton.className = 'master-row__button';
+      mergeButton.dataset.role = 'band-merge-start';
+      mergeButton.textContent = 'まとめる';
+      mergeButton.setAttribute('aria-label', band.name + ' を別の相手へまとめる');
+      mergeButton.addEventListener('click', function () {
+        openBandMergePopup(band.name);
+      });
+      actions.appendChild(mergeButton);
+
+      if (!builtIn) {
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'master-row__button';
+        editButton.dataset.role = 'band-edit';
+        editButton.textContent = '編集';
+        editButton.setAttribute('aria-label', band.name + ' の名前や読み仮名を変える');
+        editButton.addEventListener('click', function () {
+          openBandForm(band, band.name);
+        });
+        actions.appendChild(editButton);
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'master-row__button master-row__button--danger';
+        removeButton.dataset.role = 'band-remove';
+        removeButton.textContent = '削除';
+        removeButton.setAttribute('aria-label', band.name + ' を一覧から削除する');
+        removeButton.addEventListener('click', function () {
+          // 保存データは名前を文字列で持つため、消しても過去のセトリは残る。
+          const note = used > 0
+            ? '「' + band.name + '」を一覧から削除します。保存済み' + used +
+              '件の対バン相手はそのまま残ります。よろしいですか？'
+            : '「' + band.name + '」を一覧から削除します。よろしいですか？';
+          if (!window.confirm(note)) {
+            return;
+          }
+          if (!removeUserBand(band.name)) {
+            showToast(SAVE_FAILURE_MESSAGE);
+            return;
+          }
+          renderBandManageList();
+          renderBandPickList();
+          showToast('対バン相手を削除しました');
+        });
+        actions.appendChild(removeButton);
+      }
+
+      item.appendChild(label);
+      item.appendChild(actions);
+      return item;
+    }
+
+    /**
+     * まとめ先の候補（#band-merge-list）を描画する。統合元は候補から外す。
+     * @returns {void}
+     */
+    function renderBandMergeList() {
+      const list = document.getElementById('band-merge-list');
+      const source = document.getElementById('band-merge-source');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      if (source) {
+        source.textContent = '「' + mergeSourceBand + '」のまとめ先';
+      }
+
+      const sourceKey = masterNameKey(mergeSourceBand);
+      const candidates = getSortedBandMaster().filter(function (band) {
+        return masterNameKey(band.name) !== sourceKey;
+      });
+
+      if (candidates.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = 'まとめ先にできる相手がいません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      candidates.forEach(function (band) {
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button';
+        button.dataset.role = 'band-merge-target';
+        button.textContent = band.name; // textContent で挿入（XSS安全）
+        button.addEventListener('click', function () {
+          applyBandMerge(band.name);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 統合元を選んで、まとめ先の一覧を開く。
+     * @param {string} name 統合元の対バン相手
+     * @returns {void}
+     */
+    function openBandMergePopup(name) {
+      const overlay = document.getElementById('band-merge-overlay');
+      if (!overlay) {
+        return;
+      }
+      mergeSourceBand = name;
+      renderBandMergeList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * まとめ先の一覧を閉じる（統合はしない）。
+     * @returns {void}
+     */
+    function closeBandMergePopup() {
+      const overlay = document.getElementById('band-merge-overlay');
+      mergeSourceBand = '';
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /**
+     * 作業中の対バン相手の表記を、付け替え後の名前へ揃える。
+     * 同じ相手が2つ並ぶ場合は1つにまとめる（normalizeBandNames）。
+     * @param {string} fromName 付け替える前の名前
+     * @param {string} toName 付け替え後の名前
+     * @returns {void}
+     */
+    function applyBandRenameToState(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      const hit = state.bands.some(function (name) {
+        return masterNameKey(name) === fromKey && name !== toName;
+      });
+      if (!hit) {
+        return;
+      }
+      state.bands = normalizeBandNames(state.bands.map(function (name) {
+        return masterNameKey(name) === fromKey ? toName : name;
+      }));
+      renderAll(); // チップの表記を直して作業中データを保存
+    }
+
+    /**
+     * 選んだまとめ先へ統合する（確認あり）。
+     * 保存データの対バン相手を付け替え、作業中の内容も揃える。
+     * @param {string} targetName まとめ先の名前
+     * @returns {void}
+     */
+    function applyBandMerge(targetName) {
+      const sourceName = mergeSourceBand;
+      if (sourceName === '') {
+        return;
+      }
+      const used = countSavedByBand(sourceName);
+      const note = '「' + sourceName + '」を「' + targetName + '」にまとめます。' +
+        (used > 0 ? '保存済み' + used + '件の対バン相手も「' + targetName + '」に変わります。' : '') +
+        'よろしいですか？';
+      if (!window.confirm(note)) {
+        return;
+      }
+
+      const result = mergeBands(sourceName, targetName);
+      if (!result.ok) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      applyBandRenameToState(sourceName, targetName);
+
+      closeBandMergePopup();
+      renderBandManageList();
+      renderBandPickList();
+      renderSavedList(); // 保存一覧を開いていれば表示も更新する
+
+      const updatedNote = result.updated > 0 ? '（保存' + result.updated + '件を付け替え）' : '';
+      showToast(result.removed
+        ? 'まとめました' + updatedNote
+        : 'まとめました' + updatedNote + '。組み込みの相手は一覧に残ります');
+    }
+
+    /**
+     * 対バン相手の管理を開く。
+     * @returns {void}
+     */
+    function openBandManagePopup() {
+      const overlay = document.getElementById('band-manage-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderBandManageList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 対バン相手の管理を閉じる（まとめ先の一覧も一緒に畳む）。
+     * @returns {void}
+     */
+    function closeBandManagePopup() {
+      const overlay = document.getElementById('band-manage-overlay');
+      closeBandMergePopup();
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /** 編集中の対バン相手（''なら新規登録。フォームを使い回すため持つ）。 */
+    let bandEditTarget = '';
+
+    /**
+     * 登録フォームを初期値付きで開く。
+     * editTarget が空なら新規登録、入っていればその相手の編集として振る舞う
+     * （見出しとボタンの文言だけを切り替える）。
+     * @param {Band} band フォームの初期値
+     * @param {string} editTarget 編集対象の名前（新規登録なら ''）
+     * @returns {void}
+     */
+    function openBandForm(band, editTarget) {
+      const overlay = document.getElementById('band-add-overlay');
+      const title = document.getElementById('band-add-title');
+      const submitButton = document.getElementById('btn-band-add-submit');
+      const nameInput = document.getElementById('band-add-name');
+      const readingInput = document.getElementById('band-add-reading');
+      if (!overlay) {
+        return;
+      }
+
+      bandEditTarget = editTarget;
+      if (title) {
+        title.textContent = editTarget === '' ? '対バン相手を登録' : '対バン相手を編集';
+      }
+      if (submitButton) {
+        submitButton.textContent = editTarget === '' ? '登録する' : '保存する';
+      }
+      if (nameInput) {
+        nameInput.value = typeof band.name === 'string' ? band.name : '';
+      }
+      if (readingInput) {
+        readingInput.value = typeof band.reading === 'string' ? band.reading : '';
+      }
+      overlay.hidden = false;
+      if (nameInput && nameInput.value === '') {
+        nameInput.focus();
+      }
+    }
+
+    /**
+     * 登録フォームを開く（対バン欄に打ちかけの名前があれば初期値にする）。
+     * @returns {void}
+     */
+    function openBandAddPopup() {
+      const input = document.getElementById('input-band');
+      const typed = input ? input.value.trim() : '';
+      openBandForm({ name: typed, reading: '' }, '');
+    }
+
+    /**
+     * 登録フォームを閉じる（マスタは変更しない）。
+     * @returns {void}
+     */
+    function closeBandAddPopup() {
+      const overlay = document.getElementById('band-add-overlay');
+      bandEditTarget = '';
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 入力された内容で対バン相手を登録する（編集中はその相手を書き換える）。
+     * 新規登録した相手は、そのままこのライブの対バン相手へも入れる。
+     * 編集で名前を変えた場合は保存データ・作業中の表記も付け替える。
+     * @returns {void}
+     */
+    function submitBandAdd() {
+      const nameInput = document.getElementById('band-add-name');
+      const readingInput = document.getElementById('band-add-reading');
+
+      const name = nameInput ? nameInput.value.trim() : '';
+      if (name === '') {
+        showToast('対バン相手の名前を入力してください');
+        return;
+      }
+
+      // 編集中は自分自身との衝突を除いて判定する（名前を変えないこともあるため）。
+      const duplicate = findBandByName(name);
+      if (duplicate &&
+        (bandEditTarget === '' || masterNameKey(duplicate.name) !== masterNameKey(bandEditTarget))) {
+        showToast(bandEditTarget === ''
+          ? 'すでに登録されています'
+          : '同じ相手がいます。まとめる場合は「まとめる」から');
+        return;
+      }
+
+      const reading = readingInput ? readingInput.value.trim() : '';
+      const editing = bandEditTarget;
+
+      if (editing !== '') {
+        const result = renameUserBand(editing, { name: name, reading: reading });
+        if (!result.ok) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        closeBandAddPopup();
+        applyBandRenameToState(editing, name);
+        renderBandManageList();
+        renderBandPickList();
+        renderSavedList(); // 保存一覧を開いていれば表示も更新する
+        showToast(result.updated > 0
+          ? '対バン相手を変更しました（保存' + result.updated + '件を付け替え）'
+          : '対バン相手を変更しました');
+        return;
+      }
+
+      if (!addUserBand({ name: name, reading: reading })) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      closeBandAddPopup();
+      const input = document.getElementById('input-band');
+      if (input && masterNameKey(input.value) === masterNameKey(name)) {
+        input.value = ''; // 打ちかけの名前をそのまま登録したときは残さない
+      }
+      if (addBand(name)) {
+        renderAll(); // 登録した相手をこのライブへも入れる
+      }
+      renderBandPickList();  // 「未登録」から「登録済み」へ移す
+      renderBandManageList();
+      showToast('対バン相手を登録しました');
+    }
+
+    /**
+     * 対バン相手の選択ポップアップを開く（表示直前に最新のマスタを反映する）。
+     * @returns {void}
+     */
+    function openBandPopup() {
+      const overlay = document.getElementById('band-overlay');
+      if (!overlay) {
+        return;
+      }
+      commitBandInput(); // 打ちかけの名前を先に確定させる
+      renderBandPickList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 対バン相手の選択ポップアップを閉じる（state は変更しない）。
+     * @returns {void}
+     */
+    function closeBandPopup() {
+      const overlay = document.getElementById('band-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 「選ぶ」「登録」「管理」「閉じる」の結線を行う初期化（冪等）。
+     * 項目タップの結線は各 render 側で都度行う。
+     * @returns {void}
+     */
+    let bandPickerWired = false;
+    function initBandPicker() {
+      if (bandPickerWired) {
+        return;
+      }
+      const pickButton = document.getElementById('btn-band-pick');
+      const closeButton = document.getElementById('btn-band-close');
+      const registerButton = document.getElementById('btn-band-register');
+      const manageButton = document.getElementById('btn-band-manage');
+      const manageCloseButton = document.getElementById('btn-band-manage-close');
+      const mergeCancelButton = document.getElementById('btn-band-merge-cancel');
+      const addCancelButton = document.getElementById('btn-band-add-cancel');
+      const addSubmitButton = document.getElementById('btn-band-add-submit');
+
+      if (pickButton) {
+        pickButton.addEventListener('click', openBandPopup);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeBandPopup);
+      }
+      if (registerButton) {
+        registerButton.addEventListener('click', openBandAddPopup);
+      }
+      if (manageButton) {
+        manageButton.addEventListener('click', openBandManagePopup);
+      }
+      if (manageCloseButton) {
+        manageCloseButton.addEventListener('click', closeBandManagePopup);
+      }
+      if (mergeCancelButton) {
+        mergeCancelButton.addEventListener('click', closeBandMergePopup);
+      }
+      if (addCancelButton) {
+        addCancelButton.addEventListener('click', closeBandAddPopup);
+      }
+      if (addSubmitButton) {
+        addSubmitButton.addEventListener('click', submitBandAdd);
+      }
+      bandPickerWired = true;
+    }
+
+    // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
     // ページは URL のハッシュで切り替える（セトリ登録＝既定 / #saved / #analysis）。
@@ -7531,6 +8869,63 @@
     }
 
     /**
+     * 対バン欄の入力内容を1組として state へ入れる（空なら何もしない）。
+     * 追加できたら入力欄を空にして、続けて次の相手を打てるようにする。
+     * @returns {void}
+     */
+    function commitBandInput() {
+      const input = document.getElementById('input-band');
+      if (!input) {
+        return;
+      }
+      const name = input.value.trim();
+      if (name === '') {
+        input.value = ''; // 空白だけの入力は残さない
+        return;
+      }
+      if (!addBand(name)) {
+        showToast('「' + name + '」はすでに追加されています');
+        return;
+      }
+      input.value = '';
+      renderAll(); // チップを描き直して作業中データを保存
+    }
+
+    /**
+     * 対バン欄（#input-band）を結線する。
+     * 「＋」と Enter で1組ずつ追加し、打ったまま他を触った場合も取りこぼさない
+     * よう、フォーカスが外れた時点でも追加する。
+     * @returns {void}
+     */
+    function initBandInput() {
+      const input = document.getElementById('input-band');
+      const addButton = document.getElementById('btn-band-add');
+
+      if (input) {
+        input.addEventListener('keydown', function (event) {
+          if (event.key !== 'Enter') {
+            return;
+          }
+          event.preventDefault(); // 変換確定の Enter は isComposing で除く
+          if (!event.isComposing) {
+            commitBandInput();
+          }
+        });
+        // 「＋」を押さずに保存・コピーへ進んでも入力が消えないようにする。
+        input.addEventListener('blur', commitBandInput);
+      }
+      if (addButton) {
+        // blur が先に走って追加済みになることがあるため、ここでは残りだけを拾う。
+        addButton.addEventListener('click', function () {
+          commitBandInput();
+          if (input) {
+            input.focus(); // 続けて次の相手を打てるようにする
+          }
+        });
+      }
+    }
+
+    /**
      * コピーボタン（#btn-copy）を結線する（5.1, 5.5–5.7）。
      * タップで最新 state から buildOutputText → copyToClipboard を実行し、
      * 解決した真偽値に応じて成功／失敗トーストを表示する。
@@ -7564,6 +8959,7 @@
         if (!window.confirm('セトリと入力内容をすべて削除します。よろしいですか？')) {
           return;
         }
+        setInputMode('songs'); // 空のセトリ表へ戻す
         resetState();         // 状態をクリア（DOM には触れない）
         applyStateToInputs(); // 入力欄を state に合わせる（日付は本日へ戻る）
 
@@ -7584,6 +8980,7 @@
       const dateInput = document.getElementById('input-date');
       const liveNameInput = document.getElementById('input-live-name');
       const venueInput = document.getElementById('input-venue');
+      const bandInput = document.getElementById('input-band');
       const memoInput = document.getElementById('input-memo');
       if (dateInput) {
         dateInput.value = state.date || todayString();
@@ -7594,6 +8991,9 @@
       }
       if (venueInput) {
         venueInput.value = state.venue;
+      }
+      if (bandInput) {
+        bandInput.value = ''; // 追加済みの相手はチップ側に出るので入力欄は空へ戻す
       }
       if (memoInput) {
         memoInput.value = state.memo;
@@ -7618,6 +9018,9 @@
       loadState();           // 保存データを復元（間違って閉じても直前の内容へ）
       applyStateToInputs();  // 復元値を入力欄へ反映（日付未設定なら本日）
       initLiveInfoInputs();  // 入力反映（1.2, 1.3）
+      initBandInput();       // 対バン相手の追加・削除
+      initBandPicker();      // 対バン相手のマスタ（選ぶ・登録・管理）
+      initModeSwitch();      // 曲名の入力と対バン入力の切替
       initCopyAction();      // コピー結線（5.1, 5.5–5.7）
       initResetAction();     // リセット（全削除）結線
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
