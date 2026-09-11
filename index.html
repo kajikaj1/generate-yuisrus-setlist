@@ -83,23 +83,31 @@
       color: var(--color-muted);
     }
 
+    /* 入力欄は囲まず下線だけにする（ライブ情報が縦に並ぶので、枠が多いと
+       画面がうるさくなる）。下線は入力できる場所の合図として残す。 */
     .field__input {
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
       min-height: 34px;
-      padding: 5px 12px;
+      padding: 5px 4px;
       font-size: 16px;
       color: var(--color-text);
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      border-radius: 0;
     }
 
+    /* 入力中は下線を太く・アクセント色にして、どこを触っているか分かるようにする。
+       テキスト入力は :focus-visible が常に当たるため、囲みを足すとタップ時にも
+       枠が出て下線だけの見た目が崩れる。合図は下線の太さと色で出す。 */
     .field__input:focus {
-      outline: 2px solid var(--color-accent);
-      outline-offset: 1px;
+      outline: none;
+      border-bottom: 2px solid var(--color-accent);
+      padding-bottom: 4px; /* 下線が太くなる分だけ詰めて、高さを変えない */
     }
+
 
     /* 保存一覧を開いたときに見せるMCメモ。改行をそのまま出す。 */
     .saved-memo {
@@ -315,14 +323,15 @@
       flex: 1 1 auto;
       min-width: 0;
       min-height: var(--tap-min);
-      padding: 5px 12px;
+      padding: 5px 4px;
       font-family: inherit;
       font-size: 16px;
       text-align: left;
       color: var(--color-text);
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      border-radius: 0;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
@@ -330,6 +339,11 @@
 
     .memo-button:active {
       background-color: var(--color-bg);
+    }
+
+    .memo-button:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
     }
 
     /* 未入力のときは入力欄のプレースホルダと同じ見え方にする。 */
