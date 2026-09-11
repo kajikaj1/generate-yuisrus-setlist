@@ -9682,6 +9682,24 @@
         icon: ['M4 20h16', 'M7.5 20v-6', 'M12 20V6', 'M16.5 20v-9'] }
     ];
 
+    /**
+     * ページ切替メニューに並べる操作。ページではなく管理用のポップアップを開く。
+     * マスタの手入れは頻度こそ低いものの、会場名・対バン相手の入力欄からしか
+     * 辿れないと探しにくいため、メニューからも開けるようにしている。
+     * @type {ReadonlyArray<{id: string, name: string, icon: string[], open: function(): void}>}
+     */
+    const MENU_ACTIONS = [
+      { id: 'venue-manage', name: 'ライブハウス',
+        icon: ['M4 20h16', 'M6 20V9.5L12 5l6 4.5V20', 'M10 20v-5h4v5'],
+        open: openVenueManagePopup },
+      { id: 'band-manage', name: '対バン',
+        icon: ['M9 11.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+               'M3.5 19.5c0-2.5 2.5-4 5.5-4s5.5 1.5 5.5 4',
+               'M16.5 10.5a2.5 2.5 0 1 0 0-5',
+               'M17 14.5c2.2.4 3.5 1.7 3.5 3.5'],
+        open: openBandManagePopup }
+    ];
+
     /** 保存一覧ページを表す URL ハッシュ。 */
     const SAVED_PAGE_HASH = '#saved';
 
@@ -9855,6 +9873,32 @@
         item.appendChild(button);
         fragment.appendChild(item);
       });
+
+      // マスタの管理はページではないので、現在地の印は付けない。
+      MENU_ACTIONS.forEach(function (action) {
+        const item = document.createElement('li');
+        item.className = 'page-menu__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'page-menu__button';
+        button.dataset.role = 'page-menu-action';
+        button.dataset.action = action.id;
+        button.appendChild(buildPageIcon(action.icon));
+
+        const label = document.createElement('span');
+        label.className = 'page-menu__label';
+        label.textContent = action.name; // textContent で挿入（XSS安全）
+        button.appendChild(label);
+        button.addEventListener('click', function () {
+          closePageMenu();
+          action.open();
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+
       list.appendChild(fragment);
     }
 
