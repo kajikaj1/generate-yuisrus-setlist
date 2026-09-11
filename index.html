@@ -1479,36 +1479,23 @@
       color: var(--color-muted);
     }
 
-    /* 取り込み確認のライブ情報（日付・ライブ名・会場） */
+    /* 取り込み確認のライブ情報（日付・ライブ名・会場）。読み取り違いをその場で
+       直せるよう、作成画面と同じ入力欄で出す。 */
     .confirm-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       margin: 0 0 var(--gap);
-      padding: var(--gap);
+      padding: 8px var(--gap);
       background-color: var(--color-bg);
       border-radius: var(--radius);
     }
 
-    .confirm-row {
-      display: flex;
-      gap: 8px;
-      padding: 2px 0;
-    }
-
-    .confirm-row__label {
-      flex: 0 0 5.5em;
-      color: var(--color-muted);
-      font-size: 14px;
-    }
-
-    .confirm-row__value {
-      flex: 1 1 auto;
-      min-width: 0;
-      margin: 0;
-      word-break: break-word;
-    }
-
-    /* 未入力の項目は薄く出して、入力済みと見分けられるようにする */
-    .confirm-row__value--empty {
-      color: var(--color-muted);
+    /* 背景が付く枠の中なので、下線は入力欄の色に合わせて見えるようにする。 */
+    .confirm-info .field__input {
+      background-color: var(--color-surface);
+      padding-left: 8px;
+      padding-right: 8px;
     }
 
     /* 確認画面の曲行（番号・曲名・注記） */
@@ -2318,9 +2305,23 @@
         </div>
       </div>
       <div class="popup__body">
-        <dl class="confirm-info" id="confirm-info" data-role="confirm-info">
-          <!-- 日付・ライブ名・会場は renderImportConfirm() が描画する -->
-        </dl>
+        <div class="confirm-info">
+          <!-- 読み取った内容はそのまま直せるようにする（値は renderImportConfirm()）。 -->
+          <div class="field">
+            <label class="field__label" for="confirm-date">日付</label>
+            <input class="field__input" type="date" id="confirm-date" data-role="confirm-date">
+          </div>
+          <div class="field">
+            <label class="field__label" for="confirm-live-name">ライブ名</label>
+            <input class="field__input" type="text" id="confirm-live-name"
+              data-role="confirm-live-name" placeholder="ライブ名を入力" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="field__label" for="confirm-venue">会場</label>
+            <input class="field__input" type="text" id="confirm-venue"
+              data-role="confirm-venue" placeholder="会場名を入力" autocomplete="off">
+          </div>
+        </div>
         <p class="resolve-section-title" id="confirm-count" data-role="confirm-count"></p>
         <ul class="popup__list" id="confirm-songs" data-role="confirm-songs">
           <!-- 曲順は renderImportConfirm() が描画する -->
@@ -7811,6 +7812,9 @@
     // 貼り付けたテキストをどう解釈したか（日付・ライブ名・会場・曲順と区分）を
     // 登録前に見せる。読み取り違いに気づけるようにするのが目的なので、
     // 「登録する」を押すまで保存一覧には何も追加しない。
+    // 日付・ライブ名・会場はその場で直せる（貼り付け元に無い情報も足せるよう、
+    // 入力欄の内容を pendingConfirm へ書き戻してから登録する）。曲順の直しは
+    // 貼り付け文面を直すか、登録後に「編集」で行う。
     // 「戻る」は貼り付けフォームへ戻すだけで、入力した文面はそのまま残す。
     // ============================================================
 
@@ -7818,52 +7822,34 @@
     let pendingConfirm = null;
 
     /**
-     * 確認画面のライブ情報1行を組み立てる。
-     * 未入力の項目は「未設定」と薄く出して、空欄と見分けられるようにする。
-     * 値は textContent で挿入する（XSS安全）。
-     * @param {string} label 項目名
-     * @param {string} value 値（空文字なら未設定表示）
-     * @returns {HTMLDivElement} 1行分の要素
-     */
-    function buildConfirmRow(label, value) {
-      const row = document.createElement('div');
-      row.className = 'confirm-row';
-
-      const term = document.createElement('dt');
-      term.className = 'confirm-row__label';
-      term.textContent = label;
-
-      const detail = document.createElement('dd');
-      detail.className = value === ''
-        ? 'confirm-row__value confirm-row__value--empty'
-        : 'confirm-row__value';
-      detail.textContent = value === '' ? '未設定' : value;
-
-      row.appendChild(term);
-      row.appendChild(detail);
-      return row;
-    }
-
-    /**
-     * 確認画面（ライブ情報と曲順）を描画する。
+     * 確認画面を描画する。ライブ情報は入力欄へ読み取り結果を入れ（そのまま
+     * 直せる）、曲順は読み取ったとおりに並べる。
      * 曲順は区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
      * 注記を添える（「このまま追加」した曲をここで見直せるようにする）。
      * @returns {void}
      */
     function renderImportConfirm() {
-      const info = document.getElementById('confirm-info');
+      const dateInput = document.getElementById('confirm-date');
+      const liveNameInput = document.getElementById('confirm-live-name');
+      const venueInput = document.getElementById('confirm-venue');
       const count = document.getElementById('confirm-count');
       const songs = document.getElementById('confirm-songs');
-      if (!pendingConfirm || !info || !count || !songs) {
+      if (!pendingConfirm || !count || !songs) {
         return;
       }
 
-      info.textContent = '';  // 全再描画
-      songs.textContent = '';
+      songs.textContent = ''; // 全再描画
 
-      info.appendChild(buildConfirmRow('日付', formatDate(pendingConfirm.date)));
-      info.appendChild(buildConfirmRow('ライブ名', pendingConfirm.liveName));
-      info.appendChild(buildConfirmRow('会場', pendingConfirm.venue));
+      // 読み取れなかった項目は空欄のままにして、ここで足せるようにする。
+      if (dateInput) {
+        dateInput.value = pendingConfirm.date;
+      }
+      if (liveNameInput) {
+        liveNameInput.value = pendingConfirm.liveName;
+      }
+      if (venueInput) {
+        venueInput.value = pendingConfirm.venue;
+      }
 
       const length = pendingConfirm.setlist.length;
       count.textContent = 'セトリ（' + length + '曲）';
@@ -7964,7 +7950,7 @@
     }
 
     /**
-     * 確認画面のボタン（戻る／登録する）を結線する（冪等）。
+     * 確認画面のライブ情報の入力欄と、ボタン（戻る／登録する）を結線する（冪等）。
      * @returns {void}
      */
     let importConfirmWired = false;
@@ -7974,6 +7960,32 @@
       }
       const backButton = document.getElementById('btn-confirm-back');
       const submitButton = document.getElementById('btn-confirm-submit');
+      const dateInput = document.getElementById('confirm-date');
+      const liveNameInput = document.getElementById('confirm-live-name');
+      const venueInput = document.getElementById('confirm-venue');
+
+      // 直した内容は確認中の1件へ即座に書き戻す（登録はこの内容で行う）。
+      if (dateInput) {
+        dateInput.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.date = dateInput.value;
+          }
+        });
+      }
+      if (liveNameInput) {
+        liveNameInput.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.liveName = liveNameInput.value;
+          }
+        });
+      }
+      if (venueInput) {
+        venueInput.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.venue = venueInput.value;
+          }
+        });
+      }
 
       if (backButton) {
         backButton.addEventListener('click', cancelImportConfirm);
