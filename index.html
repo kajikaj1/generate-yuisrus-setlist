@@ -129,7 +129,8 @@
       font-size: 13px;
     }
 
-    /* ===== Page header（保存したセトリページの見出し行） ===== */
+    /* ===== Page header（分析ページの見出し行） =====
+       保存したセトリページは右上のページ切替にページ名が出るので、見出しは置かない。 */
     .page-header {
       display: flex;
       justify-content: space-between;
@@ -151,7 +152,7 @@
       gap: 8px;
     }
 
-    /* 保存したセトリページの見出し・操作ボタンは上下を詰めて、一覧を広く見せる。
+    /* 保存したセトリページの操作ボタンは上下を詰めて、一覧を広く見せる。
        主役はセトリ一覧なので、常時出ているこれらのボタンは控えめな高さにする。 */
     .page-saved {
       gap: 8px;
@@ -1706,10 +1707,6 @@
         <span class="page-nav__caret" aria-hidden="true">▾</span>
       </button>
     </nav>
-
-    <header class="page-header">
-      <h1 class="page-header__title">保存したセトリ</h1>
-    </header>
 
     <div class="page-actions">
       <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
