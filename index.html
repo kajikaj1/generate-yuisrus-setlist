@@ -283,6 +283,76 @@
       filter: brightness(0.95);
     }
 
+    /* 区分（O.A・アンコール）を作るボタン。表の上に控えめに置く。 */
+    .setlist-tools {
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .setlist-tools .btn {
+      min-height: 32px;
+      padding: 4px 10px;
+      font-size: 13px;
+    }
+
+    /* 区分の境界行。ここを上下に動かして、どこまでが O.A ／どこからが
+       アンコールかを決める（曲そのものは動かさない）。 */
+    .setlist__divider td {
+      padding: 6px 0;
+    }
+
+    .setlist__divider-inner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setlist__divider-label {
+      flex: 0 0 auto;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--color-accent);
+      background-color: var(--color-accent-soft);
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .setlist__divider-line {
+      flex: 1 1 auto;
+      height: 1px;
+      background-color: var(--color-accent);
+      opacity: 0.35;
+    }
+
+    .setlist__divider-move {
+      flex: 0 0 auto;
+      min-width: 34px;
+      min-height: 28px;
+      padding: 0 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .setlist__divider-move:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .setlist__divider-move:active:not(:disabled) {
+      filter: brightness(0.95);
+    }
+
     /* ===== Footer action bar ===== */
     .app__footer {
       position: sticky;
@@ -834,6 +904,10 @@
 
     <!-- ===== Main: setlist table ===== -->
     <main class="app__main">
+      <div class="setlist-tools" id="setlist-tools" data-role="setlist-tools" hidden>
+        <button type="button" class="btn btn--add" id="btn-add-oa" data-role="add-oa">＋O.A</button>
+        <button type="button" class="btn btn--add" id="btn-add-en" data-role="add-en">＋アンコール</button>
+      </div>
       <table class="setlist" id="setlist-table" data-role="setlist-table">
         <thead>
           <tr>
@@ -1244,6 +1318,27 @@
     // の2つの数だけで表す。曲を動かすと、その位置に応じて区分も変わる。
     // 番号は区分ごとに1から振り直す（出力例: O.A 1.曲名 ／ 1.曲名 ／ En.1.曲名）。
     // ============================================================
+
+    /**
+     * O.A の曲数を変える（境界を動かす）。曲の並びは変えない。
+     * 本編の曲が無くなる指定・負の数は丸める。
+     * @param {number} count 新しい O.A の曲数
+     * @returns {void}
+     */
+    function setOaCount(count) {
+      const max = state.setlist.length - state.enCount;
+      state.oaCount = Math.min(Math.max(count, 0), Math.max(max, 0));
+    }
+
+    /**
+     * アンコールの曲数を変える（境界を動かす）。曲の並びは変えない。
+     * @param {number} count 新しいアンコールの曲数
+     * @returns {void}
+     */
+    function setEnCount(count) {
+      const max = state.setlist.length - state.oaCount;
+      state.enCount = Math.min(Math.max(count, 0), Math.max(max, 0));
+    }
 
     /**
      * セトリ内の位置から区分と区分内の番号を求める（純粋関数）。
@@ -2063,6 +2158,82 @@
      * @param {number} index 0起算インデックス（通し番号は index+1、削除同定にも使用）
      * @returns {HTMLTableRowElement}
      */
+    /**
+     * 区分の境界行を作る。ラベル（O.A ここまで／ここからアンコール）と、
+     * 境界を1曲ぶん上下へ動かすボタンを持つ。曲の並びは動かさない。
+     * @param {'oa'|'en'} kind どちらの境界か
+     * @returns {HTMLTableRowElement} 境界行
+     */
+    function createSectionDividerRow(kind) {
+      const row = document.createElement('tr');
+      row.className = 'setlist__divider';
+      row.dataset.role = 'section-divider';
+      row.dataset.section = kind;
+
+      const cell = document.createElement('td');
+      cell.colSpan = 4;
+
+      const inner = document.createElement('div');
+      inner.className = 'setlist__divider-inner';
+
+      const label = document.createElement('span');
+      label.className = 'setlist__divider-label';
+      label.textContent = kind === 'oa' ? 'O.A ここまで' : 'ここからアンコール';
+
+      const line = document.createElement('span');
+      line.className = 'setlist__divider-line';
+
+      // 本編の曲が残っている場合だけ、境界を本編側へ広げられる。
+      const canGrow = state.oaCount + state.enCount < state.setlist.length;
+
+      const upButton = document.createElement('button');
+      upButton.type = 'button';
+      upButton.className = 'setlist__divider-move';
+      upButton.dataset.role = 'divider-up';
+      upButton.textContent = '▲';
+      const downButton = document.createElement('button');
+      downButton.type = 'button';
+      downButton.className = 'setlist__divider-move';
+      downButton.dataset.role = 'divider-down';
+      downButton.textContent = '▼';
+
+      if (kind === 'oa') {
+        upButton.disabled = state.oaCount === 0;
+        upButton.setAttribute('aria-label', 'O.A を1曲減らす');
+        upButton.addEventListener('click', function () {
+          setOaCount(state.oaCount - 1);
+          renderAll();
+        });
+        downButton.disabled = !canGrow;
+        downButton.setAttribute('aria-label', 'O.A を1曲増やす');
+        downButton.addEventListener('click', function () {
+          setOaCount(state.oaCount + 1);
+          renderAll();
+        });
+      } else {
+        upButton.disabled = !canGrow;
+        upButton.setAttribute('aria-label', 'アンコールを1曲増やす');
+        upButton.addEventListener('click', function () {
+          setEnCount(state.enCount + 1);
+          renderAll();
+        });
+        downButton.disabled = state.enCount === 0;
+        downButton.setAttribute('aria-label', 'アンコールを1曲減らす');
+        downButton.addEventListener('click', function () {
+          setEnCount(state.enCount - 1);
+          renderAll();
+        });
+      }
+
+      inner.appendChild(label);
+      inner.appendChild(line);
+      inner.appendChild(upButton);
+      inner.appendChild(downButton);
+      cell.appendChild(inner);
+      row.appendChild(cell);
+      return row;
+    }
+
     function createSetlistRow(title, index) {
       const position = setlistPosition(index, state.oaCount, state.enCount, state.setlist.length);
       const noLabel = setlistNoLabel(position);
@@ -2139,7 +2310,53 @@
      * 通し番号は配列順の連番（index+1）へ常に同期される。
      * @returns {void}
      */
+    /**
+     * 「＋O.A」「＋アンコール」ボタンの出し入れを状態に合わせる。
+     * すでにその区分がある場合は境界行の▲▼で動かすので、ボタンは隠す。
+     * 曲が1曲も無い／本編の曲が残らない場合も隠す。
+     * @returns {void}
+     */
+    function syncSectionTools() {
+      const tools = document.getElementById('setlist-tools');
+      const addOa = document.getElementById('btn-add-oa');
+      const addEn = document.getElementById('btn-add-en');
+      if (!tools || !addOa || !addEn) {
+        return;
+      }
+      const canGrow = state.oaCount + state.enCount < state.setlist.length;
+      addOa.hidden = state.oaCount > 0 || !canGrow;
+      addEn.hidden = state.enCount > 0 || !canGrow;
+      tools.hidden = addOa.hidden && addEn.hidden;
+    }
+
+    /**
+     * 「＋O.A」「＋アンコール」の結線（冪等）。押すとその区分を1曲ぶん作る。
+     * @returns {void}
+     */
+    let sectionToolsWired = false;
+    function initSectionTools() {
+      if (sectionToolsWired) {
+        return;
+      }
+      const addOa = document.getElementById('btn-add-oa');
+      const addEn = document.getElementById('btn-add-en');
+      if (addOa) {
+        addOa.addEventListener('click', function () {
+          setOaCount(state.oaCount + 1); // 先頭の1曲を O.A にする
+          renderAll();
+        });
+      }
+      if (addEn) {
+        addEn.addEventListener('click', function () {
+          setEnCount(state.enCount + 1); // 末尾の1曲をアンコールにする
+          renderAll();
+        });
+      }
+      sectionToolsWired = true;
+    }
+
     function renderSetlist() {
+      syncSectionTools();
       const body = document.getElementById('setlist-body');
       if (!body) {
         return;
@@ -2152,7 +2369,15 @@
       }
 
       const fragment = document.createDocumentFragment();
+      const length = state.setlist.length;
       state.setlist.forEach(function (title, index) {
+        // O.A の下端・アンコールの上端に境界行を差し込む。
+        if (state.oaCount > 0 && index === state.oaCount) {
+          fragment.appendChild(createSectionDividerRow('oa'));
+        }
+        if (state.enCount > 0 && index === length - state.enCount) {
+          fragment.appendChild(createSectionDividerRow('en'));
+        }
         fragment.appendChild(createSetlistRow(title, index));
       });
       body.appendChild(fragment);
@@ -4341,6 +4566,7 @@
       initCopyAction();      // コピー結線（5.1, 5.5–5.7）
       initResetAction();     // リセット（全削除）結線
       initAddSongPopup();    // ポップアップ開閉（冪等。既に結線済みなら no-op）
+      initSectionTools();    // ＋O.A／＋アンコールの結線（冪等）
       initSavedSetlist();    // DBに追加／保存一覧の結線（冪等）
       initSavedSearch();     // 曲での絞り込み検索の結線（冪等）
       initSavedBackup();     // 保存データの書き出し／取り込みの結線（冪等）
