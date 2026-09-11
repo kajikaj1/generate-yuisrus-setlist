@@ -59,14 +59,16 @@
       gap: var(--gap);
     }
 
+    /* ライブ情報は5行あるので、余白と行間は本文より詰める
+       （スマホでここが大きいと、肝心のセトリ表が画面の下へ追いやられる）。 */
     .app__header {
       display: flex;
       flex-direction: column;
-      gap: var(--gap);
+      gap: 6px;
       background-color: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius);
-      padding: var(--gap);
+      padding: 8px var(--gap);
     }
 
     .field {
@@ -192,8 +194,8 @@
 
     .field__control .field__input {
       width: 100%;
-      min-height: var(--tap-min); /* 中のアイコンを押しやすい高さにする */
-      padding-right: 84px;        /* アイコン2つ分。出し入れで幅を変えないため常に空ける */
+      min-height: 40px; /* 中のアイコンを押せる高さは保ちつつ、行は詰める */
+      padding-right: 76px;        /* アイコン2つ分。出し入れで幅を変えないため常に空ける */
     }
 
     /* 入力欄の中に重ねるアイコン列（右端＝日付のカレンダーと同じ位置）。 */
@@ -210,8 +212,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       padding: 0;
       color: var(--color-accent);
       background-color: transparent;
@@ -322,7 +324,7 @@
       align-items: center;
       flex: 1 1 auto;
       min-width: 0;
-      min-height: var(--tap-min);
+      min-height: 40px;
       padding: 5px 4px;
       font-family: inherit;
       font-size: 16px;
