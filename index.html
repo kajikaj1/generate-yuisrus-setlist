@@ -5730,18 +5730,22 @@
     }
 
     /**
-     * 編集中の紐づけを解除する（入力内容はそのまま残す）。
-     * 以降の保存は新規追加になるため、複製を作りたいときにも使える。
+     * 編集をやめて作成画面を空へ戻す。
+     * 読み込んだ内容がそのまま残っていると、次に作るセトリへ紛れ込むため、
+     * 紐づけの解除と一緒に入力内容も捨てる（保存済みの1件は変わらない）。
      * @returns {void}
      */
     function cancelEditing() {
       if (state.editingId === '') {
         return;
       }
-      state.editingId = '';
-      saveState();
-      syncEditingUi();
-      showToast('編集を解除しました。保存すると新規追加になります');
+      setInputMode('songs'); // 空のセトリ表へ戻す
+      resetState();          // 読み込んだ内容ごとクリア（editingId も解除される）
+      applyStateToInputs();  // 入力欄を state に合わせる（日付は本日へ戻る）
+
+      renderAll();     // 空状態へ再描画＋作業中データの保存
+      syncEditingUi(); // 編集中の帯を消して「DBに追加」へ戻す
+      showToast('編集をやめました');
     }
 
     /**
