@@ -2155,6 +2155,8 @@
             data-role="search-tab-venues" aria-pressed="false">会場</button>
           <button type="button" class="mode-switch__button" id="btn-search-tab-bands"
             data-role="search-tab-bands" aria-pressed="false">対バン</button>
+          <button type="button" class="mode-switch__button" id="btn-search-tab-tags"
+            data-role="search-tab-tags" aria-pressed="false">属性</button>
         </div>
       </div>
       <div class="popup__body">
@@ -2166,6 +2168,9 @@
         </ul>
         <ul class="popup__list" id="search-band-list" data-role="search-band-list" hidden>
           <!-- 対バン相手の一覧（複数選択トグル）は renderSearchBandList() が描画する -->
+        </ul>
+        <ul class="popup__list" id="search-tag-list" data-role="search-tag-list" hidden>
+          <!-- 属性の一覧（複数選択トグル）は renderSearchTagList() が描画する -->
         </ul>
       </div>
     </div>
@@ -5457,7 +5462,7 @@
 
     /**
      * 保存一覧（#saved-list）を日付の新しい順（同日は追加の新しい順）で全再描画する。
-     * 曲・会場・対バンでの絞り込みが有効な場合は該当するライブだけを描画し、
+     * 曲・会場・対バン・属性での絞り込みが有効な場合は該当するライブだけを描画し、
      * 条件バー（#saved-filter）も更新する。
      * 各項目は読込ボタンと削除ボタンからなる。0件なら空メッセージを出す。
      * @returns {void}
@@ -5529,16 +5534,17 @@
       list.textContent = ''; // 全再描画（既存項目をクリア）
 
       const records = filterSavedSetlists(
-        loadSavedSetlists(), savedFilter, savedVenueFilter, savedBandFilter
+        loadSavedSetlists(), savedFilter, savedVenueFilter, savedBandFilter, savedTagFilter
       );
       renderSavedFilter(records.length); // 条件バー（絞り込み中のみ表示）
 
       if (records.length === 0) {
         const emptyItem = document.createElement('li');
         emptyItem.className = 'popup__empty';
-        if (savedFilter.length > 0 && savedVenueFilter.length === 0 && savedBandFilter.length === 0) {
+        const otherConditions = savedVenueFilter.length + savedBandFilter.length + savedTagFilter.length;
+        if (savedFilter.length > 0 && otherConditions === 0) {
           emptyItem.textContent = '選択した曲をすべて含むライブはありません';
-        } else if (savedFilter.length > 0 || savedVenueFilter.length > 0 || savedBandFilter.length > 0) {
+        } else if (savedFilter.length > 0 || otherConditions > 0) {
           emptyItem.textContent = '条件に合うライブはありません';
         } else {
           emptyItem.textContent = '保存したセトリはありません';
@@ -6614,11 +6620,11 @@
     // ------------------------------------------------------------
     // 責務:
     //   - 保存一覧ページの「検索する」タップで検索ポップアップを開く。
-    //   - ポップアップは「曲」「会場」「対バン」のタブで一覧を切り替える。どれも
-    //     タップで選択／もう一度タップで解除するトグル（複数選択可）。一覧は
+    //   - ポップアップは「曲」「会場」「対バン」「属性」のタブで一覧を切り替える。
+    //     どれもタップで選択／もう一度タップで解除するトグル（複数選択可）。一覧は
     //     スクロール位置を保つため、トグル時は該当項目だけを更新する。
-    //   - 「検索」タップで、選んだ曲と対バン相手を **すべて** 含み（AND）、かつ
-    //     選んだ会場の **どれか** で行われた（OR）ライブだけを表示する。会場は
+    //   - 「検索」タップで、選んだ曲・対バン相手・属性を **すべて** 含み（AND）、
+    //     かつ選んだ会場の **どれか** で行われた（OR）ライブだけを表示する。会場は
     //     1ライブに1つなので、複数選んだときだけ「どれか」で絞る。
     //     何も選ばずに検索した場合は全件へ戻す。
     //   - 絞り込み中は条件バーを表示し、条件を1つずつ外せる。
@@ -6634,6 +6640,9 @@
     /** 対バン一覧で選択中の相手（検索ボタンを押すまでは確定しない）。 */
     let searchBandSelection = [];
 
+    /** 属性一覧で選択中の属性ID（検索ボタンを押すまでは確定しない）。 */
+    let searchTagSelection = [];
+
     /** 保存一覧へ適用中の絞り込み条件（検索ボタン押下で確定した曲タイトル）。 */
     let savedFilter = [];
 
@@ -6643,7 +6652,10 @@
     /** 保存一覧へ適用中の対バンの条件（検索ボタン押下で確定した相手）。 */
     let savedBandFilter = [];
 
-    /** 検索ポップアップで開いているタブ。'songs' 曲／'venues' 会場／'bands' 対バン。 */
+    /** 保存一覧へ適用中の属性の条件（検索ボタン押下で確定した属性ID）。 */
+    let savedTagFilter = [];
+
+    /** 検索ポップアップで開いているタブ。'songs' 曲／'venues' 会場／'bands' 対バン／'tags' 属性。 */
     let searchTab = 'songs';
 
     /**
@@ -6655,9 +6667,11 @@
       searchSelection = [];
       searchVenueSelection = [];
       searchBandSelection = [];
+      searchTagSelection = [];
       savedFilter = [];
       savedVenueFilter = [];
       savedBandFilter = [];
+      savedTagFilter = [];
     }
 
     /**
@@ -6743,23 +6757,47 @@
     }
 
     /**
+     * 属性の選択状態を反転する（未選択→選択／選択→未選択）。
+     * 並びはマスタ順に揃えるので、選んだ順に関わらず表示が安定する。
+     * @param {number} id 属性ID
+     * @returns {boolean} 反転後に選択中なら true
+     */
+    function toggleSearchTagSelection(id) {
+      if (searchTagSelection.indexOf(id) === -1) {
+        searchTagSelection = normalizeTagIds(searchTagSelection.concat([id]));
+        return true;
+      }
+      searchTagSelection = searchTagSelection.filter(function (current) {
+        return current !== id;
+      });
+      return false;
+    }
+
+    /**
      * 保存済みセトリを、指定した曲を **すべて** 含み（AND）、かつ指定した会場の
      * **どれか** で行われた（OR）ものだけへ絞り込む（純粋関数）。
-     * **どれか** で行われ（OR）、指定した対バン相手を **すべて** 含む（AND）
-     * ものだけへ絞り込む（純粋関数）。
+     * **どれか** で行われ（OR）、指定した対バン相手と属性を **すべて** 含む
+     * （AND）ものだけへ絞り込む（純粋関数）。
      * 会場は1ライブに1つなので AND にすると必ず0件になるため OR で扱う。
      * どの条件も空なら元の配列をそのまま返す（全件表示）。
      * @param {SavedSetlist[]} records 絞り込み対象
      * @param {string[]} titles 条件となる曲タイトル（AND 条件）
      * @param {string[]} [venues] 条件となる会場名（OR 条件。表記の差は無視する）
      * @param {string[]} [bands] 条件となる対バン相手（AND 条件。表記の差は無視する）
+     * @param {number[]} [tags] 条件となる属性ID（AND 条件）
      * @returns {SavedSetlist[]} 条件を満たす保存済みセトリ
      */
-    function filterSavedSetlists(records, titles, venues, bands) {
+    function filterSavedSetlists(records, titles, venues, bands, tags) {
       const songConditions = Array.isArray(titles) ? titles : [];
       const venueKeys = (Array.isArray(venues) ? venues : []).map(masterNameKey);
       const bandKeys = (Array.isArray(bands) ? bands : []).map(masterNameKey);
-      if (songConditions.length === 0 && venueKeys.length === 0 && bandKeys.length === 0) {
+      const tagConditions = Array.isArray(tags) ? tags : [];
+      if (
+        songConditions.length === 0 &&
+        venueKeys.length === 0 &&
+        bandKeys.length === 0 &&
+        tagConditions.length === 0
+      ) {
         return records;
       }
       return records.filter(function (record) {
@@ -6773,8 +6811,14 @@
           return false;
         }
         const recordBandKeys = record.bands.map(masterNameKey);
-        return bandKeys.every(function (key) {
+        const hasBands = bandKeys.every(function (key) {
           return recordBandKeys.indexOf(key) !== -1;
+        });
+        if (!hasBands) {
+          return false;
+        }
+        return tagConditions.every(function (id) {
+          return record.tags.indexOf(id) !== -1;
         });
       });
     }
@@ -6827,7 +6871,12 @@
       }
       list.textContent = ''; // 全再描画（既存チップをクリア）
 
-      if (savedFilter.length === 0 && savedVenueFilter.length === 0 && savedBandFilter.length === 0) {
+      if (
+        savedFilter.length === 0 &&
+        savedVenueFilter.length === 0 &&
+        savedBandFilter.length === 0 &&
+        savedTagFilter.length === 0
+      ) {
         bar.hidden = true;
         count.textContent = '';
         return;
@@ -6885,6 +6934,26 @@
         });
       }
 
+      if (savedTagFilter.length > 0) {
+        const heading = document.createElement('li');
+        heading.className = 'saved-filter__group';
+        heading.textContent = savedTagFilter.length > 1 ? '属性（すべて）:' : '属性:';
+        fragment.appendChild(heading);
+
+        savedTagFilter.forEach(function (id) {
+          const name = TAG_NAME_BY_ID.get(id) || '';
+          if (name === '') {
+            return;
+          }
+          fragment.appendChild(buildSavedFilterChip({
+            label: name,
+            title: '',
+            kind: 'song', // 曲と同じ控えめな見た目（意味は見出しの「属性:」で分かる）
+            onRemove: function () { removeFilterTag(id); }
+          }));
+        });
+      }
+
       list.appendChild(fragment);
 
       count.textContent = '該当 ' + matchedCount + '件';
@@ -6897,12 +6966,17 @@
      * @returns {void}
      */
     function showFilterResultToast() {
-      if (savedFilter.length === 0 && savedVenueFilter.length === 0 && savedBandFilter.length === 0) {
+      if (
+        savedFilter.length === 0 &&
+        savedVenueFilter.length === 0 &&
+        savedBandFilter.length === 0 &&
+        savedTagFilter.length === 0
+      ) {
         showToast('すべてのライブを表示しました');
         return;
       }
       const matched = filterSavedSetlists(
-        loadSavedSetlists(), savedFilter, savedVenueFilter, savedBandFilter
+        loadSavedSetlists(), savedFilter, savedVenueFilter, savedBandFilter, savedTagFilter
       ).length;
       showToast(matched === 0 ? '該当するライブはありません' : matched + '件見つかりました');
     }
@@ -6980,6 +7054,27 @@
     }
 
     /**
+     * 条件から属性を1つ外し、残りの条件で検索し直す。
+     * 属性一覧の選択状態も揃えるので、検索ポップアップを開き直すと条件と一致する。
+     * @param {number} id 条件から外す属性ID
+     * @returns {void}
+     */
+    function removeFilterTag(id) {
+      const index = savedTagFilter.indexOf(id);
+      if (index === -1) {
+        return;
+      }
+      savedTagFilter.splice(index, 1);
+      searchTagSelection = searchTagSelection.filter(function (current) {
+        return current !== id;
+      });
+
+      renderSavedList();       // 残った条件で絞り込み直す
+      updateSearchRunButton(); // 「検索（属性N）」の件数も揃える
+      showFilterResultToast();
+    }
+
+    /**
      * 曲一覧の1項目の見た目・aria を選択状態に合わせて更新する。
      * 全再描画するとスクロール位置が先頭へ戻るため、トグル時はこれだけを呼ぶ。
      * @param {HTMLButtonElement} button 対象の項目ボタン
@@ -7010,6 +7105,9 @@
       }
       if (searchBandSelection.length > 0) {
         parts.push('対バン' + searchBandSelection.length);
+      }
+      if (searchTagSelection.length > 0) {
+        parts.push('属性' + searchTagSelection.length);
       }
       runButton.textContent = parts.length === 0 ? '検索' : '検索（' + parts.join('・') + '）';
     }
@@ -7271,7 +7369,87 @@
     }
 
     /**
-     * 検索ポップアップのタブ（曲／会場／対バン）に合わせて一覧を入れ替える。
+     * 検索に出す属性を、保存したセトリから拾って返す。
+     * 実際に付けている属性だけを候補にする（選んでも0件になる属性を並べない）。
+     * 並びは属性マスタの順。
+     * @returns {{id: number, name: string, count: number}[]} 属性と、その件数
+     */
+    function getSearchTagOptions() {
+      const counts = new Map();
+      loadSavedSetlists().forEach(function (record) {
+        record.tags.forEach(function (id) {
+          counts.set(id, (counts.get(id) || 0) + 1);
+        });
+      });
+
+      const options = [];
+      TAG_MASTER.forEach(function (tag) {
+        const count = counts.get(tag.id);
+        if (count) {
+          options.push({ id: tag.id, name: tag.name, count: count });
+        }
+      });
+      return options;
+    }
+
+    /**
+     * 検索用の属性一覧（#search-tag-list）をマスタ順で描画する。
+     * 各項目はトグルボタン（aria-pressed）で、タップのたびに選択状態を反転する。
+     * @returns {void}
+     */
+    function renderSearchTagList() {
+      const list = document.getElementById('search-tag-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const tags = getSearchTagOptions();
+      if (tags.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '属性が付いた保存データがありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      tags.forEach(function (tag) {
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button popup__item-button--counted';
+        button.dataset.role = 'search-tag-option';
+
+        const label = document.createElement('span');
+        label.className = 'popup__item-title';
+        label.textContent = tag.name; // textContent で挿入（XSS安全）
+
+        const meta = document.createElement('span');
+        meta.className = 'popup__item-meta';
+        meta.textContent = tag.count + '件';
+
+        button.appendChild(label);
+        button.appendChild(meta);
+        updateSearchItem(button, searchTagSelection.indexOf(tag.id) !== -1); // 初期表示
+
+        button.addEventListener('click', function () {
+          // トグル: 1回目のタップで選択、もう一度で解除する。
+          const nowSelected = toggleSearchTagSelection(tag.id);
+          updateSearchItem(button, nowSelected); // 該当項目のみ更新（スクロール維持）
+          updateSearchRunButton();
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 検索ポップアップのタブ（曲／会場／対バン／属性）に合わせて一覧を入れ替える。
      * 「省略名称」は曲の一覧だけの操作なので、会場のタブでは隠す。
      * @returns {void}
      */
@@ -7279,12 +7457,14 @@
       const lists = {
         songs: document.getElementById('search-list'),
         venues: document.getElementById('search-venue-list'),
-        bands: document.getElementById('search-band-list')
+        bands: document.getElementById('search-band-list'),
+        tags: document.getElementById('search-tag-list')
       };
       const buttons = {
         songs: document.getElementById('btn-search-tab-songs'),
         venues: document.getElementById('btn-search-tab-venues'),
-        bands: document.getElementById('btn-search-tab-bands')
+        bands: document.getElementById('btn-search-tab-bands'),
+        tags: document.getElementById('btn-search-tab-tags')
       };
       const shortToggle = document.getElementById('btn-search-short');
 
@@ -7303,16 +7483,18 @@
 
     /**
      * 検索ポップアップのタブを切り替える（一覧は表示直前に描き直す）。
-     * @param {'songs'|'venues'|'bands'} tab 切り替え先
+     * @param {'songs'|'venues'|'bands'|'tags'} tab 切り替え先
      * @returns {void}
      */
     function setSearchTab(tab) {
-      searchTab = tab === 'venues' || tab === 'bands' ? tab : 'songs';
+      searchTab = ['venues', 'bands', 'tags'].indexOf(tab) !== -1 ? tab : 'songs';
       // 保存データが増減しているかもしれないので、開くたびに作り直す。
       if (searchTab === 'venues') {
         renderSearchVenueList();
       } else if (searchTab === 'bands') {
         renderSearchBandList();
+      } else if (searchTab === 'tags') {
+        renderSearchTagList();
       } else {
         renderSearchList();
       }
@@ -7333,6 +7515,7 @@
       renderSearchList();      // 表示直前に最新のマスタ＋選択状態を反映
       renderSearchVenueList();
       renderSearchBandList();
+      renderSearchTagList();
       syncSearchTab();
       updateSearchRunButton();
       overlay.hidden = false;
@@ -7351,7 +7534,7 @@
     }
 
     /**
-     * 選択中の曲（AND）・会場（OR）・対バン相手（AND）で保存一覧を絞り込む。
+     * 選択中の曲・対バン相手・属性（AND）と会場（OR）で保存一覧を絞り込む。
      * 何も選ばずに検索した場合は絞り込みを解除して全件表示へ戻す。
      * @returns {void}
      */
@@ -7359,6 +7542,7 @@
       savedFilter = searchSelection.slice();            // 押した時点の選択を確定する
       savedVenueFilter = searchVenueSelection.slice();
       savedBandFilter = searchBandSelection.slice();
+      savedTagFilter = searchTagSelection.slice();
       renderSavedList();
       closeSearchPopup();
       showFilterResultToast();
@@ -7382,6 +7566,7 @@
       const songsTabButton = document.getElementById('btn-search-tab-songs');
       const venuesTabButton = document.getElementById('btn-search-tab-venues');
       const bandsTabButton = document.getElementById('btn-search-tab-bands');
+      const tagsTabButton = document.getElementById('btn-search-tab-tags');
 
       if (openButton) {
         openButton.addEventListener('click', openSearchPopup);
@@ -7394,6 +7579,9 @@
       }
       if (bandsTabButton) {
         bandsTabButton.addEventListener('click', function () { setSearchTab('bands'); });
+      }
+      if (tagsTabButton) {
+        tagsTabButton.addEventListener('click', function () { setSearchTab('tags'); });
       }
       if (shortToggle) {
         shortToggle.addEventListener('click', togglePopupShortMode);
