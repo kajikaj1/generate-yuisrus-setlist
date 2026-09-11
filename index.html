@@ -137,22 +137,6 @@
       font-size: 13px;
     }
 
-    /* ===== Page header（分析ページの見出し行） =====
-       保存したセトリページは右上のページ切替にページ名が出るので、見出しは置かない。 */
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: var(--gap);
-    }
-
-    .page-header__title {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 700;
-    }
-
     /* ページ内の操作ボタン群（追加・検索する）。役割が違うので左右の端へ寄せる。 */
     .page-actions {
       display: flex;
@@ -165,6 +149,75 @@
        主役はセトリ一覧なので、常時出ているこれらのボタンは控えめな高さにする。 */
     .page-saved {
       gap: 4px;
+    }
+
+    /* 分析ページ: 上部の並べ替えチップと、曲ごとの集計行。 */
+    .page-actions--analysis {
+      justify-content: flex-start;
+    }
+
+    .stat-summary {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--color-muted);
+    }
+
+    .stat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-row {
+      padding: 8px 2px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .stat-row__head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .stat-row__title {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .stat-row__rate {
+      flex: 0 0 auto;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 演奏率のバー。数字だけだと比べにくいので、行の下に敷いて長さで見せる。 */
+    .stat-row__bar {
+      height: 4px;
+      margin: 4px 0;
+      background-color: var(--color-bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .stat-row__bar-fill {
+      display: block;
+      height: 100%;
+      background-color: var(--color-accent);
+    }
+
+    .stat-row__meta {
+      margin: 0;
+      font-size: 12px;
+      color: var(--color-muted);
+    }
+
+    /* まだ一度もやっていない曲は、やった曲と見分けられるよう薄く出す。 */
+    .stat-row--unplayed .stat-row__title,
+    .stat-row--unplayed .stat-row__rate {
+      color: var(--color-muted);
     }
 
     /* 保存データを編集中であることを示す帯（メイン画面の先頭）。
@@ -2031,7 +2084,7 @@
     </main>
   </div>
 
-  <!-- ===== Page: 分析（URL の #analysis。中身は今後） ===== -->
+  <!-- ===== Page: 分析（URL の #analysis） ===== -->
   <div class="app" id="page-analysis" data-role="page-analysis" hidden>
     <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
     <nav class="page-nav">
@@ -2045,12 +2098,18 @@
       </button>
     </nav>
 
-    <header class="page-header">
-      <h1 class="page-header__title">分析</h1>
-    </header>
+    <div class="page-actions page-actions--analysis">
+      <div class="tag-list" id="analysis-sorts" data-role="analysis-sorts"
+        role="group" aria-label="並べ替え">
+        <!-- 並べ替えのチップは renderAnalysisSorts() が描画する -->
+      </div>
+    </div>
 
     <main class="app__main">
-      <p class="page-empty">保存したセトリを使った分析をここに作ります。</p>
+      <p class="stat-summary" id="analysis-summary" data-role="analysis-summary"></p>
+      <ul class="stat-list" id="analysis-list" data-role="analysis-list">
+        <!-- 曲ごとの集計は renderAnalysis() が描画する -->
+      </ul>
     </main>
   </div>
 
@@ -9861,6 +9920,256 @@
     }
 
     // ============================================================
+    // Analysis Controller: 曲ごとの演奏頻度（AnalysisController）
+    // ------------------------------------------------------------
+    // 保存したセトリを古い順に1周して、曲ごとに「回数・演奏率・最後にやった日・
+    // その後のライブ本数」を数える。
+    // 演奏率の分母は全ライブ本数ではなく「その曲を初めてやったライブ以降の本数」
+    // にする。全体で割ると、あとから増えた曲が古い曲に永遠に追いつけないため。
+    // 分母が小さいと数字が跳ねる（初演直後は100%）ので、件数も一緒に出す。
+    // 同じライブで2回やった曲は1回として数える。
+    // 集計は表示のたびに作り直すだけで、保存データには触れない。
+    // ============================================================
+
+    /** 並べ替えの種類（画面の並び順そのまま）。 */
+    const ANALYSIS_SORTS = [
+      { id: 'rate',  name: '演奏率順' },
+      { id: 'count', name: '回数順' },
+      { id: 'blank', name: 'やってない順' },
+      { id: 'name',  name: 'あいうえお順' }
+    ];
+
+    /** 選んでいる並べ替え（画面の状態なので保存はしない）。 */
+    let analysisSort = 'rate';
+
+    /**
+     * 曲ごとの集計を作る。
+     * 並びは曲マスタのあいうえお順→マスタに無い曲名（初めて出てきた順）。
+     * @returns {{total: number, from: string, to: string,
+     *   songs: {title: string, known: boolean, count: number, denominator: number,
+     *     rate: number, lastDate: string, blank: number}[]}} 集計結果
+     */
+    function buildSongStats() {
+      // 古い順に見る（初演以降の本数と、最後にやってからの本数を数えるため）。
+      const records = loadSavedSetlists().slice().reverse();
+      const total = records.length;
+
+      const stats = new Map();
+      const ensure = function (title, known) {
+        if (!stats.has(title)) {
+          stats.set(title, {
+            title: title, known: known, count: 0, firstIndex: -1, lastIndex: -1
+          });
+        }
+        return stats.get(title);
+      };
+
+      // まず曲マスタを入れておく（1度もやっていない曲も一覧に出すため）。
+      getSortedSongMaster().forEach(function (song) {
+        ensure(song.title, true);
+      });
+
+      records.forEach(function (record, index) {
+        const seen = new Set(); // 同じライブで2回やっても1回として数える
+        record.setlist.forEach(function (title) {
+          if (seen.has(title)) {
+            return;
+          }
+          seen.add(title);
+          const stat = ensure(title, SONG_ID_BY_TITLE.has(title));
+          stat.count += 1;
+          if (stat.firstIndex === -1) {
+            stat.firstIndex = index;
+          }
+          stat.lastIndex = index;
+        });
+      });
+
+      const songs = [];
+      stats.forEach(function (stat) {
+        const denominator = stat.firstIndex === -1 ? 0 : total - stat.firstIndex;
+        songs.push({
+          title: stat.title,
+          known: stat.known,
+          count: stat.count,
+          denominator: denominator,
+          rate: denominator === 0 ? 0 : stat.count / denominator,
+          lastDate: stat.lastIndex === -1 ? '' : records[stat.lastIndex].date,
+          // 最後にやったライブより後のライブ本数（0なら直近のライブでやった）。
+          blank: stat.lastIndex === -1 ? total : total - 1 - stat.lastIndex
+        });
+      });
+
+      return {
+        total: total,
+        from: total > 0 ? records[0].date : '',
+        to: total > 0 ? records[total - 1].date : '',
+        songs: songs
+      };
+    }
+
+    /**
+     * 集計を選んでいる並べ替えで並べる（純粋関数。元の配列は変えない）。
+     * 同点は元の並び（あいうえお順）のまま（Array#sort は安定ソート）。
+     * @param {Object[]} songs 集計した曲
+     * @returns {Object[]} 並べ替えた配列
+     */
+    function sortSongStats(songs) {
+      const sorted = songs.slice();
+      if (analysisSort === 'count') {
+        sorted.sort(function (a, b) { return b.count - a.count; });
+      } else if (analysisSort === 'rate') {
+        sorted.sort(function (a, b) { return b.rate - a.rate || b.count - a.count; });
+      } else if (analysisSort === 'blank') {
+        // 長く空いている曲を上へ。1度もやっていない曲は最上位に来る。
+        sorted.sort(function (a, b) { return b.blank - a.blank || a.count - b.count; });
+      }
+      return sorted; // 'name' は曲マスタのあいうえお順のまま
+    }
+
+    /**
+     * 集計1行の下段（回数・最後にやった日・そのあとの本数）の文言を作る。
+     * @param {Object} stat 集計した1曲
+     * @returns {string} 1行の説明
+     */
+    function statMetaText(stat) {
+      if (stat.count === 0) {
+        return '一度もやっていない';
+      }
+      const parts = [stat.count + '回 / ' + stat.denominator + '本'];
+      const last = formatDate(stat.lastDate);
+      parts.push('最後 ' + (last === '' ? '日付なし' : last));
+      parts.push(stat.blank === 0 ? '直近のライブで演奏' : '直近' + stat.blank + '本は演奏なし');
+      return parts.join('・');
+    }
+
+    /**
+     * 集計1行を組み立てる。曲名は textContent で挿入する（XSS安全）。
+     * @param {Object} stat 集計した1曲
+     * @returns {HTMLLIElement} 一覧へ差し込む行
+     */
+    function buildStatRow(stat) {
+      const item = document.createElement('li');
+      item.className = stat.count === 0 ? 'stat-row stat-row--unplayed' : 'stat-row';
+
+      const head = document.createElement('div');
+      head.className = 'stat-row__head';
+
+      const title = document.createElement('span');
+      title.className = 'stat-row__title';
+      title.textContent = stat.title; // textContent で挿入（XSS安全）
+
+      const percent = Math.round(stat.rate * 100);
+      const rate = document.createElement('span');
+      rate.className = 'stat-row__rate';
+      rate.textContent = stat.count === 0 ? '—' : percent + '%';
+
+      head.appendChild(title);
+      head.appendChild(rate);
+
+      const bar = document.createElement('div');
+      bar.className = 'stat-row__bar';
+      bar.setAttribute('aria-hidden', 'true'); // 割合は隣の数字が伝える
+      const fill = document.createElement('span');
+      fill.className = 'stat-row__bar-fill';
+      fill.style.width = percent + '%';
+      bar.appendChild(fill);
+
+      const meta = document.createElement('p');
+      meta.className = 'stat-row__meta';
+      meta.textContent = statMetaText(stat);
+
+      item.appendChild(head);
+      item.appendChild(bar);
+      item.appendChild(meta);
+      return item;
+    }
+
+    /**
+     * 並べ替えのチップを描画する（1つだけ選べる）。
+     * @returns {void}
+     */
+    function renderAnalysisSorts() {
+      const list = document.getElementById('analysis-sorts');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      const fragment = document.createDocumentFragment();
+      ANALYSIS_SORTS.forEach(function (sort) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.role = 'analysis-sort';
+        chip.dataset.sort = sort.id;
+        chip.textContent = sort.name;
+        chip.setAttribute('aria-pressed', sort.id === analysisSort ? 'true' : 'false');
+        chip.addEventListener('click', function () {
+          analysisSort = sort.id;
+          renderAnalysis();
+        });
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 分析ページを描画する（表示のたびに最新の保存データから数え直す）。
+     * @returns {void}
+     */
+    function renderAnalysis() {
+      const summary = document.getElementById('analysis-summary');
+      const list = document.getElementById('analysis-list');
+      if (!list) {
+        return;
+      }
+      renderAnalysisSorts();
+      list.textContent = ''; // 全再描画
+
+      const stats = buildSongStats();
+
+      if (stats.total === 0) {
+        if (summary) {
+          summary.textContent = '';
+        }
+        const empty = document.createElement('li');
+        empty.className = 'popup__empty';
+        empty.textContent = '保存したセトリがありません';
+        list.appendChild(empty);
+        return;
+      }
+
+      if (summary) {
+        const from = formatDate(stats.from);
+        const to = formatDate(stats.to);
+        const period = from !== '' && to !== '' ? '（' + from + ' 〜 ' + to + '）' : '';
+        summary.textContent = '対象 ' + stats.total + '本' + period +
+          '・演奏率は「初めてやったライブ以降の本数」で計算';
+      }
+
+      const known = sortSongStats(stats.songs.filter(function (song) { return song.known; }));
+      const unknown = sortSongStats(stats.songs.filter(function (song) { return !song.known; }));
+
+      const fragment = document.createDocumentFragment();
+      known.forEach(function (stat) {
+        fragment.appendChild(buildStatRow(stat));
+      });
+
+      // 曲マスタに無い曲名（手入力のまま保存したもの）は最後にまとめる。
+      if (unknown.length > 0) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.textContent = '曲マスタにない曲名';
+        fragment.appendChild(heading);
+        unknown.forEach(function (stat) {
+          fragment.appendChild(buildStatRow(stat));
+        });
+      }
+      list.appendChild(fragment);
+    }
+
+    // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
     // ページは URL のハッシュで切り替える
@@ -9941,6 +10250,7 @@
      * 保存一覧を表示するときは最新の保存データを描画し、離れるときは
      * 取り込みフォームや絞り込みを初期化する。バックアップは開くたびに
      * 最新の書き出しを入れ、離れるときは貼り付けた内容を捨てる。
+     * 分析は開くたびに保存データから数え直す。
      * @param {string} name 表示するページの id
      * @returns {void}
      */
@@ -9955,6 +10265,7 @@
       });
       const showSaved = target.id === 'saved';
       const showBackup = target.id === 'backup';
+      const showAnalysis = target.id === 'analysis';
 
       // ページ切替ボタンに今いるページ名を出す（各ページに1つずつある）。
       document.querySelectorAll('[data-role="page-name"]').forEach(function (label) {
@@ -9981,6 +10292,10 @@
         renderBackupPage(); // 表示直前に最新の書き出しを入れる
       } else {
         clearBackupPage();  // 貼り付けた内容は持ち越さない
+      }
+
+      if (showAnalysis) {
+        renderAnalysis(); // 表示直前に最新の保存データから数え直す
       }
       window.scrollTo(0, 0); // 別ページへ移った体感に合わせて先頭から表示する
     }
