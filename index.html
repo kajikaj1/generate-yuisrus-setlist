@@ -162,6 +162,67 @@
       color: var(--color-muted);
     }
 
+    /* 1曲目・ラストのランキング。曲ごとの一覧の前に、短いまとめとして置く。 */
+    .stat-tops {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: var(--gap);
+    }
+
+    .stat-top {
+      padding: 8px var(--gap);
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+    }
+
+    .stat-top__title {
+      margin: 0 0 4px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-muted);
+    }
+
+    .stat-top__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stat-top__item {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 2px 0;
+      font-size: 14px;
+    }
+
+    .stat-top__rank {
+      flex: 0 0 1.2em;
+      color: var(--color-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-top__name {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .stat-top__count {
+      flex: 0 0 auto;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-top__empty {
+      margin: 0;
+      font-size: 13px;
+      color: var(--color-muted);
+    }
+
     .stat-list {
       list-style: none;
       margin: 0;
@@ -2107,6 +2168,9 @@
 
     <main class="app__main">
       <p class="stat-summary" id="analysis-summary" data-role="analysis-summary"></p>
+      <div class="stat-tops" id="analysis-tops" data-role="analysis-tops">
+        <!-- 1曲目・ラストのランキングは renderAnalysisTops() が描画する -->
+      </div>
       <ul class="stat-list" id="analysis-list" data-role="analysis-list">
         <!-- 曲ごとの集計は renderAnalysis() が描画する -->
       </ul>
@@ -9923,7 +9987,7 @@
     // Analysis Controller: 曲ごとの演奏頻度（AnalysisController）
     // ------------------------------------------------------------
     // 保存したセトリを古い順に1周して、曲ごとに「回数・演奏率・最後にやった日・
-    // その後のライブ本数」を数える。
+    // その後のライブ本数・1曲目とラストの回数」を数える。
     // 演奏率の分母は全ライブ本数ではなく「その曲を初めてやったライブ以降の本数」
     // にする。全体で割ると、あとから増えた曲が古い曲に永遠に追いつけないため。
     // 分母が小さいと数字が跳ねる（初演直後は100%）ので、件数も一緒に出す。
@@ -9946,8 +10010,9 @@
      * 曲ごとの集計を作る。
      * 並びは曲マスタのあいうえお順→マスタに無い曲名（初めて出てきた順）。
      * @returns {{total: number, from: string, to: string,
-     *   songs: {title: string, known: boolean, count: number, denominator: number,
-     *     rate: number, lastDate: string, blank: number}[]}} 集計結果
+     *   songs: {title: string, known: boolean, count: number, openCount: number,
+     *     closeCount: number, denominator: number, rate: number, lastDate: string,
+     *     blank: number}[]}} 集計結果
      */
     function buildSongStats() {
       // 古い順に見る（初演以降の本数と、最後にやってからの本数を数えるため）。
@@ -9958,7 +10023,8 @@
       const ensure = function (title, known) {
         if (!stats.has(title)) {
           stats.set(title, {
-            title: title, known: known, count: 0, firstIndex: -1, lastIndex: -1
+            title: title, known: known, count: 0, firstIndex: -1, lastIndex: -1,
+            openCount: 0, closeCount: 0
           });
         }
         return stats.get(title);
@@ -9983,6 +10049,16 @@
           }
           stat.lastIndex = index;
         });
+
+        // その日の1曲目とラスト（O.A があればその1曲目、アンコールがあれば
+        // その最後が入る＝実際にやった順のとおりに数える）。
+        const length = record.setlist.length;
+        if (length > 0) {
+          const opener = record.setlist[0];
+          const closer = record.setlist[length - 1];
+          ensure(opener, SONG_ID_BY_TITLE.has(opener)).openCount += 1;
+          ensure(closer, SONG_ID_BY_TITLE.has(closer)).closeCount += 1;
+        }
       });
 
       const songs = [];
@@ -9992,6 +10068,8 @@
           title: stat.title,
           known: stat.known,
           count: stat.count,
+          openCount: stat.openCount,
+          closeCount: stat.closeCount,
           denominator: denominator,
           rate: denominator === 0 ? 0 : stat.count / denominator,
           lastDate: stat.lastIndex === -1 ? '' : records[stat.lastIndex].date,
@@ -10037,6 +10115,12 @@
         return '一度もやっていない';
       }
       const parts = [stat.count + '回 / ' + stat.denominator + '本'];
+      if (stat.openCount > 0) {
+        parts.push('1曲目' + stat.openCount + '回');
+      }
+      if (stat.closeCount > 0) {
+        parts.push('ラスト' + stat.closeCount + '回');
+      }
       const last = formatDate(stat.lastDate);
       parts.push('最後 ' + (last === '' ? '日付なし' : last));
       parts.push(stat.blank === 0 ? '直近のライブで演奏' : '直近' + stat.blank + '本は演奏なし');
@@ -10085,6 +10169,94 @@
       return item;
     }
 
+    /** ランキングに出す曲数（多すぎると眺めるものにならないので頭だけ）。 */
+    const ANALYSIS_TOP_LIMIT = 5;
+
+    /**
+     * ランキング1つ分（見出し＋上位の曲）を組み立てる。
+     * 曲名は textContent で挿入する（XSS安全）。
+     * @param {string} title 見出し
+     * @param {Object[]} songs 集計した曲（全件）
+     * @param {function(Object): number} pick 数える値の取り出し方
+     * @param {number} total 対象のライブ本数（割合の分母）
+     * @returns {HTMLDivElement} ランキングの箱
+     */
+    function buildAnalysisTop(title, songs, pick, total) {
+      const box = document.createElement('div');
+      box.className = 'stat-top';
+
+      const heading = document.createElement('p');
+      heading.className = 'stat-top__title';
+      heading.textContent = title;
+      box.appendChild(heading);
+
+      const ranked = songs
+        .filter(function (song) { return pick(song) > 0; })
+        .sort(function (a, b) { return pick(b) - pick(a); }) // 同数は元の並び（あいうえお順）
+        .slice(0, ANALYSIS_TOP_LIMIT);
+
+      if (ranked.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'stat-top__empty';
+        empty.textContent = 'まだありません';
+        box.appendChild(empty);
+        return box;
+      }
+
+      const list = document.createElement('ol');
+      list.className = 'stat-top__list';
+      ranked.forEach(function (song, index) {
+        const item = document.createElement('li');
+        item.className = 'stat-top__item';
+
+        const rank = document.createElement('span');
+        rank.className = 'stat-top__rank';
+        rank.textContent = (index + 1) + '.';
+
+        const name = document.createElement('span');
+        name.className = 'stat-top__name';
+        name.textContent = song.title; // textContent で挿入（XSS安全）
+
+        const count = document.createElement('span');
+        count.className = 'stat-top__count';
+        const value = pick(song);
+        count.textContent = value + '回（' + Math.round((value / total) * 100) + '%）';
+
+        item.appendChild(rank);
+        item.appendChild(name);
+        item.appendChild(count);
+        list.appendChild(item);
+      });
+      box.appendChild(list);
+      return box;
+    }
+
+    /**
+     * 「1曲目にやりがち」「ラストにやりがち」のランキングを描画する。
+     * 割合の分母は対象のライブ本数（どのライブにも1曲目とラストがあるため）。
+     * @param {Object} stats buildSongStats() の結果
+     * @returns {void}
+     */
+    function renderAnalysisTops(stats) {
+      const box = document.getElementById('analysis-tops');
+      if (!box) {
+        return;
+      }
+      box.textContent = ''; // 全再描画
+
+      if (stats.total === 0) {
+        return;
+      }
+      box.appendChild(buildAnalysisTop(
+        '1曲目にやりがち', stats.songs,
+        function (song) { return song.openCount; }, stats.total
+      ));
+      box.appendChild(buildAnalysisTop(
+        'ラストにやりがち', stats.songs,
+        function (song) { return song.closeCount; }, stats.total
+      ));
+    }
+
     /**
      * 並べ替えのチップを描画する（1つだけ選べる）。
      * @returns {void}
@@ -10128,6 +10300,8 @@
       list.textContent = ''; // 全再描画
 
       const stats = buildSongStats();
+
+      renderAnalysisTops(stats);
 
       if (stats.total === 0) {
         if (summary) {
