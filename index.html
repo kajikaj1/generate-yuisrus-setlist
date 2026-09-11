@@ -707,33 +707,46 @@
     .page-menu {
       position: fixed;
       z-index: 150; /* ポップアップ(100)より前、トースト(200)より後ろ */
-      min-width: 180px;
+      width: 300px;
       max-width: calc(100vw - 24px);
-      padding: 4px;
+      padding: 8px;
       background-color: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
     }
 
+    /* ページはアイコンと名前のタイルで並べる。文字だけの一覧より、
+       どのページなのかを一目で選べるようにするため。 */
     .page-menu__list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
       list-style: none;
       margin: 0;
       padding: 0;
     }
 
+    .page-menu__item {
+      display: flex;
+    }
+
     .page-menu__button {
       display: flex;
+      flex-direction: column;
       align-items: center;
+      gap: 6px;
       width: 100%;
-      min-height: var(--tap-min);
-      padding: 8px 12px;
+      min-height: 96px;
+      padding: 10px 3px;
       font-family: inherit;
-      font-size: 15px;
-      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-align: center;
       color: var(--color-text);
       background-color: transparent;
-      border: none;
+      border: 1px solid var(--color-border);
       border-radius: var(--radius);
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
@@ -744,11 +757,37 @@
       background-color: var(--color-bg);
     }
 
-    /* 今いるページ。選べないわけではないので、色と太さで示すだけにする。 */
+    .page-menu__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      color: var(--color-accent);
+      background-color: var(--color-bg);
+      border-radius: 12px;
+    }
+
+    .page-menu__glyph {
+      width: 26px;
+      height: 26px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* 今いるページ。選べないわけではないので、色と枠で示すだけにする。 */
     .page-menu__button--current {
       color: var(--color-accent);
-      font-weight: 600;
+      border-color: var(--color-accent);
       background-color: var(--color-accent-soft);
+    }
+
+    .page-menu__button--current .page-menu__icon {
+      color: var(--color-surface);
+      background-color: var(--color-accent);
     }
 
     /* 中身がまだ無いページの案内。 */
@@ -7111,12 +7150,16 @@
     /**
      * ページの定義。並び順がページ切替メニューの並びになる。
      * hash が '' のページを既定（未知のハッシュもここへ倒す）とする。
-     * @type {ReadonlyArray<{id: string, hash: string, name: string, element: string}>}
+     * icon は 24x24 のアイコンを描くパス（線で描くので fill は使わない）。
+     * @type {ReadonlyArray<{id: string, hash: string, name: string, element: string, icon: string[]}>}
      */
     const PAGES = [
-      { id: 'main',     hash: '',          name: 'セトリ登録',   element: 'page-main' },
-      { id: 'saved',    hash: '#saved',    name: '保存したセトリ', element: 'page-saved' },
-      { id: 'analysis', hash: '#analysis', name: '分析',         element: 'page-analysis' }
+      { id: 'main',     hash: '',          name: 'セトリ登録',   element: 'page-main',
+        icon: ['M4 20l0.8-3.6L15.6 5.6a2 2 0 0 1 2.8 2.8L7.6 19.2 4 20z', 'M13.5 7.5l3 3'] },
+      { id: 'saved',    hash: '#saved',    name: '保存したセトリ', element: 'page-saved',
+        icon: ['M6 4h12v16l-6-3.6L6 20z'] },
+      { id: 'analysis', hash: '#analysis', name: '分析',         element: 'page-analysis',
+        icon: ['M4 20h16', 'M7.5 20v-6', 'M12 20V6', 'M16.5 20v-9'] }
     ];
 
     /** 保存一覧ページを表す URL ハッシュ。 */
@@ -7219,6 +7262,32 @@
     }
 
     /**
+     * ページのアイコン（角丸の枠に入った線画）を組み立てる。
+     * SVG は createElementNS で作る（innerHTML だと名前空間が付かず描画されない）。
+     * @param {string[]} paths 24x24 座標系のパス
+     * @returns {HTMLElement} アイコンの入れ物
+     */
+    function buildPageIcon(paths) {
+      const box = document.createElement('span');
+      box.className = 'page-menu__icon';
+
+      const ns = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'page-menu__glyph');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('aria-hidden', 'true'); // 名前は下のラベルが担う
+      svg.setAttribute('focusable', 'false');
+      (paths || []).forEach(function (d) {
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+      });
+
+      box.appendChild(svg);
+      return box;
+    }
+
+    /**
      * ページ切替メニューの一覧を描画する。今いるページには印を付ける。
      * @returns {void}
      */
@@ -7242,7 +7311,12 @@
           : 'page-menu__button';
         button.dataset.role = 'page-menu-item';
         button.dataset.page = page.id;
-        button.textContent = page.name; // textContent で挿入（XSS安全）
+        button.appendChild(buildPageIcon(page.icon));
+
+        const label = document.createElement('span');
+        label.className = 'page-menu__label';
+        label.textContent = page.name; // textContent で挿入（XSS安全）
+        button.appendChild(label);
         if (page.id === current.id) {
           button.setAttribute('aria-current', 'true');
         }
