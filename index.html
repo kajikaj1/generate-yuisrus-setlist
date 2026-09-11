@@ -250,16 +250,11 @@
       gap: var(--gap);
     }
 
-    /* 属性（ワンマン・生誕など）の行。チップが5つ並ぶので、ラベルを上に置いて
-       横幅をすべてチップへ渡す（ラベルが左にあると約100px削られ1行に収まらない）。 */
+    /* 属性（ワンマン・生誕など）の行。チップの文言で意味が分かるので見出しは
+       置かず、横幅をすべてチップへ渡して1行に収める。 */
     .field--tags {
       flex-direction: column;
       align-items: stretch;
-      gap: 6px;
-    }
-
-    .field--tags .field__label {
-      flex: 0 0 auto;
     }
 
     .tag-list {
@@ -1408,8 +1403,8 @@
         </button>
       </div>
       <div class="field field--tags">
-        <span class="field__label" id="tags-label">属性</span>
-        <div class="tag-list" id="tag-list" data-role="tag-list" role="group" aria-labelledby="tags-label">
+        <!-- 見出しは置かない（チップの文言で分かるため）。読み上げには aria-label で伝える。 -->
+        <div class="tag-list" id="tag-list" data-role="tag-list" role="group" aria-label="属性">
           <!-- 属性チップは renderTagChips() が描画する -->
         </div>
       </div>
