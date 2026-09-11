@@ -155,6 +155,64 @@
       text-overflow: ellipsis;
     }
 
+    /* 属性（ワンマン・生誕など）の行。チップは折り返して並べる。 */
+    .field--tags {
+      align-items: flex-start;
+    }
+
+    .field--tags .field__label {
+      padding-top: 6px;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .tag-chip {
+      min-height: 30px;
+      padding: 4px 12px;
+      font-size: 13px;
+      color: var(--color-muted);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .tag-chip[aria-pressed="true"] {
+      color: var(--color-accent);
+      background-color: var(--color-accent-soft);
+      border-color: var(--color-accent);
+      font-weight: 600;
+    }
+
+    .tag-chip:active {
+      filter: brightness(0.97);
+    }
+
+    /* 保存一覧に出す読み取り専用の属性チップ */
+    .saved-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .saved-tags__item {
+      padding: 1px 8px;
+      font-size: 12px;
+      color: var(--color-accent);
+      background-color: var(--color-accent-soft);
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
     /* ===== Setlist table area ===== */
     .app__main {
       flex: 1 1 auto;
@@ -900,6 +958,12 @@
         <input class="field__input" type="text" id="input-venue" data-role="venue"
           placeholder="会場名を入力" autocomplete="off">
       </div>
+      <div class="field field--tags">
+        <span class="field__label" id="tags-label">属性</span>
+        <div class="tag-list" id="tag-list" data-role="tag-list" role="group" aria-labelledby="tags-label">
+          <!-- 属性チップは renderTagChips() が描画する -->
+        </div>
+      </div>
     </header>
 
     <!-- ===== Main: setlist table ===== -->
@@ -1132,6 +1196,77 @@
       }
     });
 
+    // ============================================================
+    // Data: 属性マスタ（ライブの種類。HTML内固定埋め込み）
+    // ------------------------------------------------------------
+    // 各要素は { id, name }。保存データは name ではなく id で属性を持つため、
+    // 曲マスタと同じ約束を守る:
+    //   - 一度振った id は変更しない（表記を直しても id はそのまま）。
+    //   - 属性を消しても id は再利用しない（過去の記録が別の属性になる）。
+    //   - 新しい属性は未使用の最大値+1 を振る（並び順は画面の並びに使う）。
+    // 種類を増やしたいときはこの配列に1行足すだけでよい。
+    // ============================================================
+
+    /**
+     * ライブの属性1件を表す。
+     * @typedef {Object} LiveTag
+     * @property {number} id   属性を一意に指す不変の番号
+     * @property {string} name 画面に出す名前
+     */
+
+    /** @type {ReadonlyArray<LiveTag>} */
+    const TAG_MASTER = [
+      { id: 1, name: 'ワンマン' },
+      { id: 2, name: '生誕' },
+      { id: 3, name: '対バン' },
+      { id: 4, name: 'フェス' },
+      { id: 5, name: '主催' },
+      { id: 6, name: 'ツアー' },
+      { id: 7, name: '配信' }
+    ];
+
+    /**
+     * 属性ID → 名前の対応表。マスタから一度だけ組み立てる。
+     * @type {Map<number, string>}
+     */
+    const TAG_NAME_BY_ID = new Map();
+    TAG_MASTER.forEach(function (tag) {
+      TAG_NAME_BY_ID.set(tag.id, tag.name);
+    });
+
+    /**
+     * 任意の値を属性IDの配列として整える（純粋関数）。
+     * マスタに無いID・重複・数値以外は捨て、マスタの並び順に揃える。
+     * 曲と違って自由入力が無いため、画面でも保存データでも一貫してIDで扱う。
+     * @param {unknown} tags 検証する値
+     * @returns {number[]} 整えた属性IDの配列
+     */
+    function normalizeTagIds(tags) {
+      if (!Array.isArray(tags)) {
+        return [];
+      }
+      const picked = [];
+      TAG_MASTER.forEach(function (tag) {
+        if (tags.indexOf(tag.id) !== -1) {
+          picked.push(tag.id);
+        }
+      });
+      return picked;
+    }
+
+    /**
+     * 属性IDの配列を表示用の名前の配列に直す（純粋関数）。
+     * @param {number[]} tags 属性IDの配列
+     * @returns {string[]} 名前の配列
+     */
+    function tagNames(tags) {
+      return tags.map(function (id) {
+        return TAG_NAME_BY_ID.get(id) || '';
+      }).filter(function (name) {
+        return name !== '';
+      });
+    }
+
     /**
      * 曲ID → 正式名称／正式名称 → 曲ID の対応表。曲マスタから一度だけ組み立てる。
      * 保存データは ID で曲を持ち、アプリ内では常にタイトルへ解決して扱う。
@@ -1287,6 +1422,7 @@
      * @property {string} liveName ライブ名。未入力は ""
      * @property {string} venue    会場名。未入力は ""
      * @property {string[]} setlist 追加順の曲タイトル列。重複可
+     * @property {number[]} tags  ライブの属性ID（TAG_MASTER の id。並びはマスタ順）
      * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
      * @property {number} enCount  末尾から数えたアンコール(En)の曲数
      * @property {string} editingId 編集中の保存データのID。新規作成中は ""
@@ -1305,10 +1441,23 @@
       liveName: '',
       venue: '',
       setlist: [],
+      tags: [],
       oaCount: 0,
       enCount: 0,
       editingId: ''
     };
+
+    /**
+     * 属性のオン／オフを反転する。DOM には触れない（描画は呼び出し側）。
+     * @param {number} id 属性ID
+     * @returns {void}
+     */
+    function toggleTag(id) {
+      const next = state.tags.indexOf(id) === -1
+        ? state.tags.concat([id])
+        : state.tags.filter(function (current) { return current !== id; });
+      state.tags = normalizeTagIds(next); // マスタ順に揃える
+    }
 
     // ============================================================
     // Sections: O.A ／ 本編 ／ アンコール の区分
@@ -1469,6 +1618,7 @@
      */
     function resetState() {
       state.setlist.length = 0;
+      state.tags = [];
       state.oaCount = 0;
       state.enCount = 0;
       state.date = '';
@@ -1501,6 +1651,7 @@
           liveName: state.liveName,
           venue: state.venue,
           setlist: toStoredSetlist(state.setlist), // 曲はIDで持つ
+          tags: state.tags,                        // 属性もIDで持つ
           oaCount: state.oaCount,                  // 先頭から数えた O.A の曲数
           enCount: state.enCount,                  // 末尾から数えたアンコールの曲数
           editingId: state.editingId               // 編集中なら対象のID
@@ -1541,6 +1692,7 @@
       state.venue = typeof data.venue === 'string' ? data.venue : '';
       // 曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
       state.setlist = fromStoredSetlist(data.setlist);
+      state.tags = normalizeTagIds(data.tags);
       const counts = clampSectionCounts(data.oaCount, data.enCount, state.setlist.length);
       state.oaCount = counts.oaCount;
       state.enCount = counts.enCount;
@@ -1570,6 +1722,7 @@
      * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
      * @property {string} liveName  ライブ名。未入力は ""
      * @property {string} venue     会場名。未入力は ""
+     * @property {number[]} tags   ライブの属性ID（TAG_MASTER の id）
      * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
      * @property {number} enCount  末尾から数えたアンコール(En)の曲数
      * @property {string[]} setlist 曲タイトルの配列（保存時点のコピー）。
@@ -1609,6 +1762,7 @@
         date: typeof data.date === 'string' ? data.date : '',
         liveName: typeof data.liveName === 'string' ? data.liveName : '',
         venue: typeof data.venue === 'string' ? data.venue : '',
+        tags: normalizeTagIds(data.tags),
         oaCount: counts.oaCount,
         enCount: counts.enCount,
         setlist: setlist
@@ -1702,7 +1856,10 @@
         venue: record.venue,
         setlist: toStoredSetlist(record.setlist)
       };
-      // 区分なし（従来どおりのセトリ）のときは書き出さず、形も大きさも変えない。
+      // 属性なし・区分なし（従来どおりのセトリ）のときは書き出さず、形も大きさも変えない。
+      if (record.tags.length > 0) {
+        stored.tags = record.tags.slice();
+      }
       if (record.oaCount > 0) {
         stored.oaCount = record.oaCount;
       }
@@ -1726,6 +1883,7 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        tags: source.tags,
         oaCount: source.oaCount,
         enCount: source.enCount,
         setlist: source.setlist.slice() // 参照を共有しない
@@ -1766,6 +1924,7 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        tags: source.tags,
         oaCount: source.oaCount,
         enCount: source.enCount,
         setlist: source.setlist.slice() // 参照を共有しない
@@ -2311,6 +2470,39 @@
      * @returns {void}
      */
     /**
+     * 属性チップ（ワンマン・生誕など）を描画する。押下状態は aria-pressed で持つ。
+     * 項目はマスタ順に固定なので、状態が変わるたびに作り直して構わない。
+     * @returns {void}
+     */
+    function renderTagChips() {
+      const list = document.getElementById('tag-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      const fragment = document.createDocumentFragment();
+      TAG_MASTER.forEach(function (tag) {
+        const selected = state.tags.indexOf(tag.id) !== -1;
+
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.role = 'tag-chip';
+        chip.dataset.tagId = String(tag.id);
+        chip.textContent = tag.name; // textContent で挿入（XSS安全）
+        chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        chip.addEventListener('click', function () {
+          toggleTag(tag.id);
+          renderAll(); // 再描画＋作業中データの保存
+        });
+
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
      * 「＋O.A」「＋アンコール」ボタンの出し入れを状態に合わせる。
      * すでにその区分がある場合は境界行の▲▼で動かすので、ボタンは隠す。
      * 曲が1曲も無い／本編の曲が残らない場合も隠す。
@@ -2389,6 +2581,7 @@
      * @returns {void}
      */
     function renderAll() {
+      renderTagChips();
       renderSetlist();
       saveState(); // 状態変更のたびに保存（間違って閉じても直前の内容を復元できる）
     }
@@ -2964,6 +3157,7 @@
       state.liveName = record.liveName;
       state.venue = record.venue;
       state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
+      state.tags = record.tags.slice();
       state.oaCount = record.oaCount;
       state.enCount = record.enCount;
       state.editingId = record.id;            // 以降の保存はこの1件の上書きになる
@@ -3124,6 +3318,20 @@
 
         label.appendChild(titleEl);
         label.appendChild(metaEl);
+
+        // 属性は読み取り専用のチップで見出しの下に並べる。
+        const names = tagNames(record.tags);
+        if (names.length > 0) {
+          const tagsEl = document.createElement('span');
+          tagsEl.className = 'saved-tags';
+          names.forEach(function (name) {
+            const chip = document.createElement('span');
+            chip.className = 'saved-tags__item';
+            chip.textContent = name; // textContent で挿入（XSS安全）
+            tagsEl.appendChild(chip);
+          });
+          label.appendChild(tagsEl);
+        }
         toggleButton.appendChild(caret);
         toggleButton.appendChild(label);
 
@@ -3306,6 +3514,7 @@
         record.date,
         record.liveName,
         record.venue,
+        record.tags.join(','),
         record.oaCount,
         record.enCount,
         record.setlist.join('\u0000')
@@ -3377,6 +3586,7 @@
           date: record.date,
           liveName: record.liveName,
           venue: record.venue,
+          tags: record.tags.slice(),
           oaCount: record.oaCount,
           enCount: record.enCount,
           setlist: record.setlist.slice()
