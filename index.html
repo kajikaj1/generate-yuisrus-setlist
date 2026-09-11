@@ -1836,7 +1836,7 @@
       <div class="band-panel" id="band-panel" data-role="band-panel" hidden>
         <div class="field__control">
           <input class="field__input" type="text" id="input-band" data-role="band-input"
-            placeholder="対バン相手を入力" aria-label="対バン相手" autocomplete="off" enterkeyhint="done">
+            placeholder="対バン相手を入力・貼り付け" aria-label="対バン相手" autocomplete="off" enterkeyhint="done">
           <span class="input-icons">
             <button type="button" class="input-icon" id="btn-band-add" data-role="band-add"
               aria-label="このライブの対バン相手に追加する" title="このライブの対バン相手に追加する">
@@ -3515,6 +3515,34 @@
       }
       state.bands = state.bands.concat([trimmed]);
       return true;
+    }
+
+    /**
+     * 入力・貼り付けたテキストから対バン相手の名前を切り出す（純粋関数）。
+     * 対バンは一度に5組前後になるため、出演者一覧をそのまま貼れるようにする。
+     * 区切りは改行・読点・カンマ・スラッシュ・セミコロン・タブ。中黒「・」は
+     * 名前自体に含まれることが多いため区切りに使わない。
+     * 各行の先頭に付きがちな飾り（・ - ● ◆ ▷ 1. 1) など）は落とす。
+     * @param {string} text 入力欄の値や貼り付けたテキスト
+     * @returns {string[]} 切り出した名前（空・重複は除く。並びは入力順）
+     */
+    function splitBandNames(text) {
+      if (typeof text !== 'string') {
+        return [];
+      }
+      const names = [];
+      text.split(/[\n\r,、，;；\/／\t]+/).forEach(function (part) {
+        // 飾りは1文字だけ落とす。同じ記号が続く場合（「○○○」など名前そのもの）は
+        // 飾りと見なさない。
+        const name = part
+          .replace(/^[\s\u3000]*(?:([・\-‐–—*＊●○◆◇▷▶>》»])(?!\1)|\d{1,2}\s*[.)．）])[\s\u3000]*/, '')
+          .replace(/^[\s\u3000]+/, '')
+          .replace(/[\s\u3000]+$/, '');
+        if (name !== '' && names.indexOf(name) === -1) {
+          names.push(name);
+        }
+      });
+      return names;
     }
 
     /**
@@ -9792,17 +9820,49 @@
       if (!input) {
         return;
       }
-      const name = input.value.trim();
-      if (name === '') {
+      const names = splitBandNames(input.value);
+      if (names.length === 0) {
         input.value = ''; // 空白だけの入力は残さない
         return;
       }
-      if (!addBand(name)) {
-        showToast('「' + name + '」はすでに追加されています');
+      input.value = '';
+      addBandNames(names);
+    }
+
+    /**
+     * 切り出した名前をまとめて追加し、結果をトーストで知らせる。
+     * すでに入っている相手は飛ばす（1組だけのときは従来どおりの文言にする）。
+     * @param {string[]} names 追加する名前
+     * @returns {void}
+     */
+    function addBandNames(names) {
+      let added = 0;
+      const skipped = [];
+      names.forEach(function (name) {
+        if (addBand(name)) {
+          added += 1;
+        } else {
+          skipped.push(name);
+        }
+      });
+
+      if (added > 0) {
+        renderAll(); // チップと候補を描き直して作業中データを保存
+      }
+
+      if (added === 0 && skipped.length === 1) {
+        showToast('「' + skipped[0] + '」はすでに追加されています');
         return;
       }
-      input.value = '';
-      renderAll(); // チップと候補を描き直して作業中データを保存
+      if (added === 0) {
+        showToast(skipped.length + '組ともすでに追加されています');
+        return;
+      }
+      if (names.length > 1) {
+        showToast(skipped.length === 0
+          ? added + '組を追加しました'
+          : added + '組を追加しました（' + skipped.length + '組はすでに追加済み）');
+      }
     }
 
     /**
@@ -9819,6 +9879,23 @@
       if (input) {
         // 打つたびに候補を出し直す（変換中の文字でも拾えるよう input で見る）。
         input.addEventListener('input', renderBandSuggest);
+        // 出演者一覧の貼り付け。input 要素は改行を落としてしまうため、
+        // クリップボードの生テキストから直接切り出してまとめて追加する。
+        input.addEventListener('paste', function (event) {
+          const clipboard = event.clipboardData || window.clipboardData;
+          if (!clipboard) {
+            return; // 取れない環境では既定の貼り付けに任せる
+          }
+          const text = clipboard.getData('text');
+          const names = splitBandNames(text);
+          if (names.length < 2) {
+            return; // 1組だけなら普通に貼り付けて、確定は従来どおり
+          }
+          event.preventDefault();
+          input.value = '';
+          addBandNames(names);
+          renderBandSuggest(); // 候補は入力が空になったので閉じる
+        });
         input.addEventListener('keydown', function (event) {
           if (event.key !== 'Enter') {
             return;
