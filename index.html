@@ -759,6 +759,14 @@
       outline-offset: -2px;
     }
 
+    /* 会場一覧のエリア見出し。項目と区別できるよう小さく薄く出す。 */
+    .popup__group-title {
+      padding: 12px 8px 4px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-muted);
+    }
+
     .popup__empty {
       padding: 24px 8px;
       text-align: center;
@@ -1883,21 +1891,37 @@
     // ============================================================
     // Data: 会場マスタ（HTML内固定埋め込み）
     // ------------------------------------------------------------
-    // 各要素は { name, reading }。reading はあいうえお順ソート用の読み仮名。
+    // 会場は { name, reading, area }。reading はあいうえお順ソート用の読み仮名で、
+    // area は「新宿」「下北沢」のようなライブハウスの密集地（行政区画ではなく、
+    // 会場を探すときの感覚に合わせた粒度）。エリアは AREA_MASTER に並び順を持ち、
+    // 会場選択の一覧はそのエリアごとにまとめて出す。
     // 会場名は手入力だと表記がゆれる（新宿LOFT／新宿ロフト／LOFT など）ため、
     // ここから選べるようにする。曲マスタと同じく、実運用ではファイルを直接
     // 編集して差し替える。以下は書き方の例なので、実際に使う会場へ置き換える。
     // マスタに無い会場は今までどおり入力欄へ直接書ける（選択は必須ではない）。
+    // area が未設定・AREA_MASTER に無い会場は一覧の末尾（その他）へ回す。
     // ============================================================
+
+    /** エリア（会場の密集地）。並び順は読み仮名のあいうえお順。 */
+    const AREA_MASTER = [
+      { name: '新宿',   reading: 'しんじゅく' },
+      { name: '渋谷',   reading: 'しぶや' },
+      { name: '下北沢', reading: 'しもきたざわ' },
+      { name: '高円寺', reading: 'こうえんじ' },
+      { name: '西永福', reading: 'にしえいふく' }
+    ];
+
+    /** エリアが分からない会場をまとめる見出し。 */
+    const OTHER_AREA_NAME = 'その他';
 
     /** @type {ReadonlyArray<Venue>} */
     const VENUE_MASTER = [
-      { name: '新宿LOFT',        reading: 'しんじゅくろふと' },
-      { name: '下北沢SHELTER',   reading: 'しもきたざわしぇるたー' },
-      { name: '渋谷O-WEST',      reading: 'しぶやおーうぇすと' },
-      { name: 'Zepp Shinjuku',   reading: 'ぜっぷしんじゅく' },
-      { name: '池袋EDGE',        reading: 'いけぶくろえっじ' },
-      { name: '高田馬場AREA',    reading: 'たかだのばばえりあ' }
+      { name: '新宿LOFT',      reading: 'しんじゅくろふと',      area: '新宿' },
+      { name: 'Zepp Shinjuku', reading: 'ぜっぷしんじゅく',      area: '新宿' },
+      { name: '渋谷O-WEST',    reading: 'しぶやおーうぇすと',    area: '渋谷' },
+      { name: '下北沢SHELTER', reading: 'しもきたざわしぇるたー', area: '下北沢' },
+      { name: '高円寺HIGH',    reading: 'こうえんじはい',        area: '高円寺' },
+      { name: '西永福JAM',     reading: 'にしえいふくじゃむ',    area: '西永福' }
     ];
 
     // ============================================================
@@ -1909,6 +1933,7 @@
      * @typedef {Object} Venue
      * @property {string} name    入力欄へ入れる会場名
      * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
+     * @property {string} [area]  会場の密集地（AREA_MASTER の name）。未設定は「その他」
      */
 
     /**
@@ -5357,6 +5382,40 @@
     }
 
     /**
+     * 会場をエリアごとにまとめ、AREA_MASTER の順で返す（純粋関数）。
+     * 会場が1つも無いエリアは返さない。AREA_MASTER に無い／未設定の area は
+     * 末尾の「その他」へまとめる。各エリア内はあいうえお順。
+     * @returns {{area: string, venues: Venue[]}[]} エリアごとの会場
+     */
+    function getVenuesByArea() {
+      const sorted = getSortedVenueMaster();
+      const groups = [];
+      const byArea = new Map();
+
+      AREA_MASTER.forEach(function (area) {
+        const group = { area: area.name, venues: [] };
+        groups.push(group);
+        byArea.set(area.name, group);
+      });
+      const others = { area: OTHER_AREA_NAME, venues: [] };
+
+      sorted.forEach(function (venue) {
+        const area = typeof venue.area === 'string' ? venue.area : '';
+        const group = byArea.get(area);
+        if (group) {
+          group.venues.push(venue);
+        } else {
+          others.venues.push(venue); // 未設定・マスタに無いエリア
+        }
+      });
+
+      groups.push(others);
+      return groups.filter(function (group) {
+        return group.venues.length > 0;
+      });
+    }
+
+    /**
      * 選んだ会場を入力欄と state へ反映する。
      * 入力欄は renderAll を呼ばないため、ここで保存まで行う。
      * @param {string} name 会場名
@@ -5373,7 +5432,7 @@
     }
 
     /**
-     * 会場一覧（#venue-list）をあいうえお順で描画する。
+     * 会場一覧（#venue-list）をエリアごとにまとめて描画する（各エリア内はあいうえお順）。
      * 会場名は textContent で挿入する（XSS安全）。
      * @returns {void}
      */
@@ -5384,9 +5443,9 @@
       }
       list.textContent = ''; // 全再描画（既存項目をクリア）
 
-      const venues = getSortedVenueMaster();
+      const groups = getVenuesByArea();
 
-      if (venues.length === 0) {
+      if (groups.length === 0) {
         const emptyItem = document.createElement('li');
         emptyItem.className = 'popup__empty';
         emptyItem.textContent = '選択できる会場がありません';
@@ -5395,28 +5454,36 @@
       }
 
       const fragment = document.createDocumentFragment();
-      venues.forEach(function (venue) {
-        const name = typeof venue.name === 'string' ? venue.name : '';
+      groups.forEach(function (group) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.dataset.role = 'venue-area';
+        heading.textContent = group.area; // textContent で挿入（XSS安全）
+        fragment.appendChild(heading);
 
-        const item = document.createElement('li');
-        item.className = 'popup__item';
+        group.venues.forEach(function (venue) {
+          const name = typeof venue.name === 'string' ? venue.name : '';
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'popup__item-button';
-        button.dataset.role = 'venue-option';
-        button.textContent = name; // textContent で挿入（XSS安全）
-        if (name === state.venue) {
-          // 今入っている会場が分かるように印を付ける。
-          button.classList.add('popup__item-button--selected');
-          button.setAttribute('aria-current', 'true');
-        }
-        button.addEventListener('click', function () {
-          applyVenue(name);
+          const item = document.createElement('li');
+          item.className = 'popup__item';
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'popup__item-button';
+          button.dataset.role = 'venue-option';
+          button.textContent = name; // textContent で挿入（XSS安全）
+          if (name === state.venue) {
+            // 今入っている会場が分かるように印を付ける。
+            button.classList.add('popup__item-button--selected');
+            button.setAttribute('aria-current', 'true');
+          }
+          button.addEventListener('click', function () {
+            applyVenue(name);
+          });
+
+          item.appendChild(button);
+          fragment.appendChild(item);
         });
-
-        item.appendChild(button);
-        fragment.appendChild(item);
       });
       list.appendChild(fragment);
     }
