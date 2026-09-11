@@ -810,6 +810,67 @@
       color: var(--color-muted);
     }
 
+    /* 取り込み確認のライブ情報（日付・ライブ名・会場） */
+    .confirm-info {
+      margin: 0 0 var(--gap);
+      padding: var(--gap);
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+    }
+
+    .confirm-row {
+      display: flex;
+      gap: 8px;
+      padding: 2px 0;
+    }
+
+    .confirm-row__label {
+      flex: 0 0 5.5em;
+      color: var(--color-muted);
+      font-size: 14px;
+    }
+
+    .confirm-row__value {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      word-break: break-word;
+    }
+
+    /* 未入力の項目は薄く出して、入力済みと見分けられるようにする */
+    .confirm-row__value--empty {
+      color: var(--color-muted);
+    }
+
+    /* 確認画面の曲行（番号・曲名・注記） */
+    .confirm-song {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .confirm-song__no {
+      flex: 0 0 4em;
+      text-align: right;
+      color: var(--color-muted);
+      font-size: 14px;
+    }
+
+    .confirm-song__title {
+      flex: 1 1 auto;
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    /* 曲マスタに無い曲名の注記（このまま追加した曲） */
+    .confirm-song__note {
+      flex: 0 0 auto;
+      font-size: 12px;
+      color: var(--color-danger);
+    }
+
     /* 「もしかしてこの曲？」の候補と、その下の曲一覧の見出し */
     .resolve-suggest {
       margin-bottom: var(--gap);
@@ -1144,6 +1205,30 @@
         <p class="resolve-section-title">曲一覧</p>
         <ul class="popup__list" id="resolve-list" data-role="resolve-list">
           <!-- 曲一覧は renderResolveList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Import confirm popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="confirm-overlay" data-role="confirm-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="confirm-title">取り込みの確認</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-confirm-back"
+            data-role="confirm-back">戻る</button>
+          <button type="button" class="btn btn--copy" id="btn-confirm-submit"
+            data-role="confirm-submit">登録する</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <dl class="confirm-info" id="confirm-info" data-role="confirm-info">
+          <!-- 日付・ライブ名・会場は renderImportConfirm() が描画する -->
+        </dl>
+        <p class="resolve-section-title" id="confirm-count" data-role="confirm-count"></p>
+        <ul class="popup__list" id="confirm-songs" data-role="confirm-songs">
+          <!-- 曲順は renderImportConfirm() が描画する -->
         </ul>
       </div>
     </div>
@@ -3282,7 +3367,8 @@
     //   - 「DBに追加」タップで現在の state を保存一覧へ1件追加する（明示操作）。
     //     セトリが空のときは保存せずトーストで知らせる。
     //   - 保存一覧ページの「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
-    //     出力したテキストを parseSetlistText で読み取って1件追加する。
+    //     出力したテキストを parseSetlistText で読み取る。読み取った内容は確認画面で
+    //     見せてから、「登録する」で保存一覧へ1件追加する。
     //   - 「保存一覧」タップで保存一覧ページ（#saved）へ移動し、保存済みを
     //     日付の新しい順に一覧表示する。
     //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
@@ -4000,6 +4086,7 @@
         pendingImport = null;
         closeResolvePopup();
       }
+      closeImportConfirm(); // 確認中の取り込みは持ち越さない
       closeSearchPopup();
       closeImportForm();
       closeBackupPanel();
@@ -4112,7 +4199,7 @@
       });
 
       if (queue.length === 0) {
-        commitImport({
+        openImportConfirm({
           date: parsed.date,
           liveName: parsed.liveName,
           venue: parsed.venue,
@@ -4192,7 +4279,7 @@
         showToast('取り込む曲がなくなりました');
         return;
       }
-      commitImport({
+      openImportConfirm({
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
@@ -4764,6 +4851,185 @@
     }
 
     // ============================================================
+    // Import Confirm Controller: 取り込み前の確認（ImportConfirmController）
+    // ------------------------------------------------------------
+    // 貼り付けたテキストをどう解釈したか（日付・ライブ名・会場・曲順と区分）を
+    // 登録前に見せる。読み取り違いに気づけるようにするのが目的なので、
+    // 「登録する」を押すまで保存一覧には何も追加しない。
+    // 「戻る」は貼り付けフォームへ戻すだけで、入力した文面はそのまま残す。
+    // ============================================================
+
+    /** 確認中の取り込み内容。確認中のみ保持し、登録・中止で null へ戻す。 */
+    let pendingConfirm = null;
+
+    /**
+     * 確認画面のライブ情報1行を組み立てる。
+     * 未入力の項目は「未設定」と薄く出して、空欄と見分けられるようにする。
+     * 値は textContent で挿入する（XSS安全）。
+     * @param {string} label 項目名
+     * @param {string} value 値（空文字なら未設定表示）
+     * @returns {HTMLDivElement} 1行分の要素
+     */
+    function buildConfirmRow(label, value) {
+      const row = document.createElement('div');
+      row.className = 'confirm-row';
+
+      const term = document.createElement('dt');
+      term.className = 'confirm-row__label';
+      term.textContent = label;
+
+      const detail = document.createElement('dd');
+      detail.className = value === ''
+        ? 'confirm-row__value confirm-row__value--empty'
+        : 'confirm-row__value';
+      detail.textContent = value === '' ? '未設定' : value;
+
+      row.appendChild(term);
+      row.appendChild(detail);
+      return row;
+    }
+
+    /**
+     * 確認画面（ライブ情報と曲順）を描画する。
+     * 曲順は区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
+     * 注記を添える（「このまま追加」した曲をここで見直せるようにする）。
+     * @returns {void}
+     */
+    function renderImportConfirm() {
+      const info = document.getElementById('confirm-info');
+      const count = document.getElementById('confirm-count');
+      const songs = document.getElementById('confirm-songs');
+      if (!pendingConfirm || !info || !count || !songs) {
+        return;
+      }
+
+      info.textContent = '';  // 全再描画
+      songs.textContent = '';
+
+      info.appendChild(buildConfirmRow('日付', formatDate(pendingConfirm.date)));
+      info.appendChild(buildConfirmRow('ライブ名', pendingConfirm.liveName));
+      info.appendChild(buildConfirmRow('会場', pendingConfirm.venue));
+
+      const length = pendingConfirm.setlist.length;
+      count.textContent = 'セトリ（' + length + '曲）';
+
+      const fragment = document.createDocumentFragment();
+      pendingConfirm.setlist.forEach(function (title, index) {
+        const position = setlistPosition(
+          index, pendingConfirm.oaCount, pendingConfirm.enCount, length
+        );
+
+        const item = document.createElement('li');
+        item.className = 'confirm-song';
+
+        const no = document.createElement('span');
+        no.className = 'confirm-song__no';
+        no.textContent = setlistNoLabel(position);
+
+        const name = document.createElement('span');
+        name.className = 'confirm-song__title';
+        name.textContent = title; // textContent で挿入（XSS安全）
+
+        item.appendChild(no);
+        item.appendChild(name);
+
+        if (resolveSongTitle(title) === null) {
+          const note = document.createElement('span');
+          note.className = 'confirm-song__note';
+          note.textContent = '一覧にない曲名';
+          item.appendChild(note);
+        }
+
+        fragment.appendChild(item);
+      });
+      songs.appendChild(fragment);
+    }
+
+    /**
+     * 取り込み確認を開く（この時点ではまだ保存しない）。
+     * @param {{date: string, liveName: string, venue: string,
+     *   oaCount: number, enCount: number, setlist: string[]}} source 取り込む内容
+     * @returns {void}
+     */
+    function openImportConfirm(source) {
+      const overlay = document.getElementById('confirm-overlay');
+      if (!overlay) {
+        commitImport(source); // 確認画面が無い場合でも取り込みは進める
+        return;
+      }
+      pendingConfirm = source;
+      renderImportConfirm();  // 中身を用意してから表示する
+      overlay.hidden = false;
+      scrollConfirmTop();     // 非表示の間はスクロール位置を変えられない
+    }
+
+    /**
+     * 確認画面の本文を先頭までスクロールする。
+     * @returns {void}
+     */
+    function scrollConfirmTop() {
+      const body = document.querySelector('#confirm-overlay .popup__body');
+      if (body) {
+        body.scrollTop = 0;
+      }
+    }
+
+    /**
+     * 取り込み確認を閉じる（確認中の内容は捨てる）。
+     * @returns {void}
+     */
+    function closeImportConfirm() {
+      const overlay = document.getElementById('confirm-overlay');
+      pendingConfirm = null;
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /**
+     * 確認した内容で保存一覧へ登録する。
+     * @returns {void}
+     */
+    function submitImportConfirm() {
+      const source = pendingConfirm;
+      if (!source) {
+        return;
+      }
+      closeImportConfirm();
+      commitImport(source);
+    }
+
+    /**
+     * 確認をやめて貼り付けフォームへ戻る（文面は残すので直して再実行できる）。
+     * @returns {void}
+     */
+    function cancelImportConfirm() {
+      closeImportConfirm();
+      showToast('登録をやめました');
+    }
+
+    /**
+     * 確認画面のボタン（戻る／登録する）を結線する（冪等）。
+     * @returns {void}
+     */
+    let importConfirmWired = false;
+    function initImportConfirm() {
+      if (importConfirmWired) {
+        return;
+      }
+      const backButton = document.getElementById('btn-confirm-back');
+      const submitButton = document.getElementById('btn-confirm-submit');
+
+      if (backButton) {
+        backButton.addEventListener('click', cancelImportConfirm);
+      }
+      if (submitButton) {
+        submitButton.addEventListener('click', submitImportConfirm);
+      }
+      importConfirmWired = true;
+    }
+
+    // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
     // セトリ作成画面（既定）と保存一覧画面を URL のハッシュで切り替える。
@@ -5029,6 +5295,7 @@
       initSavedSearch();     // 曲での絞り込み検索の結線（冪等）
       initSavedBackup();     // 保存データの書き出し／取り込みの結線（冪等）
       initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
+      initImportConfirm();   // 取り込み前の確認画面の結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
       syncEditingUi();       // 編集中だった場合は帯と保存ボタンを復元
       initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
