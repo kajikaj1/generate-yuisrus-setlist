@@ -539,6 +539,42 @@
       resize: vertical;
     }
 
+    /* 取り込みの確認で書くMCメモ。作成画面ほど高さは要らないので低くする
+       （.memo-input の後ろに置いて min-height を上書きする）。 */
+    .confirm-memo {
+      min-height: 88px;
+      margin-bottom: 12px;
+    }
+
+    /* 確認画面の各まとまりは、見出しの前に少し間を空けて読みやすくする。 */
+    .confirm-section-title {
+      margin-top: 12px;
+    }
+
+    /* 確認画面の対バン入力（入力欄＋追加ボタン）。 */
+    .confirm-band-add {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .confirm-band-add .field__input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .confirm-band-add .btn {
+      flex: 0 0 auto;
+      white-space: nowrap; /* 「追／加」と折り返させない */
+    }
+
+    /* 属性チップと対バンのチップ列にも下の余白を持たせる。 */
+    #confirm-tags,
+    #confirm-bands {
+      margin-bottom: 12px;
+    }
+
     .memo-input:focus {
       outline: 2px solid var(--color-accent);
       outline-offset: -2px;
@@ -2321,7 +2357,31 @@
         <dl class="confirm-info" id="confirm-info" data-role="confirm-info">
           <!-- 日付・ライブ名・会場は renderImportConfirm() が描画する -->
         </dl>
-        <p class="resolve-section-title" id="confirm-count" data-role="confirm-count"></p>
+
+        <p class="resolve-section-title confirm-section-title">MCメモ</p>
+        <textarea class="memo-input confirm-memo" id="confirm-memo" data-role="confirm-memo"
+          placeholder="MCで話したこと"></textarea>
+
+        <p class="resolve-section-title confirm-section-title">属性</p>
+        <div class="tag-list" id="confirm-tags" data-role="confirm-tags" role="group" aria-label="属性">
+          <!-- 属性チップは renderConfirmTags() が描画する -->
+        </div>
+
+        <p class="resolve-section-title confirm-section-title">対バン相手</p>
+        <div class="confirm-band-add">
+          <input class="field__input" type="text" id="confirm-band-input" data-role="confirm-band-input"
+            placeholder="対バン相手を入力・貼り付け" aria-label="対バン相手" autocomplete="off"
+            enterkeyhint="done">
+          <button type="button" class="btn btn--add" id="btn-confirm-band-add"
+            data-role="confirm-band-add">追加</button>
+        </div>
+        <div class="band-list" id="confirm-bands" data-role="confirm-bands"
+          aria-label="追加した対バン相手">
+          <!-- 対バン相手のチップは renderConfirmBands() が描画する -->
+        </div>
+
+        <p class="resolve-section-title confirm-section-title" id="confirm-count"
+          data-role="confirm-count"></p>
         <ul class="popup__list" id="confirm-songs" data-role="confirm-songs">
           <!-- 曲順は renderImportConfirm() が描画する -->
         </ul>
@@ -7811,6 +7871,9 @@
     // 貼り付けたテキストをどう解釈したか（日付・ライブ名・会場・曲順と区分）を
     // 登録前に見せる。読み取り違いに気づけるようにするのが目的なので、
     // 「登録する」を押すまで保存一覧には何も追加しない。
+    // あわせて、貼り付けた文面からは分からない MCメモ・属性・対バン相手を
+    // ここで足せるようにする（作成画面と同じ内容を、登録前に1画面で揃える）。
+    // これらは pendingConfirm の上だけで編集し、作業中の state には触れない。
     // 「戻る」は貼り付けフォームへ戻すだけで、入力した文面はそのまま残す。
     // ============================================================
 
@@ -7845,6 +7908,137 @@
     }
 
     /**
+     * 確認画面のMCメモ欄へ現在の値を入れる。
+     * 入力中の再描画で打ち込みが飛ばないよう、値が変わるときだけ書き戻す。
+     * @returns {void}
+     */
+    function renderConfirmMemo() {
+      const memo = document.getElementById('confirm-memo');
+      if (!memo || !pendingConfirm) {
+        return;
+      }
+      if (memo.value !== pendingConfirm.memo) {
+        memo.value = pendingConfirm.memo;
+      }
+    }
+
+    /**
+     * 確認画面の属性チップを描画する（作成画面と同じ見た目・操作）。
+     * 押すと pendingConfirm.tags だけが変わり、作業中の state には触れない。
+     * @returns {void}
+     */
+    function renderConfirmTags() {
+      const list = document.getElementById('confirm-tags');
+      if (!list || !pendingConfirm) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      const fragment = document.createDocumentFragment();
+      TAG_MASTER.forEach(function (tag) {
+        const selected = pendingConfirm.tags.indexOf(tag.id) !== -1;
+
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.role = 'confirm-tag-chip';
+        chip.dataset.tagId = String(tag.id);
+        chip.textContent = tag.name; // textContent で挿入（XSS安全）
+        chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        chip.addEventListener('click', function () {
+          const next = selected
+            ? pendingConfirm.tags.filter(function (id) { return id !== tag.id; })
+            : pendingConfirm.tags.concat([tag.id]);
+          pendingConfirm.tags = normalizeTagIds(next); // マスタ順に揃える
+          renderConfirmTags();
+        });
+
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 確認画面の対バン相手チップを描画する（×で1組ずつ外せる）。
+     * @returns {void}
+     */
+    function renderConfirmBands() {
+      const list = document.getElementById('confirm-bands');
+      if (!list || !pendingConfirm) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      if (pendingConfirm.bands.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'band-panel__empty';
+        empty.textContent = '対バン相手を入力して「追加」で足します';
+        list.appendChild(empty);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      pendingConfirm.bands.forEach(function (name) {
+        const chip = document.createElement('span');
+        chip.className = 'band-chip';
+
+        const label = document.createElement('span');
+        label.className = 'band-chip__name';
+        label.textContent = name; // textContent で挿入（XSS安全）
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'band-chip__remove';
+        remove.dataset.role = 'confirm-band-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', name + ' を外す');
+        remove.addEventListener('click', function () {
+          pendingConfirm.bands = pendingConfirm.bands.filter(function (current) {
+            return current !== name;
+          });
+          renderConfirmBands();
+        });
+
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 確認画面の入力欄から対バン相手を足す（まとめ貼り付けと同じ切り出しを使う）。
+     * @param {string} text 入力・貼り付けたテキスト
+     * @returns {void}
+     */
+    function addConfirmBands(text) {
+      if (!pendingConfirm) {
+        return;
+      }
+      const names = splitBandNames(text);
+      if (names.length === 0) {
+        return;
+      }
+      const before = pendingConfirm.bands.length;
+      pendingConfirm.bands = normalizeBandNames(pendingConfirm.bands.concat(names));
+      const added = pendingConfirm.bands.length - before;
+
+      renderConfirmBands();
+
+      if (added === 0) {
+        showToast(names.length === 1
+          ? '「' + names[0] + '」はすでに追加されています'
+          : names.length + '組ともすでに追加されています');
+        return;
+      }
+      if (names.length > 1) {
+        showToast(added === names.length
+          ? added + '組を追加しました'
+          : added + '組を追加しました（' + (names.length - added) + '組はすでに追加済み）');
+      }
+    }
+
+    /**
      * 確認画面（ライブ情報と曲順）を描画する。
      * 曲順は区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
      * 注記を添える（「このまま追加」した曲をここで見直せるようにする）。
@@ -7864,6 +8058,10 @@
       info.appendChild(buildConfirmRow('日付', formatDate(pendingConfirm.date)));
       info.appendChild(buildConfirmRow('ライブ名', pendingConfirm.liveName));
       info.appendChild(buildConfirmRow('会場', pendingConfirm.venue));
+
+      renderConfirmMemo();
+      renderConfirmTags();
+      renderConfirmBands();
 
       const length = pendingConfirm.setlist.length;
       count.textContent = 'セトリ（' + length + '曲）';
@@ -7912,6 +8110,11 @@
         commitImport(source); // 確認画面が無い場合でも取り込みは進める
         return;
       }
+      // 貼り付け文面には無い項目は、ここで書き足せるよう空で用意しておく。
+      source.memo = typeof source.memo === 'string' ? source.memo : '';
+      source.tags = normalizeTagIds(source.tags);
+      source.bands = normalizeBandNames(source.bands);
+
       pendingConfirm = source;
       renderImportConfirm();  // 中身を用意してから表示する
       overlay.hidden = false;
@@ -7935,9 +8138,13 @@
      */
     function closeImportConfirm() {
       const overlay = document.getElementById('confirm-overlay');
+      const bandInput = document.getElementById('confirm-band-input');
       pendingConfirm = null;
       if (overlay) {
         overlay.hidden = true;
+      }
+      if (bandInput) {
+        bandInput.value = ''; // 打ちかけを次回へ持ち越さない
       }
     }
 
@@ -7946,6 +8153,11 @@
      * @returns {void}
      */
     function submitImportConfirm() {
+      const bandInput = document.getElementById('confirm-band-input');
+      if (bandInput && bandInput.value.trim() !== '') {
+        addConfirmBands(bandInput.value); // 「追加」を押し忘れた分も拾う
+        bandInput.value = '';
+      }
       const source = pendingConfirm;
       if (!source) {
         return;
@@ -7974,6 +8186,52 @@
       }
       const backButton = document.getElementById('btn-confirm-back');
       const submitButton = document.getElementById('btn-confirm-submit');
+      const memo = document.getElementById('confirm-memo');
+      const bandInput = document.getElementById('confirm-band-input');
+      const bandAdd = document.getElementById('btn-confirm-band-add');
+
+      if (memo) {
+        memo.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.memo = memo.value;
+          }
+        });
+      }
+      if (bandInput) {
+        bandInput.addEventListener('keydown', function (event) {
+          if (event.key !== 'Enter') {
+            return;
+          }
+          event.preventDefault(); // 変換確定の Enter は isComposing で除く
+          if (!event.isComposing) {
+            addConfirmBands(bandInput.value);
+            bandInput.value = '';
+          }
+        });
+        // 出演者一覧の貼り付け。input 要素は改行を落とすため生テキストから拾う。
+        bandInput.addEventListener('paste', function (event) {
+          const clipboard = event.clipboardData || window.clipboardData;
+          if (!clipboard) {
+            return;
+          }
+          const names = splitBandNames(clipboard.getData('text'));
+          if (names.length < 2) {
+            return; // 1組だけなら普通に貼り付けて、確定は従来どおり
+          }
+          event.preventDefault();
+          bandInput.value = '';
+          addConfirmBands(names.join('\n'));
+        });
+      }
+      if (bandAdd) {
+        bandAdd.addEventListener('click', function () {
+          addConfirmBands(bandInput ? bandInput.value : '');
+          if (bandInput) {
+            bandInput.value = '';
+            bandInput.focus(); // 続けて次の相手を打てるようにする
+          }
+        });
+      }
 
       if (backButton) {
         backButton.addEventListener('click', cancelImportConfirm);
