@@ -145,9 +145,10 @@
       font-weight: 700;
     }
 
-    /* ページ内の操作ボタン群（追加・検索する・バックアップ） */
+    /* ページ内の操作ボタン群（追加・検索する）。役割が違うので左右の端へ寄せる。 */
     .page-actions {
       display: flex;
+      justify-content: space-between;
       flex-wrap: wrap;
       gap: 8px;
     }
@@ -155,7 +156,7 @@
     /* 保存したセトリページの操作ボタンは上下を詰めて、一覧を広く見せる。
        主役はセトリ一覧なので、常時出ているこれらのボタンは控えめな高さにする。 */
     .page-saved {
-      gap: 8px;
+      gap: 4px;
     }
 
     /* 保存データを編集中であることを示す帯（メイン画面の先頭）。
@@ -1608,7 +1609,7 @@
       gap: 8px;
     }
 
-    /* 書き出し／取り込み（「バックアップ」ポップアップの中身）。
+    /* 書き出し／取り込み（バックアップページの中身）。
        入力欄・ボタン・説明は貼り付け取り込みフォームと同じ見た目を使い回す。 */
     .saved-backup {
       display: flex;
@@ -1932,7 +1933,6 @@
     <div class="page-actions">
       <button type="button" class="btn btn--add" id="btn-saved-add-open" data-role="saved-add-open">追加</button>
       <button type="button" class="btn btn--add" id="btn-search-open" data-role="search-open">検索する</button>
-      <button type="button" class="btn btn--add" id="btn-backup-open" data-role="backup-open">バックアップ</button>
     </div>
 
     <main class="app__main">
@@ -1956,6 +1956,40 @@
       <ul class="popup__list" id="saved-list" data-role="saved-list">
         <!-- 保存済み一覧は renderSavedList() が描画する -->
       </ul>
+    </main>
+  </div>
+
+  <!-- ===== Page: バックアップ（URL の #backup で表示する別ページ） ===== -->
+  <div class="app" id="page-backup" data-role="page-backup" hidden>
+    <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
+    <nav class="page-nav">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
+        <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        <span class="page-nav__current" data-role="page-name"></span>
+        <span class="page-nav__caret" aria-hidden="true">▾</span>
+      </button>
+    </nav>
+
+    <main class="app__main">
+      <div class="saved-backup">
+        <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
+        <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
+          spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
+        <div class="saved-add__actions">
+          <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
+          <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
+        </div>
+        <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
+        <div class="saved-add__actions">
+          <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
+          <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
+        </div>
+        <input type="file" id="saved-backup-file" data-role="saved-backup-file"
+          accept="application/json,.json" hidden>
+      </div>
     </main>
   </div>
 
@@ -2231,35 +2265,6 @@
         <ul class="popup__list" id="search-tag-list" data-role="search-tag-list" hidden>
           <!-- 属性の一覧（複数選択トグル）は renderSearchTagList() が描画する -->
         </ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Backup popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="backup-overlay" data-role="backup-overlay" hidden>
-    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="backup-title">
-      <div class="popup__header">
-        <h2 class="popup__title" id="backup-title">バックアップ</h2>
-        <button type="button" class="btn btn--ghost" id="btn-backup-cancel"
-          data-role="backup-cancel">閉じる</button>
-      </div>
-      <div class="popup__body">
-        <div class="saved-backup">
-          <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
-          <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
-            spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
-          <div class="saved-add__actions">
-            <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
-            <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
-          </div>
-          <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
-          <div class="saved-add__actions">
-            <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
-            <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
-          </div>
-          <input type="file" id="saved-backup-file" data-role="saved-backup-file"
-            accept="application/json,.json" hidden>
-        </div>
       </div>
     </div>
   </div>
@@ -6201,39 +6206,34 @@
     }
 
     /**
-     * バックアップのポップアップを開く（書き出し JSON を入力欄へ入れておく）。
-     * 保存一覧の上に重ねて出すので、開いている「追加」フォームはそのまま残す。
+     * バックアップページの表示を整える（書き出し JSON を入力欄へ入れておく）。
+     * 開くたび・取り込んだあとに呼び、常に最新の内容を見せる。
      * @returns {void}
      */
-    function openBackupPopup() {
-      const overlay = document.getElementById('backup-overlay');
+    function renderBackupPage() {
       const input = document.getElementById('saved-backup-input');
-      if (!overlay) {
-        return;
-      }
+      const file = document.getElementById('saved-backup-file');
       if (input) {
         input.value = buildBackupJson();
       }
-      overlay.hidden = false;
+      if (file) {
+        file.value = ''; // 同じファイルを選び直せるようにする
+      }
     }
 
     /**
-     * バックアップのポップアップを閉じ、入力欄の内容を捨てる。
+     * バックアップページの入力内容を捨てる（ページを離れるときに呼ぶ）。
+     * 貼り付けたJSONを持ち越さず、次に開いたときは書き出しから始められる。
      * @returns {void}
      */
-    function closeBackupPopup() {
-      const overlay = document.getElementById('backup-overlay');
+    function clearBackupPage() {
       const input = document.getElementById('saved-backup-input');
       const file = document.getElementById('saved-backup-file');
-      if (!overlay) {
-        return;
-      }
-      overlay.hidden = true;
       if (input) {
         input.value = '';
       }
       if (file) {
-        file.value = ''; // 同じファイルを選び直せるようにする
+        file.value = '';
       }
     }
 
@@ -6316,7 +6316,7 @@
       if (incoming.length === 0) {
         if (masters.added > 0) {
           syncVenueAddButton(); // 登録済みになった会場の「登録」ボタンを引っ込める
-          closeBackupPopup();
+          renderBackupPage(); // 取り込んだ結果を書き出し欄へ反映する
           showToast('会場・エリア・対バン相手' + masters.added + '件を取り込みました');
           return;
         }
@@ -6343,11 +6343,11 @@
       if (result.added === 0) {
         showToast('すべて取り込み済みでした（' + result.skipped + '件）' + filledNote + masterNote);
         if (result.filled > 0) {
-          closeBackupPopup();
+          renderBackupPage(); // 補った結果を書き出し欄へ反映する
         }
         return;
       }
-      closeBackupPopup();
+      renderBackupPage(); // 取り込んだ結果を書き出し欄へ反映する
       showToast(
         (result.skipped === 0
           ? result.added + '件を取り込みました'
@@ -6357,8 +6357,8 @@
     }
 
     /**
-     * バックアップまわり（開く／コピー／ファイル保存／ファイル選択／取り込み／閉じる）
-     * の結線を行う初期化（冪等）。
+     * バックアップまわり（コピー／ファイル保存／ファイル選択／取り込み）の
+     * 結線を行う初期化（冪等）。ページの出し入れは Router が受け持つ。
      * @returns {void}
      */
     let savedBackupWired = false;
@@ -6366,17 +6366,12 @@
       if (savedBackupWired) {
         return;
       }
-      const openButton = document.getElementById('btn-backup-open');
       const copyButton = document.getElementById('btn-backup-copy');
       const downloadButton = document.getElementById('btn-backup-download');
       const fileOpenButton = document.getElementById('btn-backup-file-open');
       const importButton = document.getElementById('btn-backup-import');
-      const cancelButton = document.getElementById('btn-backup-cancel');
       const fileInput = document.getElementById('saved-backup-file');
 
-      if (openButton) {
-        openButton.addEventListener('click', openBackupPopup);
-      }
       if (copyButton) {
         copyButton.addEventListener('click', async function () {
           const ok = await copyToClipboard(currentBackupJson());
@@ -6400,16 +6395,13 @@
       if (importButton) {
         importButton.addEventListener('click', submitBackupImport);
       }
-      if (cancelButton) {
-        cancelButton.addEventListener('click', closeBackupPopup);
-      }
       savedBackupWired = true;
     }
 
     /**
      * 保存一覧ページを離れるときの後始末（作業中の state は変更しない）。
      * 確認中の取り込みは持ち越さず、次に開いたときは常に全件から始められるよう
-     * 曲での絞り込みと選択も捨てる。開いたままのポップアップやパネルは閉じる。
+     * 曲での絞り込みと選択も捨てる。開いたままのポップアップは閉じる。
      * @returns {void}
      */
     function leaveSavedPage() {
@@ -6420,7 +6412,6 @@
       closeImportConfirm(); // 確認中の取り込みは持ち越さない
       closeSearchPopup();
       closeImportForm();
-      closeBackupPopup();
       resetSearchSelection();
     }
 
@@ -9408,7 +9399,8 @@
     // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
-    // ページは URL のハッシュで切り替える（セトリ登録＝既定 / #saved / #analysis）。
+    // ページは URL のハッシュで切り替える
+    // （セトリ登録＝既定 / #saved / #backup / #analysis）。
     // 別ページとして扱えるので、ブラウザの戻る／進む・リロード・ブックマーク・
     // リンク共有がそのまま効く。ページを増やすときは PAGES に1行足せばよく、
     // ページ切替のメニューと見出しはそこから作る。
@@ -9426,6 +9418,8 @@
         icon: ['M4 20l0.8-3.6L15.6 5.6a2 2 0 0 1 2.8 2.8L7.6 19.2 4 20z', 'M13.5 7.5l3 3'] },
       { id: 'saved',    hash: '#saved',    name: '保存したセトリ', element: 'page-saved',
         icon: ['M6 4h12v16l-6-3.6L6 20z'] },
+      { id: 'backup',   hash: '#backup',   name: 'バックアップ', element: 'page-backup',
+        icon: ['M12 4v9', 'M8.5 9.5L12 13l3.5-3.5', 'M4.5 15v4.5h15V15'] },
       { id: 'analysis', hash: '#analysis', name: '分析',         element: 'page-analysis',
         icon: ['M4 20h16', 'M7.5 20v-6', 'M12 20V6', 'M16.5 20v-9'] }
     ];
@@ -9463,7 +9457,8 @@
     /**
      * 指定したページを表示する（他は隠す）。
      * 保存一覧を表示するときは最新の保存データを描画し、離れるときは
-     * 取り込みフォームやバックアップパネル、絞り込みを初期化する。
+     * 取り込みフォームや絞り込みを初期化する。バックアップは開くたびに
+     * 最新の書き出しを入れ、離れるときは貼り付けた内容を捨てる。
      * @param {string} name 表示するページの id
      * @returns {void}
      */
@@ -9477,6 +9472,7 @@
         elements[index].hidden = page.id !== target.id;
       });
       const showSaved = target.id === 'saved';
+      const showBackup = target.id === 'backup';
 
       // ページ切替ボタンに今いるページ名を出す（各ページに1つずつある）。
       document.querySelectorAll('[data-role="page-name"]').forEach(function (label) {
@@ -9497,6 +9493,12 @@
       } else {
         enteredSavedPageInApp = false;
         leaveSavedPage();
+      }
+
+      if (showBackup) {
+        renderBackupPage(); // 表示直前に最新の書き出しを入れる
+      } else {
+        clearBackupPage();  // 貼り付けた内容は持ち越さない
       }
       window.scrollTo(0, 0); // 別ページへ移った体感に合わせて先頭から表示する
     }
