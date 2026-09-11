@@ -1468,7 +1468,14 @@
       gap: 8px;
     }
 
-    /* 書き出し／取り込みパネル（保存一覧の先頭。「バックアップ」で開閉する） */
+    /* 書き出し／取り込み（「バックアップ」ポップアップの中身）。
+       入力欄・ボタン・説明は貼り付け取り込みフォームと同じ見た目を使い回す。 */
+    .saved-backup {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     .saved-backup p.saved-add__label {
       margin: 0;
     }
@@ -1726,23 +1733,6 @@
             data-role="saved-add-submit">この内容で追加</button>
         </div>
       </div>
-      <div class="saved-add saved-backup" id="saved-backup" data-role="saved-backup" hidden>
-        <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
-        <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
-          spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
-        <div class="saved-add__actions">
-          <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
-          <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
-        </div>
-        <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
-        <div class="saved-add__actions">
-          <button type="button" class="btn btn--ghost" id="btn-backup-cancel" data-role="backup-cancel">閉じる</button>
-          <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
-          <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
-        </div>
-        <input type="file" id="saved-backup-file" data-role="saved-backup-file"
-          accept="application/json,.json" hidden>
-      </div>
       <div class="saved-filter" id="saved-filter" data-role="saved-filter" hidden>
         <span class="saved-filter__label">すべて含む:</span>
         <ul class="saved-filter__list" id="saved-filter-list" data-role="saved-filter-list">
@@ -1916,6 +1906,35 @@
         <ul class="popup__list" id="search-list" data-role="search-list">
           <!-- 曲一覧（複数選択トグル）は renderSearchList() が描画する -->
         </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Backup popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="backup-overlay" data-role="backup-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="backup-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="backup-title">バックアップ</h2>
+        <button type="button" class="btn btn--ghost" id="btn-backup-cancel"
+          data-role="backup-cancel">閉じる</button>
+      </div>
+      <div class="popup__body">
+        <div class="saved-backup">
+          <p class="saved-add__label">書き出し：下のJSONをコピー／保存しておくと、機種変更のときや他の人へ渡すときに使えます。</p>
+          <textarea class="saved-add__input" id="saved-backup-input" data-role="saved-backup-input"
+            spellcheck="false" placeholder="受け取ったJSONをここに貼り付けて「取り込む」を押してください"></textarea>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--add" id="btn-backup-copy" data-role="backup-copy">コピー</button>
+            <button type="button" class="btn btn--add" id="btn-backup-download" data-role="backup-download">ファイルに保存</button>
+          </div>
+          <p class="saved-add__label">取り込み：受け取ったJSONを上の欄へ貼り付ける（またはファイルを選ぶ）と、保存一覧へ追加します。すでに持っているセトリは二重に追加しません。</p>
+          <div class="saved-add__actions">
+            <button type="button" class="btn btn--add" id="btn-backup-file-open" data-role="backup-file-open">ファイルを選ぶ</button>
+            <button type="button" class="btn btn--copy" id="btn-backup-import" data-role="backup-import">取り込む</button>
+          </div>
+          <input type="file" id="saved-backup-file" data-role="saved-backup-file"
+            accept="application/json,.json" hidden>
+        </div>
       </div>
     </div>
   </div>
@@ -4946,7 +4965,6 @@
       if (!form) {
         return;
       }
-      closeBackupPanel(); // バックアップパネルとは排他にする
       form.hidden = false;
       if (input) {
         input.focus();
@@ -5220,35 +5238,34 @@
     }
 
     /**
-     * バックアップパネルを開く（書き出し JSON を入力欄へ入れておく）。
-     * 貼り付け取り込みフォームとは同時に開かない。
+     * バックアップのポップアップを開く（書き出し JSON を入力欄へ入れておく）。
+     * 保存一覧の上に重ねて出すので、開いている「追加」フォームはそのまま残す。
      * @returns {void}
      */
-    function openBackupPanel() {
-      const panel = document.getElementById('saved-backup');
+    function openBackupPopup() {
+      const overlay = document.getElementById('backup-overlay');
       const input = document.getElementById('saved-backup-input');
-      if (!panel) {
+      if (!overlay) {
         return;
       }
-      closeImportForm(); // 「追加」フォームとは排他にする
       if (input) {
         input.value = buildBackupJson();
       }
-      panel.hidden = false;
+      overlay.hidden = false;
     }
 
     /**
-     * バックアップパネルを閉じ、入力欄の内容を捨てる。
+     * バックアップのポップアップを閉じ、入力欄の内容を捨てる。
      * @returns {void}
      */
-    function closeBackupPanel() {
-      const panel = document.getElementById('saved-backup');
+    function closeBackupPopup() {
+      const overlay = document.getElementById('backup-overlay');
       const input = document.getElementById('saved-backup-input');
       const file = document.getElementById('saved-backup-file');
-      if (!panel) {
+      if (!overlay) {
         return;
       }
-      panel.hidden = true;
+      overlay.hidden = true;
       if (input) {
         input.value = '';
       }
@@ -5336,7 +5353,7 @@
       if (incoming.length === 0) {
         if (masters.added > 0) {
           syncVenueAddButton(); // 登録済みになった会場の「登録」ボタンを引っ込める
-          closeBackupPanel();
+          closeBackupPopup();
           showToast('会場・エリア' + masters.added + '件を取り込みました');
           return;
         }
@@ -5361,11 +5378,11 @@
       if (result.added === 0) {
         showToast('すべて取り込み済みでした（' + result.skipped + '件）' + filledNote + masterNote);
         if (result.filled > 0) {
-          closeBackupPanel();
+          closeBackupPopup();
         }
         return;
       }
-      closeBackupPanel();
+      closeBackupPopup();
       showToast(
         (result.skipped === 0
           ? result.added + '件を取り込みました'
@@ -5393,7 +5410,7 @@
       const fileInput = document.getElementById('saved-backup-file');
 
       if (openButton) {
-        openButton.addEventListener('click', openBackupPanel);
+        openButton.addEventListener('click', openBackupPopup);
       }
       if (copyButton) {
         copyButton.addEventListener('click', async function () {
@@ -5419,7 +5436,7 @@
         importButton.addEventListener('click', submitBackupImport);
       }
       if (cancelButton) {
-        cancelButton.addEventListener('click', closeBackupPanel);
+        cancelButton.addEventListener('click', closeBackupPopup);
       }
       savedBackupWired = true;
     }
@@ -5438,7 +5455,7 @@
       closeImportConfirm(); // 確認中の取り込みは持ち越さない
       closeSearchPopup();
       closeImportForm();
-      closeBackupPanel();
+      closeBackupPopup();
       resetSearchSelection();
     }
 
