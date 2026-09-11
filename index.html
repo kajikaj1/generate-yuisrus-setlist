@@ -201,6 +201,23 @@
       filter: brightness(0.95);
     }
 
+    /* ラベルを上に置く入力欄（会場の登録フォームで使う）。 */
+    .field--stacked {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+
+    .field--stacked .field__label {
+      flex: 0 0 auto;
+    }
+
+    .venue-add-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+
     /* 属性（ワンマン・生誕など）の行。チップが5つ並ぶので、ラベルを上に置いて
        横幅をすべてチップへ渡す（ラベルが左にあると約100px削られ1行に収まらない）。 */
     .field--tags {
@@ -1216,6 +1233,7 @@
           <input class="field__input" type="text" id="input-venue" data-role="venue"
             placeholder="会場名を入力" autocomplete="off">
           <button type="button" class="btn-pick" id="btn-venue-pick" data-role="venue-pick">選ぶ</button>
+          <button type="button" class="btn-pick" id="btn-venue-add" data-role="venue-add" hidden>登録</button>
         </div>
       </div>
       <div class="field">
@@ -1384,6 +1402,47 @@
         <ul class="popup__list" id="venue-list" data-role="venue-list">
           <!-- 会場一覧は renderVenueList() が描画する -->
         </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Venue register popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-add-overlay" data-role="venue-add-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-add-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-add-title">会場を登録</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-venue-add-cancel"
+            data-role="venue-add-cancel">キャンセル</button>
+          <button type="button" class="btn btn--copy" id="btn-venue-add-submit"
+            data-role="venue-add-submit">登録する</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <div class="venue-add-form">
+          <div class="field field--stacked">
+            <label class="field__label" for="venue-add-name">会場名</label>
+            <input class="field__input" type="text" id="venue-add-name" data-role="venue-add-name"
+              autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="venue-add-reading">読み仮名（並び順に使う。省略可）</label>
+            <input class="field__input" type="text" id="venue-add-reading" data-role="venue-add-reading"
+              placeholder="例：しんじゅくろふと" autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <span class="field__label" id="venue-add-area-label">エリア</span>
+            <div class="tag-list" id="venue-add-areas" data-role="venue-add-areas"
+              role="group" aria-labelledby="venue-add-area-label">
+              <!-- エリアの選択肢は renderVenueAreaChoices() が描画する -->
+            </div>
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="venue-add-new-area">新しいエリアを作る（省略可）</label>
+            <input class="field__input" type="text" id="venue-add-new-area" data-role="venue-add-new-area"
+              placeholder="例：高円寺" autocomplete="off">
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1923,6 +1982,221 @@
       { name: '高円寺HIGH',    reading: 'こうえんじはい',        area: '高円寺' },
       { name: '西永福JAM',     reading: 'にしえいふくじゃむ',    area: '西永福' }
     ];
+
+    // ============================================================
+    // Venue Store: 会場・エリアのユーザー追加分（VenueStore）
+    // ------------------------------------------------------------
+    // 組み込みのマスタ（AREA_MASTER / VENUE_MASTER）はファイルで管理するが、
+    // 自由入力した会場をその場でマスタへ足せるよう、追加分は localStorage に持つ。
+    // 読み出しは「組み込み＋追加分」を名前で重複排除して返す（同名は組み込み優先）。
+    // バックアップの書き出し・取り込みにも含めるので、機種変更や他の人との
+    // やり取りでも引き継げる。保存不可・データ破損時は組み込みだけで動く。
+    // ============================================================
+
+    /** ユーザーが追加したエリア／会場の localStorage キー。 */
+    const USER_AREA_STORAGE_KEY = 'yuisrus-setlist:areas:v1';
+    const USER_VENUE_STORAGE_KEY = 'yuisrus-setlist:venues:v1';
+
+    /**
+     * エリア1件を検証・正規化する（純粋関数）。名前が空なら null。
+     * @param {unknown} data 検証する値
+     * @returns {{name: string, reading: string}|null} 正規化した1件
+     */
+    function normalizeAreaEntry(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const name = typeof data.name === 'string' ? data.name.trim() : '';
+      if (name === '') {
+        return null;
+      }
+      return {
+        name: name,
+        reading: typeof data.reading === 'string' ? data.reading.trim() : ''
+      };
+    }
+
+    /**
+     * 会場1件を検証・正規化する（純粋関数）。名前が空なら null。
+     * @param {unknown} data 検証する値
+     * @returns {Venue|null} 正規化した1件
+     */
+    function normalizeVenueEntry(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const name = typeof data.name === 'string' ? data.name.trim() : '';
+      if (name === '') {
+        return null;
+      }
+      return {
+        name: name,
+        reading: typeof data.reading === 'string' ? data.reading.trim() : '',
+        area: typeof data.area === 'string' ? data.area.trim() : ''
+      };
+    }
+
+    /**
+     * localStorage から一覧を読み、要素ごとに正規化して返す。
+     * 参照不可・JSON破損・配列でない場合は空配列（アプリは組み込みだけで動く）。
+     * @param {string} key 保存キー
+     * @param {function(unknown): (Object|null)} normalize 1件の正規化関数
+     * @returns {Object[]} 正規化した一覧
+     */
+    function readStoredList(key, normalize) {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(key);
+      } catch (err) {
+        return [];
+      }
+      if (!raw) {
+        return [];
+      }
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        return [];
+      }
+      if (!Array.isArray(data)) {
+        return [];
+      }
+      const list = [];
+      data.forEach(function (item) {
+        const entry = normalize(item);
+        if (entry) {
+          list.push(entry);
+        }
+      });
+      return list;
+    }
+
+    /**
+     * localStorage へ一覧を書き込む（全置換）。
+     * @param {string} key 保存キー
+     * @param {Object[]} list 保存する一覧
+     * @returns {boolean} 書き込めたら true
+     */
+    function writeStoredList(key, list) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(list));
+        return true;
+      } catch (err) {
+        return false; // 容量超過・プライベートモード等
+      }
+    }
+
+    /**
+     * ユーザーが追加したエリア一覧を返す。
+     * @returns {{name: string, reading: string}[]} 追加分のエリア
+     */
+    function loadUserAreas() {
+      return readStoredList(USER_AREA_STORAGE_KEY, normalizeAreaEntry);
+    }
+
+    /**
+     * ユーザーが追加した会場一覧を返す。
+     * @returns {Venue[]} 追加分の会場
+     */
+    function loadUserVenues() {
+      return readStoredList(USER_VENUE_STORAGE_KEY, normalizeVenueEntry);
+    }
+
+    /**
+     * 組み込みと追加分をつないで返す（同じ名前は組み込みを優先して1件にする）。
+     * @param {Object[]} builtIn 組み込みの一覧
+     * @param {Object[]} added 追加分の一覧
+     * @returns {Object[]} つないだ一覧
+     */
+    function mergeByName(builtIn, added) {
+      const merged = builtIn.slice();
+      const names = {};
+      merged.forEach(function (entry) {
+        names[entry.name] = true;
+      });
+      added.forEach(function (entry) {
+        if (!names[entry.name]) {
+          names[entry.name] = true;
+          merged.push(entry);
+        }
+      });
+      return merged;
+    }
+
+    /**
+     * 使えるエリア一覧（組み込み＋追加分）を返す。
+     * @returns {{name: string, reading: string}[]} エリア一覧
+     */
+    function allAreas() {
+      return mergeByName(AREA_MASTER.slice(), loadUserAreas());
+    }
+
+    /**
+     * 使える会場一覧（組み込み＋追加分）を返す。
+     * @returns {Venue[]} 会場一覧
+     */
+    function allVenues() {
+      return mergeByName(VENUE_MASTER.slice(), loadUserVenues());
+    }
+
+    /**
+     * 名前で会場を探す（組み込み・追加分の両方から）。
+     * @param {string} name 会場名
+     * @returns {Venue|null} 見つかった会場。無ければ null
+     */
+    function findVenueByName(name) {
+      const target = typeof name === 'string' ? name.trim() : '';
+      if (target === '') {
+        return null;
+      }
+      let found = null;
+      allVenues().forEach(function (venue) {
+        if (venue.name === target) {
+          found = venue;
+        }
+      });
+      return found;
+    }
+
+    /**
+     * エリアを追加分へ足す（すでにある名前なら何もしない）。
+     * @param {{name: string, reading: string}} area 追加するエリア
+     * @returns {boolean} 書き込めたら true（既存だった場合も true）
+     */
+    function addUserArea(area) {
+      const entry = normalizeAreaEntry(area);
+      if (!entry) {
+        return false;
+      }
+      const exists = allAreas().some(function (known) {
+        return known.name === entry.name;
+      });
+      if (exists) {
+        return true;
+      }
+      const list = loadUserAreas();
+      list.push(entry);
+      return writeStoredList(USER_AREA_STORAGE_KEY, list);
+    }
+
+    /**
+     * 会場を追加分へ足す（すでにある名前なら何もしない）。
+     * @param {Venue} venue 追加する会場
+     * @returns {boolean} 書き込めたら true（既存だった場合も true）
+     */
+    function addUserVenue(venue) {
+      const entry = normalizeVenueEntry(venue);
+      if (!entry) {
+        return false;
+      }
+      if (findVenueByName(entry.name)) {
+        return true;
+      }
+      const list = loadUserVenues();
+      list.push(entry);
+      return writeStoredList(USER_VENUE_STORAGE_KEY, list);
+    }
 
     // ============================================================
     // Types: JSDoc 型注釈（実装はバニラJS。any 相当の曖昧型は使わない）
@@ -4090,7 +4364,9 @@
 
     /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
     const BACKUP_FORMAT = 'yuisrus-setlist-backup';
-    const BACKUP_VERSION = 3; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
+    // 4: 追加した会場・エリアも書き出す（古い版の取り込みでも壊れないよう、
+    //    受け取り側は setlists 以外が無くても読み進める）。
+    const BACKUP_VERSION = 4; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
 
     /** 取り込み結果の通知文。 */
     const BACKUP_PARSE_FAILURE_MESSAGE = 'JSONを読み取れませんでした';
@@ -4102,12 +4378,23 @@
      * @returns {string} 書き出す JSON
      */
     function buildBackupJson() {
-      return JSON.stringify({
+      const backup = {
         format: BACKUP_FORMAT,
         version: BACKUP_VERSION,
         exportedAt: new Date().toISOString(),
         setlists: loadSavedSetlists().map(toStoredSavedSetlist) // 曲はIDで書き出す
-      });
+      };
+
+      // 自分で追加した会場・エリアだけを書き出す（組み込みマスタは相手側にもある）。
+      const areas = loadUserAreas();
+      const venues = loadUserVenues();
+      if (areas.length > 0) {
+        backup.areas = areas;
+      }
+      if (venues.length > 0) {
+        backup.venues = venues;
+      }
+      return JSON.stringify(backup);
     }
 
     /**
@@ -4159,6 +4446,53 @@
         }
       });
       return records;
+    }
+
+    /**
+     * バックアップに入っている会場・エリアを取り込む（既存は消さない）。
+     * すでに知っている名前は飛ばすので、何度取り込んでも増えない。
+     * 会場・エリアが入っていない古いバックアップでは何もしない。
+     * @param {string} text バックアップのJSON文字列
+     * @returns {{added: number}} 追加した件数（会場＋エリアの合計）
+     */
+    function mergeBackupMasters(text) {
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        return { added: 0 }; // ここへ来る時点で setlists は読めているが、念のため
+      }
+      if (!data || typeof data !== 'object') {
+        return { added: 0 };
+      }
+
+      let added = 0;
+
+      if (Array.isArray(data.areas)) {
+        data.areas.forEach(function (item) {
+          const area = normalizeAreaEntry(item);
+          if (!area || allAreas().some(function (known) { return known.name === area.name; })) {
+            return;
+          }
+          if (addUserArea(area)) {
+            added += 1;
+          }
+        });
+      }
+
+      if (Array.isArray(data.venues)) {
+        data.venues.forEach(function (item) {
+          const venue = normalizeVenueEntry(item);
+          if (!venue || findVenueByName(venue.name)) {
+            return;
+          }
+          if (addUserVenue(venue)) {
+            added += 1;
+          }
+        });
+      }
+
+      return { added: added };
     }
 
     /**
@@ -4321,6 +4655,9 @@
         return;
       }
 
+      // 会場・エリアはセトリより先に取り込む（会場名の手がかりを揃えてから並べる）。
+      const masters = mergeBackupMasters(input.value);
+
       const result = mergeSavedSetlists(incoming);
       if (!result.ok) {
         showToast(SAVE_FAILURE_MESSAGE);
@@ -4331,15 +4668,17 @@
       renderSavedList();
       updateSearchRunButton();
 
+      const masterNote = masters.added > 0 ? '／会場・エリア' + masters.added + '件' : '';
+
       if (result.added === 0) {
-        showToast('すべて取り込み済みでした（' + result.skipped + '件）');
+        showToast('すべて取り込み済みでした（' + result.skipped + '件）' + masterNote);
         return;
       }
       closeBackupPanel();
       showToast(
-        result.skipped === 0
+        (result.skipped === 0
           ? result.added + '件を取り込みました'
-          : result.added + '件を取り込みました（' + result.skipped + '件は取り込み済み）'
+          : result.added + '件を取り込みました（' + result.skipped + '件は取り込み済み）') + masterNote
       );
     }
 
@@ -5371,19 +5710,19 @@
     }
 
     /**
-     * VENUE_MASTER を読み仮名（フォールバック名前）昇順にソートした新配列を返す
-     * （元配列は破壊しない）。比較は日本語ロケールで行う。
+     * 会場（組み込み＋追加分）を読み仮名（フォールバック名前）昇順にソートして返す。
+     * 比較は日本語ロケールで行う。読み仮名の無い追加分は名前で比較する。
      * @returns {Venue[]} あいうえお順に並んだ会場配列
      */
     function getSortedVenueMaster() {
-      return VENUE_MASTER.slice().sort(function (a, b) {
+      return allVenues().sort(function (a, b) {
         return venueSortKey(a).localeCompare(venueSortKey(b), 'ja');
       });
     }
 
     /**
-     * 会場をエリアごとにまとめ、AREA_MASTER の順で返す（純粋関数）。
-     * 会場が1つも無いエリアは返さない。AREA_MASTER に無い／未設定の area は
+     * 会場をエリアごとにまとめ、エリアマスタ（組み込み＋追加分）の順で返す。
+     * 会場が1つも無いエリアは返さない。マスタに無い／未設定の area は
      * 末尾の「その他」へまとめる。各エリア内はあいうえお順。
      * @returns {{area: string, venues: Venue[]}[]} エリアごとの会場
      */
@@ -5392,7 +5731,7 @@
       const groups = [];
       const byArea = new Map();
 
-      AREA_MASTER.forEach(function (area) {
+      allAreas().forEach(function (area) {
         const group = { area: area.name, venues: [] };
         groups.push(group);
         byArea.set(area.name, group);
@@ -5428,6 +5767,7 @@
         venueInput.value = name;
       }
       saveState();
+      syncVenueAddButton();
       closeVenuePopup();
     }
 
@@ -5488,6 +5828,134 @@
       list.appendChild(fragment);
     }
 
+    /** 会場登録フォームで選んでいるエリア名（未選択は ''）。 */
+    let venueAddArea = '';
+
+    /**
+     * 「登録」ボタンの出し入れを入力欄の内容に合わせる。
+     * 何か入力されていて、まだマスタに無い会場のときだけ出す。
+     * @returns {void}
+     */
+    function syncVenueAddButton() {
+      const addButton = document.getElementById('btn-venue-add');
+      if (!addButton) {
+        return;
+      }
+      const name = state.venue.trim();
+      addButton.hidden = name === '' || findVenueByName(name) !== null;
+    }
+
+    /**
+     * 登録フォームのエリア選択肢を描画する（組み込み＋追加分）。
+     * 1つだけ選べるトグルで、もう一度押すと未選択へ戻る。
+     * @returns {void}
+     */
+    function renderVenueAreaChoices() {
+      const list = document.getElementById('venue-add-areas');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const fragment = document.createDocumentFragment();
+      allAreas().forEach(function (area) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.role = 'venue-add-area';
+        chip.textContent = area.name; // textContent で挿入（XSS安全）
+        chip.setAttribute('aria-pressed', area.name === venueAddArea ? 'true' : 'false');
+        chip.addEventListener('click', function () {
+          // 同じものを押したら未選択へ戻す（1つだけ選べる）。
+          venueAddArea = venueAddArea === area.name ? '' : area.name;
+          renderVenueAreaChoices();
+        });
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 会場登録フォームを開く（入力欄の内容を初期値にする）。
+     * @returns {void}
+     */
+    function openVenueAddPopup() {
+      const overlay = document.getElementById('venue-add-overlay');
+      const nameInput = document.getElementById('venue-add-name');
+      const readingInput = document.getElementById('venue-add-reading');
+      const newAreaInput = document.getElementById('venue-add-new-area');
+      if (!overlay) {
+        return;
+      }
+      if (nameInput) {
+        nameInput.value = state.venue.trim();
+      }
+      if (readingInput) {
+        readingInput.value = '';
+      }
+      if (newAreaInput) {
+        newAreaInput.value = '';
+      }
+      venueAddArea = '';
+      renderVenueAreaChoices();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 会場登録フォームを閉じる（マスタは変更しない）。
+     * @returns {void}
+     */
+    function closeVenueAddPopup() {
+      const overlay = document.getElementById('venue-add-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 入力された内容で会場をマスタへ追加する。
+     * 新しいエリアが書かれていればエリアも追加し、その会場のエリアにする。
+     * 追加した会場は入力欄へも反映する（そのまま使えるように）。
+     * @returns {void}
+     */
+    function submitVenueAdd() {
+      const nameInput = document.getElementById('venue-add-name');
+      const readingInput = document.getElementById('venue-add-reading');
+      const newAreaInput = document.getElementById('venue-add-new-area');
+
+      const name = nameInput ? nameInput.value.trim() : '';
+      if (name === '') {
+        showToast('会場名を入力してください');
+        return;
+      }
+      if (findVenueByName(name)) {
+        showToast('すでに登録されています');
+        return;
+      }
+
+      const newArea = newAreaInput ? newAreaInput.value.trim() : '';
+      let area = venueAddArea;
+      if (newArea !== '') {
+        if (!addUserArea({ name: newArea, reading: '' })) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        area = newArea; // 新しく作ったエリアを優先する
+      }
+
+      const reading = readingInput ? readingInput.value.trim() : '';
+      if (!addUserVenue({ name: name, reading: reading, area: area })) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      closeVenueAddPopup();
+      applyVenue(name);       // 入力欄・作業中データへ反映し、選択ポップアップも閉じる
+      syncVenueAddButton();   // 登録済みになったのでボタンを引っ込める
+      showToast('会場を登録しました');
+    }
+
     /**
      * 会場選択ポップアップを開く（表示直前に最新のマスタを反映する）。
      * @returns {void}
@@ -5525,6 +5993,9 @@
       }
       const pickButton = document.getElementById('btn-venue-pick');
       const closeButton = document.getElementById('btn-venue-close');
+      const addButton = document.getElementById('btn-venue-add');
+      const addCancelButton = document.getElementById('btn-venue-add-cancel');
+      const addSubmitButton = document.getElementById('btn-venue-add-submit');
 
       if (pickButton) {
         pickButton.addEventListener('click', openVenuePopup);
@@ -5532,6 +6003,16 @@
       if (closeButton) {
         closeButton.addEventListener('click', closeVenuePopup);
       }
+      if (addButton) {
+        addButton.addEventListener('click', openVenueAddPopup);
+      }
+      if (addCancelButton) {
+        addCancelButton.addEventListener('click', closeVenueAddPopup);
+      }
+      if (addSubmitButton) {
+        addSubmitButton.addEventListener('click', submitVenueAdd);
+      }
+      syncVenueAddButton(); // 復元した内容に合わせて初期状態を決める
       venuePickerWired = true;
     }
 
@@ -5693,6 +6174,7 @@
         venueInput.addEventListener('input', function () {
           state.venue = venueInput.value;
           saveState();
+          syncVenueAddButton(); // マスタに無い会場なら「登録」を出す
         });
       }
       if (memoInput) {
@@ -5758,6 +6240,7 @@
         if (memoInput) {
           memoInput.value = '';
         }
+        syncVenueAddButton();
 
         renderAll();     // セトリ表を空状態へ再描画
         syncEditingUi(); // 編集中の紐づけも解除された状態へ表示を戻す
@@ -5790,6 +6273,7 @@
       if (memoInput) {
         memoInput.value = state.memo;
       }
+      syncVenueAddButton();
     }
 
     /**
