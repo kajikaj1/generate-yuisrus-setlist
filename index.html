@@ -792,6 +792,65 @@
       outline-offset: -2px;
     }
 
+    /* 会場の管理の1行（会場名＋使用件数＋操作ボタン）。 */
+    .venue-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .venue-row__label {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .venue-row__name {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .venue-row__meta {
+      font-size: 12px;
+      color: var(--color-muted);
+    }
+
+    .venue-row__actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 4px;
+    }
+
+    /* 管理画面の小さめボタン。行の高さを抑えつつタップ領域は確保する。 */
+    .venue-row__button {
+      min-width: var(--tap-min);
+      min-height: 36px;
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .venue-row__button--danger {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
+    }
+
+    .venue-row__button:active {
+      filter: brightness(0.95);
+    }
+
     /* 会場一覧のエリア見出し。項目と区別できるよう小さく薄く出す。 */
     .popup__group-title {
       padding: 12px 8px 4px;
@@ -1412,11 +1471,56 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-title">会場を選択</h2>
-        <button type="button" class="btn btn--ghost" id="btn-venue-close" data-role="venue-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-venue-manage"
+            data-role="venue-manage">管理</button>
+          <button type="button" class="btn btn--ghost" id="btn-venue-close" data-role="venue-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__body">
         <ul class="popup__list" id="venue-list" data-role="venue-list">
           <!-- 会場一覧は renderVenueList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Venue manage popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-manage-overlay" data-role="venue-manage-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-manage-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-manage-title">会場の管理</h2>
+        <button type="button" class="btn btn--ghost" id="btn-venue-manage-close"
+          data-role="venue-manage-close">閉じる</button>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__help">
+          表記のゆれた会場は「まとめる」で1つにできます。保存したセトリの会場名も付け替わります。
+        </p>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="venue-manage-list" data-role="venue-manage-list">
+          <!-- 会場の一覧は renderVenueManageList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Venue merge target popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-merge-overlay" data-role="venue-merge-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-merge-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-merge-title">まとめ先を選択</h2>
+        <button type="button" class="btn btn--ghost" id="btn-venue-merge-cancel"
+          data-role="venue-merge-cancel">やめる</button>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__progress" id="venue-merge-source" data-role="venue-merge-source"></p>
+        <p class="resolve-notice__help">まとめ先の会場を選んでください。</p>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="venue-merge-list" data-role="venue-merge-list">
+          <!-- まとめ先の候補は renderVenueMergeList() が描画する -->
         </ul>
       </div>
     </div>
@@ -2221,6 +2325,90 @@
       const list = loadUserAreas();
       list.push(entry);
       return writeStoredList(USER_AREA_STORAGE_KEY, list);
+    }
+
+    /**
+     * その会場が組み込みマスタ（ファイル管理）のものかを返す。
+     * 組み込みは localStorage から消せないので、削除・統合元にはできない。
+     * @param {string} name 会場名
+     * @returns {boolean} 組み込みなら true
+     */
+    function isBuiltInVenue(name) {
+      const key = masterNameKey(name);
+      return VENUE_MASTER.some(function (venue) {
+        return masterNameKey(venue.name) === key;
+      });
+    }
+
+    /**
+     * 追加分の会場を削除する（組み込みは消せない）。
+     * 保存データは会場名を文字列で持つので、消しても過去のセトリは壊れない
+     * （一覧の選択肢から消えるだけ）。
+     * @param {string} name 会場名
+     * @returns {boolean} 削除して書き込めたら true
+     */
+    function removeUserVenue(name) {
+      const key = masterNameKey(name);
+      if (key === '' || isBuiltInVenue(name)) {
+        return false;
+      }
+      const list = loadUserVenues();
+      const rest = list.filter(function (venue) {
+        return masterNameKey(venue.name) !== key;
+      });
+      if (rest.length === list.length) {
+        return false; // 該当なし
+      }
+      return writeStoredList(USER_VENUE_STORAGE_KEY, rest);
+    }
+
+    /**
+     * その会場名を使っている保存データの件数を数える。
+     * 表記の差（全角半角・大小・空白）は同じ会場として数える。
+     * @param {string} name 会場名
+     * @returns {number} 件数
+     */
+    function countSavedByVenue(name) {
+      const key = masterNameKey(name);
+      if (key === '') {
+        return 0;
+      }
+      return loadSavedSetlists().filter(function (record) {
+        return masterNameKey(record.venue) === key;
+      }).length;
+    }
+
+    /**
+     * 会場を別の会場へまとめる（統合）。
+     * 保存データの会場名を統合先の表記へ書き換え、作業中の内容も追従させる。
+     * 統合元が追加分ならマスタからも消す（組み込みは消せないので残る）。
+     * @param {string} fromName まとめられる側の会場名
+     * @param {string} toName まとめ先の会場名
+     * @returns {{ok: boolean, updated: number, removed: boolean}}
+     *   書き込み成否・付け替えた保存データの件数・マスタから消せたか
+     */
+    function mergeVenues(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      const toKey = masterNameKey(toName);
+      if (fromKey === '' || toKey === '' || fromKey === toKey) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const records = loadSavedSetlists();
+      let updated = 0;
+      const next = records.map(function (record) {
+        if (masterNameKey(record.venue) !== fromKey) {
+          return record;
+        }
+        updated += 1;
+        return Object.assign({}, record, { venue: toName });
+      });
+      if (updated > 0 && !writeSavedSetlists(next)) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const removed = removeUserVenue(fromName);
+      return { ok: true, updated: updated, removed: removed };
     }
 
     /**
@@ -5947,6 +6135,273 @@
       list.appendChild(fragment);
     }
 
+    // ------------------------------------------------------------
+    // 会場の管理（削除・統合）
+    // ------------------------------------------------------------
+    // 表記のゆれた会場（新宿LOFT ／ 新宿ロフト）を1つへまとめ、要らない会場を
+    // 消すための画面。統合では保存データの会場名も付け替えるので、過去のセトリの
+    // 表記も揃う。組み込みマスタの会場はファイル管理なので消せない（まとめ先には
+    // 選べる）。
+
+    /** 統合元として選んでいる会場名（まとめ先を選ぶ間だけ保持する）。 */
+    let mergeSourceVenue = '';
+
+    /**
+     * 会場の管理一覧（#venue-manage-list）をエリアごとに描画する。
+     * 各行に、その会場を使っている保存データの件数と操作ボタンを出す。
+     * 会場名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderVenueManageList() {
+      const list = document.getElementById('venue-manage-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const groups = getVenuesByArea();
+      if (groups.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '会場がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      groups.forEach(function (group) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.dataset.role = 'venue-manage-area';
+        heading.textContent = group.area;
+        fragment.appendChild(heading);
+
+        group.venues.forEach(function (venue) {
+          fragment.appendChild(buildVenueManageRow(venue));
+        });
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 会場の管理の1行を組み立てる。
+     * 組み込みの会場は消せないので、削除ボタンの代わりにその旨を出す。
+     * @param {Venue} venue 対象の会場
+     * @returns {HTMLLIElement} 一覧へ差し込む行
+     */
+    function buildVenueManageRow(venue) {
+      const builtIn = isBuiltInVenue(venue.name);
+      const used = countSavedByVenue(venue.name);
+
+      const item = document.createElement('li');
+      item.className = 'venue-row';
+      item.dataset.role = 'venue-manage-row';
+
+      const label = document.createElement('span');
+      label.className = 'venue-row__label';
+
+      const name = document.createElement('span');
+      name.className = 'venue-row__name';
+      name.textContent = venue.name; // textContent で挿入（XSS安全）
+
+      const meta = document.createElement('span');
+      meta.className = 'venue-row__meta';
+      meta.textContent = (builtIn ? '組み込み・' : '') +
+        (used > 0 ? '保存' + used + '件' : '未使用');
+
+      label.appendChild(name);
+      label.appendChild(meta);
+
+      const actions = document.createElement('span');
+      actions.className = 'venue-row__actions';
+
+      const mergeButton = document.createElement('button');
+      mergeButton.type = 'button';
+      mergeButton.className = 'venue-row__button';
+      mergeButton.dataset.role = 'venue-merge-start';
+      mergeButton.textContent = 'まとめる';
+      mergeButton.setAttribute('aria-label', venue.name + ' を別の会場へまとめる');
+      mergeButton.addEventListener('click', function () {
+        openVenueMergePopup(venue.name);
+      });
+      actions.appendChild(mergeButton);
+
+      if (!builtIn) {
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'venue-row__button venue-row__button--danger';
+        removeButton.dataset.role = 'venue-remove';
+        removeButton.textContent = '削除';
+        removeButton.setAttribute('aria-label', venue.name + ' を一覧から削除する');
+        removeButton.addEventListener('click', function () {
+          // 保存データは会場名を文字列で持つため、消しても過去のセトリは残る。
+          const note = used > 0
+            ? '「' + venue.name + '」を一覧から削除します。保存済み' + used +
+              '件の会場名はそのまま残ります。よろしいですか？'
+            : '「' + venue.name + '」を一覧から削除します。よろしいですか？';
+          if (!window.confirm(note)) {
+            return;
+          }
+          if (!removeUserVenue(venue.name)) {
+            showToast(SAVE_FAILURE_MESSAGE);
+            return;
+          }
+          renderVenueManageList();
+          renderVenueList();
+          syncVenueAddButton(); // 消した会場を入力中なら「登録」を出し直す
+          showToast('会場を削除しました');
+        });
+        actions.appendChild(removeButton);
+      }
+
+      item.appendChild(label);
+      item.appendChild(actions);
+      return item;
+    }
+
+    /**
+     * まとめ先の候補（#venue-merge-list）を描画する。統合元は候補から外す。
+     * @returns {void}
+     */
+    function renderVenueMergeList() {
+      const list = document.getElementById('venue-merge-list');
+      const source = document.getElementById('venue-merge-source');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      if (source) {
+        source.textContent = '「' + mergeSourceVenue + '」のまとめ先';
+      }
+
+      const sourceKey = masterNameKey(mergeSourceVenue);
+      const candidates = getSortedVenueMaster().filter(function (venue) {
+        return masterNameKey(venue.name) !== sourceKey;
+      });
+
+      if (candidates.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = 'まとめ先にできる会場がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      candidates.forEach(function (venue) {
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button';
+        button.dataset.role = 'venue-merge-target';
+        button.textContent = venue.name; // textContent で挿入（XSS安全）
+        button.addEventListener('click', function () {
+          applyVenueMerge(venue.name);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 統合元を選んで、まとめ先の一覧を開く。
+     * @param {string} name 統合元の会場名
+     * @returns {void}
+     */
+    function openVenueMergePopup(name) {
+      const overlay = document.getElementById('venue-merge-overlay');
+      if (!overlay) {
+        return;
+      }
+      mergeSourceVenue = name;
+      renderVenueMergeList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * まとめ先の一覧を閉じる（統合はしない）。
+     * @returns {void}
+     */
+    function closeVenueMergePopup() {
+      const overlay = document.getElementById('venue-merge-overlay');
+      mergeSourceVenue = '';
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /**
+     * 選んだまとめ先へ統合する（確認あり）。
+     * 保存データの会場名を付け替え、作業中の会場名も揃える。
+     * @param {string} targetName まとめ先の会場名
+     * @returns {void}
+     */
+    function applyVenueMerge(targetName) {
+      const sourceName = mergeSourceVenue;
+      if (sourceName === '') {
+        return;
+      }
+      const used = countSavedByVenue(sourceName);
+      const note = '「' + sourceName + '」を「' + targetName + '」にまとめます。' +
+        (used > 0 ? '保存済み' + used + '件の会場名も「' + targetName + '」に変わります。' : '') +
+        'よろしいですか？';
+      if (!window.confirm(note)) {
+        return;
+      }
+
+      const result = mergeVenues(sourceName, targetName);
+      if (!result.ok) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      // 作業中の会場名も揃える（同じ会場を指しているため）。
+      if (masterNameKey(state.venue) === masterNameKey(sourceName)) {
+        applyVenue(targetName);
+      }
+
+      closeVenueMergePopup();
+      renderVenueManageList();
+      renderVenueList();
+      renderSavedList();      // 保存一覧を開いていれば会場名の表示も更新する
+      syncVenueAddButton();
+
+      const updatedNote = result.updated > 0 ? '（保存' + result.updated + '件を付け替え）' : '';
+      showToast(result.removed
+        ? 'まとめました' + updatedNote
+        : 'まとめました' + updatedNote + '。組み込みの会場は一覧に残ります');
+    }
+
+    /**
+     * 会場の管理を開く。
+     * @returns {void}
+     */
+    function openVenueManagePopup() {
+      const overlay = document.getElementById('venue-manage-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderVenueManageList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 会場の管理を閉じる（まとめ先の一覧も一緒に畳む）。
+     * @returns {void}
+     */
+    function closeVenueManagePopup() {
+      const overlay = document.getElementById('venue-manage-overlay');
+      closeVenueMergePopup();
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
     /** 会場登録フォームで選んでいるエリア名（未選択は ''）。 */
     let venueAddArea = '';
 
@@ -6115,6 +6570,9 @@
       const addButton = document.getElementById('btn-venue-add');
       const addCancelButton = document.getElementById('btn-venue-add-cancel');
       const addSubmitButton = document.getElementById('btn-venue-add-submit');
+      const manageButton = document.getElementById('btn-venue-manage');
+      const manageCloseButton = document.getElementById('btn-venue-manage-close');
+      const mergeCancelButton = document.getElementById('btn-venue-merge-cancel');
 
       if (pickButton) {
         pickButton.addEventListener('click', openVenuePopup);
@@ -6130,6 +6588,15 @@
       }
       if (addSubmitButton) {
         addSubmitButton.addEventListener('click', submitVenueAdd);
+      }
+      if (manageButton) {
+        manageButton.addEventListener('click', openVenueManagePopup);
+      }
+      if (manageCloseButton) {
+        manageCloseButton.addEventListener('click', closeVenueManagePopup);
+      }
+      if (mergeCancelButton) {
+        mergeCancelButton.addEventListener('click', closeVenueMergePopup);
       }
       syncVenueAddButton(); // 復元した内容に合わせて初期状態を決める
       venuePickerWired = true;
@@ -6180,6 +6647,7 @@
       // （オーバーレイはページ要素の外にあるため、画面を切り替えても消えない）。
       closeVenuePopup();
       closeVenueAddPopup();
+      closeVenueManagePopup();
       closeAddSongPopup();
 
       if (showSaved) {
