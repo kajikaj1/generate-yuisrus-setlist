@@ -2238,6 +2238,25 @@
         .replace(/）/g, ')');
     }
 
+    /** 和暦の元号 → 元年の西暦。西暦 = 元年 + N - 1 で求める。 */
+    const JP_ERA_FIRST_YEAR = { '令和': 2019, '平成': 1989, '昭和': 1926 };
+
+    /**
+     * 年月日から `YYYY-MM-DD` を組み立てる（純粋関数）。
+     * カレンダー的に存在しない日付（2月30日など）は formatDate の検証で弾いて
+     * '' を返す（日付なしとして取り込む）。
+     * @param {number} year 西暦年
+     * @param {string} month 月（1〜2桁の文字列）
+     * @param {string} day 日（1〜2桁の文字列）
+     * @returns {string} `YYYY-MM-DD`、または不正なら ''
+     */
+    function toIsoDate(year, month, day) {
+      const iso = String(year).padStart(4, '0') + '-' +
+        month.padStart(2, '0') + '-' +
+        day.padStart(2, '0');
+      return formatDate(iso) !== '' ? iso : '';
+    }
+
     /**
      * 日付行（`YYYY.MM.DD(曜)` など）を `YYYY-MM-DD` として読み取る（純粋関数）。
      * 区切りは `.` `/` `-` を許容し、曜日など後続の文字は無視する。
@@ -2246,14 +2265,23 @@
      * @returns {string} `YYYY-MM-DD`、または読み取れない場合 ''
      */
     function parseDateLine(line) {
-      const match = /^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/.exec(normalizeForParse(line));
+      const normalized = normalizeForParse(line);
+
+      // 和暦（令和7年8月2日 / 令和7.8.2 / 令和元年…）。元年は1年として数える。
+      const era = /(令和|平成|昭和)\s*(\d{1,2}|元)\s*[./\-年]\s*(\d{1,2})\s*[./\-月]\s*(\d{1,2})\s*日?/
+        .exec(normalized);
+      if (era) {
+        const offset = era[2] === '元' ? 1 : Number(era[2]);
+        return toIsoDate(JP_ERA_FIRST_YEAR[era[1]] + offset - 1, era[3], era[4]);
+      }
+
+      // 西暦。区切りは . / - と 年月日 を自由に混ぜられる（2025/8月2日 など）。
+      // 行頭に限らず拾う（【2025/8/2】 や 日付：2025.8.2 のような書き方に耐える）。
+      const match = /(\d{4})\s*[./\-年]\s*(\d{1,2})\s*[./\-月]\s*(\d{1,2})\s*日?/.exec(normalized);
       if (!match) {
         return '';
       }
-      const iso = match[1] + '-' +
-        match[2].padStart(2, '0') + '-' +
-        match[3].padStart(2, '0');
-      return formatDate(iso) !== '' ? iso : ''; // カレンダー的に不正な日付は捨てる
+      return toIsoDate(Number(match[1]), match[2], match[3]);
     }
 
     /**
@@ -2313,6 +2341,29 @@
           return; // 空行・ハッシュタグ行は読み飛ばす
         }
 
+        // ライブ名・会場は日付より先に判定する。日付は行のどこにあっても拾うため、
+        // 『2025/8/2 定期公演』のような行を日付行とみなすとライブ名を失うため。
+        const live = /^『([\s\S]*)』$/.exec(line);
+        if (live) {
+          if (parsed.liveName === '') {
+            parsed.liveName = live[1].trim();
+          }
+          if (parsed.date === '') {
+            parsed.date = parseDateLine(line); // 同じ行に日付が入っていれば拾う
+          }
+          return;
+        }
+
+        // 会場行。「会場：」「会場:」「会場 」「【会場】」「会場名：」などの揺れを許容する
+        // （区切りが何も無い「会場新宿LOFT」は曲名との取り違えを避けるため拾わない）。
+        const venue = /^(?:【\s*)?会場名?\s*(?:】|[：:／/・＝=\-ー]|[\s\u3000])\s*([\s\S]+)$/.exec(line);
+        if (venue) {
+          if (parsed.venue === '') {
+            parsed.venue = venue[1].trim();
+          }
+          return;
+        }
+
         // 日付行は曲行より先に判定する（`2026.09.10(水)` を連番と誤認しないため）。
         if (parsed.date === '') {
           const date = parseDateLine(line);
@@ -2320,22 +2371,6 @@
             parsed.date = date;
             return;
           }
-        }
-
-        const live = /^『([\s\S]*)』$/.exec(line);
-        if (live) {
-          if (parsed.liveName === '') {
-            parsed.liveName = live[1].trim();
-          }
-          return;
-        }
-
-        const venue = /^会場\s*[：:]\s*([\s\S]*)$/.exec(line);
-        if (venue) {
-          if (parsed.venue === '') {
-            parsed.venue = venue[1].trim();
-          }
-          return;
         }
 
         const song = parseSongLine(line);
