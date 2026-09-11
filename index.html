@@ -59,14 +59,16 @@
       gap: var(--gap);
     }
 
+    /* ライブ情報は5行あるので、余白と行間は本文より詰める
+       （スマホでここが大きいと、肝心のセトリ表が画面の下へ追いやられる）。 */
     .app__header {
       display: flex;
       flex-direction: column;
-      gap: var(--gap);
+      gap: 6px;
       background-color: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius);
-      padding: var(--gap);
+      padding: 8px var(--gap);
     }
 
     .field {
@@ -83,23 +85,31 @@
       color: var(--color-muted);
     }
 
+    /* 入力欄は囲まず下線だけにする（ライブ情報が縦に並ぶので、枠が多いと
+       画面がうるさくなる）。下線は入力できる場所の合図として残す。 */
     .field__input {
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
       min-height: 34px;
-      padding: 5px 12px;
+      padding: 5px 4px;
       font-size: 16px;
       color: var(--color-text);
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      border-radius: 0;
     }
 
+    /* 入力中は下線を太く・アクセント色にして、どこを触っているか分かるようにする。
+       テキスト入力は :focus-visible が常に当たるため、囲みを足すとタップ時にも
+       枠が出て下線だけの見た目が崩れる。合図は下線の太さと色で出す。 */
     .field__input:focus {
-      outline: 2px solid var(--color-accent);
-      outline-offset: 1px;
+      outline: none;
+      border-bottom: 2px solid var(--color-accent);
+      padding-bottom: 4px; /* 下線が太くなる分だけ詰めて、高さを変えない */
     }
+
 
     /* 保存一覧を開いたときに見せるMCメモ。改行をそのまま出す。 */
     .saved-memo {
@@ -173,40 +183,64 @@
       text-overflow: ellipsis;
     }
 
-    /* 入力欄とボタンを縦に積む列（会場名＋「選ぶ」「登録」）。
-       横並びにすると狭い画面で入力欄が 68px まで潰れ、しかも「登録」の
-       出し入れで入力中に幅が飛ぶため、ボタンは常に下の段へ置く。 */
+    /* 会場名の入力欄。日付欄のカレンダーと同じように、操作ボタンを入力欄の
+       中へ入れる（横に並べると狭い画面で入力欄が潰れ、ボタンの出し入れで
+       入力中に幅が飛ぶため）。 */
     .field__control {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      position: relative;
       flex: 1 1 auto;
       min-width: 0;
-      gap: 8px;
     }
 
     .field__control .field__input {
-      flex: 1 1 100%; /* 常に1行分を占め、ボタンの有無で幅が変わらない */
+      width: 100%;
+      min-height: 40px; /* 中のアイコンを押せる高さは保ちつつ、行は詰める */
+      padding-right: 76px;        /* アイコン2つ分。出し入れで幅を変えないため常に空ける */
     }
 
-    .btn-pick {
-      flex: 0 0 auto;
-      min-height: 44px;
-      padding: 5px 12px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 600;
+    /* 入力欄の中に重ねるアイコン列（右端＝日付のカレンダーと同じ位置）。 */
+    .input-icons {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 2px;
+    }
+
+    .input-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
       color: var(--color-accent);
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-accent);
+      background-color: transparent;
+      border: none;
       border-radius: var(--radius);
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
 
-    .btn-pick:active {
-      filter: brightness(0.95);
+    .input-icon:active {
+      background-color: var(--color-bg);
+    }
+
+    .input-icon:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    .input-icon__glyph {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     /* ラベルを上に置く入力欄（会場の登録フォームで使う）。 */
@@ -226,16 +260,11 @@
       gap: var(--gap);
     }
 
-    /* 属性（ワンマン・生誕など）の行。チップが5つ並ぶので、ラベルを上に置いて
-       横幅をすべてチップへ渡す（ラベルが左にあると約100px削られ1行に収まらない）。 */
+    /* 属性（ワンマン・生誕など）の行。チップの文言で意味が分かるので見出しは
+       置かず、横幅をすべてチップへ渡して1行に収める。 */
     .field--tags {
       flex-direction: column;
       align-items: stretch;
-      gap: 6px;
-    }
-
-    .field--tags .field__label {
-      flex: 0 0 auto;
     }
 
     .tag-list {
@@ -287,12 +316,81 @@
       white-space: nowrap;
     }
 
-    /* MCメモ。複数行を書くので高さを持たせ、縦だけ広げられるようにする。 */
-    .field__input--memo {
-      min-height: 84px;
+    /* MCメモの行。入力欄ではなくボタンを置き、本文はポップアップで書く
+       （作成画面に大きなテキストエリアがあるとセトリ表が下へ押し下げられるため）。
+       入力欄と同じ見た目にして、押せば書けることが分かるようにする。 */
+    .memo-button {
+      display: flex;
+      align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 40px;
+      padding: 5px 4px;
       font-family: inherit;
+      font-size: 16px;
+      text-align: left;
+      color: var(--color-text);
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      border-radius: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .memo-button:active {
+      background-color: var(--color-bg);
+    }
+
+    .memo-button:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
+    }
+
+    /* 未入力のときは入力欄のプレースホルダと同じ見え方にする。 */
+    .memo-button--empty {
+      color: var(--color-muted);
+    }
+
+    .memo-button__text {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    /* ポップアップの中のメモ入力欄。画面の高さいっぱいまで使う。 */
+    .memo-input {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 40vh;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 16px; /* iOS で入力時に自動ズームされないよう16px以上にする */
       line-height: 1.5;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
       resize: vertical;
+    }
+
+    .memo-input:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    /* 画面には出さないが、読み上げには残す文字（表の見出しなど）。 */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
     }
 
     /* ===== Setlist table area ===== */
@@ -1302,23 +1400,40 @@
         <input class="field__input" type="text" id="input-live-name" data-role="live-name"
           placeholder="ライブ名を入力" autocomplete="off">
       </div>
-      <div class="field">
+      <div class="field field--venue">
         <label class="field__label" for="input-venue">会場名</label>
         <div class="field__control">
           <input class="field__input" type="text" id="input-venue" data-role="venue"
             placeholder="会場名を入力" autocomplete="off">
-          <button type="button" class="btn-pick" id="btn-venue-pick" data-role="venue-pick">選ぶ</button>
-          <button type="button" class="btn-pick" id="btn-venue-add" data-role="venue-add" hidden>登録</button>
+          <span class="input-icons">
+            <button type="button" class="input-icon" id="btn-venue-add" data-role="venue-add"
+              aria-label="この会場を登録する" title="この会場を登録する" hidden>
+              <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <button type="button" class="input-icon" id="btn-venue-pick" data-role="venue-pick"
+              aria-label="会場を選ぶ" title="会場を選ぶ">
+              <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 6h11M9 12h11M9 18h11"/>
+                <circle cx="4.5" cy="6" r="1.1"/>
+                <circle cx="4.5" cy="12" r="1.1"/>
+                <circle cx="4.5" cy="18" r="1.1"/>
+              </svg>
+            </button>
+          </span>
         </div>
       </div>
       <div class="field">
-        <label class="field__label" for="input-memo">MCメモ</label>
-        <textarea class="field__input field__input--memo" id="input-memo" data-role="memo"
-          placeholder="MCで話したことなど（保存用のメモ。コピーする文面には入りません）"></textarea>
+        <span class="field__label" id="memo-label">MCメモ</span>
+        <button type="button" class="memo-button" id="btn-memo-open" data-role="memo-open"
+          aria-labelledby="memo-label memo-preview">
+          <span class="memo-button__text" id="memo-preview" data-role="memo-preview"></span>
+        </button>
       </div>
       <div class="field field--tags">
-        <span class="field__label" id="tags-label">属性</span>
-        <div class="tag-list" id="tag-list" data-role="tag-list" role="group" aria-labelledby="tags-label">
+        <!-- 見出しは置かない（チップの文言で分かるため）。読み上げには aria-label で伝える。 -->
+        <div class="tag-list" id="tag-list" data-role="tag-list" role="group" aria-label="属性">
           <!-- 属性チップは renderTagChips() が描画する -->
         </div>
       </div>
@@ -1333,10 +1448,11 @@
       <table class="setlist" id="setlist-table" data-role="setlist-table">
         <thead>
           <tr>
-            <th scope="col">並べ替え</th>
+            <!-- 並べ替え・削除は行を見れば分かるので見出しの文字は隠す（読み上げには残す） -->
+            <th scope="col"><span class="visually-hidden">並べ替え</span></th>
             <th scope="col">No.</th>
             <th scope="col">曲名</th>
-            <th scope="col">削除</th>
+            <th scope="col"><span class="visually-hidden">削除</span></th>
           </tr>
         </thead>
         <tbody id="setlist-body" data-role="setlist-body">
@@ -1464,6 +1580,20 @@
         <!-- 保存済み一覧は renderSavedList() が描画する -->
       </ul>
     </main>
+  </div>
+
+  <!-- ===== MC memo popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="memo-overlay" data-role="memo-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="memo-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="memo-title">MCメモ</h2>
+        <button type="button" class="btn btn--ghost" id="btn-memo-close" data-role="memo-close">閉じる</button>
+      </div>
+      <div class="popup__body">
+        <textarea class="memo-input" id="input-memo" data-role="memo"
+          placeholder="MCで話したことなど（保存用のメモ。コピーする文面には入りません）"></textarea>
+      </div>
+    </div>
   </div>
 
   <!-- ===== Venue picker popup (initially hidden) ===== -->
@@ -6731,6 +6861,83 @@
       venuePickerWired = true;
     }
 
+    // ------------------------------------------------------------
+    // MCメモ（MemoController）
+    // ------------------------------------------------------------
+    // 本文はポップアップで書く。作成画面に大きなテキストエリアを置くと
+    // セトリ表が下へ押し下げられるため、行にはボタンと先頭の抜粋だけを出す。
+    // 中身は入力のたびに保存するので、閉じるボタンだけで取りこぼしは出ない。
+
+    /** メモ未入力のときにボタンへ出す文言。 */
+    const MEMO_EMPTY_LABEL = 'MCで話したことを書く';
+
+    /**
+     * メモ行のボタン表示を state に合わせる。
+     * 入力済みなら先頭行を抜粋し、未入力なら誘い文句を薄く出す。
+     * 改行はボタンの1行に収まらないので空白へ畳む。
+     * @returns {void}
+     */
+    function syncMemoPreview() {
+      const button = document.getElementById('btn-memo-open');
+      const preview = document.getElementById('memo-preview');
+      if (!button || !preview) {
+        return;
+      }
+      const memo = state.memo.replace(/\s+/g, ' ').trim();
+      preview.textContent = memo === '' ? MEMO_EMPTY_LABEL : memo; // textContent（XSS安全）
+      button.classList.toggle('memo-button--empty', memo === '');
+    }
+
+    /**
+     * メモのポップアップを開く（そのまま書き始められるようフォーカスする）。
+     * @returns {void}
+     */
+    function openMemoPopup() {
+      const overlay = document.getElementById('memo-overlay');
+      const input = document.getElementById('input-memo');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = false;
+      if (input) {
+        input.focus();
+      }
+    }
+
+    /**
+     * メモのポップアップを閉じる（中身は入力のたびに保存済み）。
+     * @returns {void}
+     */
+    function closeMemoPopup() {
+      const overlay = document.getElementById('memo-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * メモの開閉ボタンを結線する（冪等）。
+     * @returns {void}
+     */
+    let memoWired = false;
+    function initMemo() {
+      if (memoWired) {
+        return;
+      }
+      const openButton = document.getElementById('btn-memo-open');
+      const closeButton = document.getElementById('btn-memo-close');
+
+      if (openButton) {
+        openButton.addEventListener('click', openMemoPopup);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeMemoPopup);
+      }
+      memoWired = true;
+      syncMemoPreview(); // 復元した内容を抜粋に反映する
+    }
+
     // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
@@ -6774,6 +6981,7 @@
 
       // ページをまたいで一時的なポップアップが残らないようにする
       // （オーバーレイはページ要素の外にあるため、画面を切り替えても消えない）。
+      closeMemoPopup();
       closeVenuePopup();
       closeVenueAddPopup();
       closeVenueManagePopup();
@@ -6903,6 +7111,7 @@
         memoInput.addEventListener('input', function () {
           state.memo = memoInput.value;
           saveState();
+          syncMemoPreview(); // 行の抜粋にも反映する
         });
       }
     }
@@ -6975,6 +7184,7 @@
       if (memoInput) {
         memoInput.value = state.memo;
       }
+      syncMemoPreview();
       syncVenueAddButton();
     }
 
@@ -7004,6 +7214,7 @@
       initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
       initImportConfirm();   // 取り込み前の確認画面の結線（冪等）
       initVenuePicker();     // 会場の選択ポップアップの結線（冪等）
+      initMemo();            // MCメモのポップアップの結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
       syncEditingUi();       // 編集中だった場合は帯と保存ボタンを復元
       initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
