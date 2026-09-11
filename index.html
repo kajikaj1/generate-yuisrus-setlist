@@ -692,8 +692,110 @@
     }
 
     .page-nav__caret {
-      font-size: 16px;
+      font-size: 12px;
       line-height: 1;
+    }
+
+    .page-nav__current {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    /* ページ切替のドロップダウン。押したボタンの真下へ出す（位置はJSで決める）。
+       全画面のポップアップにすると、ページを選ぶだけの操作には重すぎるため。 */
+    .page-menu {
+      position: fixed;
+      z-index: 150; /* ポップアップ(100)より前、トースト(200)より後ろ */
+      width: 300px;
+      max-width: calc(100vw - 24px);
+      padding: 8px;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    /* ページはアイコンと名前のタイルで並べる。文字だけの一覧より、
+       どのページなのかを一目で選べるようにするため。 */
+    .page-menu__list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .page-menu__item {
+      display: flex;
+    }
+
+    .page-menu__button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 96px;
+      padding: 10px 3px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-align: center;
+      color: var(--color-text);
+      background-color: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .page-menu__button:active {
+      background-color: var(--color-bg);
+    }
+
+    .page-menu__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      color: var(--color-accent);
+      background-color: var(--color-bg);
+      border-radius: 12px;
+    }
+
+    .page-menu__glyph {
+      width: 26px;
+      height: 26px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* 今いるページ。選べないわけではないので、色と枠で示すだけにする。 */
+    .page-menu__button--current {
+      color: var(--color-accent);
+      border-color: var(--color-accent);
+      background-color: var(--color-accent-soft);
+    }
+
+    .page-menu__button--current .page-menu__icon {
+      color: var(--color-surface);
+      background-color: var(--color-accent);
+    }
+
+    /* 中身がまだ無いページの案内。 */
+    .page-empty {
+      margin: 0;
+      padding: 24px 8px;
+      text-align: center;
+      color: var(--color-muted);
     }
 
     /* フッターはこのセトリへの操作だけ。主操作（DBに追加・コピー）を大きく取り、
@@ -1448,17 +1550,15 @@
         data-role="editing-cancel">編集をやめる</button>
     </div>
 
-    <!-- ===== 画面移動（保存一覧へ）。操作ではないのでフッターと分ける ===== -->
+    <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
     <nav class="page-nav">
-      <button type="button" class="page-nav__link" id="btn-saved-list" data-role="saved-list-button">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
         <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M9 6h11M9 12h11M9 18h11"/>
-          <circle cx="4.5" cy="6" r="1.1"/>
-          <circle cx="4.5" cy="12" r="1.1"/>
-          <circle cx="4.5" cy="18" r="1.1"/>
+          <path d="M4 7h16M4 12h16M4 17h16"/>
         </svg>
-        <span>保存一覧</span>
-        <span class="page-nav__caret" aria-hidden="true">›</span>
+        <span class="page-nav__current" data-role="page-name"></span>
+        <span class="page-nav__caret" aria-hidden="true">▾</span>
       </button>
     </nav>
 
@@ -1595,9 +1695,20 @@
 
   <!-- ===== Page: 保存したセトリ（URL の #saved で表示する別ページ） ===== -->
   <div class="app page-saved" id="page-saved" data-role="page-saved" hidden>
+    <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
+    <nav class="page-nav">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
+        <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        <span class="page-nav__current" data-role="page-name"></span>
+        <span class="page-nav__caret" aria-hidden="true">▾</span>
+      </button>
+    </nav>
+
     <header class="page-header">
       <h1 class="page-header__title">保存したセトリ</h1>
-      <button type="button" class="btn btn--ghost" id="btn-saved-back" data-role="saved-back">← 戻る</button>
     </header>
 
     <div class="page-actions">
@@ -1646,6 +1757,36 @@
         <!-- 保存済み一覧は renderSavedList() が描画する -->
       </ul>
     </main>
+  </div>
+
+  <!-- ===== Page: 分析（URL の #analysis。中身は今後） ===== -->
+  <div class="app" id="page-analysis" data-role="page-analysis" hidden>
+    <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
+    <nav class="page-nav">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
+        <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        <span class="page-nav__current" data-role="page-name"></span>
+        <span class="page-nav__caret" aria-hidden="true">▾</span>
+      </button>
+    </nav>
+
+    <header class="page-header">
+      <h1 class="page-header__title">分析</h1>
+    </header>
+
+    <main class="app__main">
+      <p class="page-empty">保存したセトリを使った分析をここに作ります。</p>
+    </main>
+  </div>
+
+  <!-- ===== ページ切替のドロップダウン（切替ボタンの真下に出す） ===== -->
+  <div class="page-menu" id="page-menu" data-role="page-menu-popup" hidden>
+    <ul class="page-menu__list" id="page-menu-list" data-role="page-menu-list">
+      <!-- ページ一覧は renderPageMenu() が描画する -->
+    </ul>
   </div>
 
   <!-- ===== MC memo popup (initially hidden) ===== -->
@@ -4450,8 +4591,7 @@
     //   - 保存一覧ページの「追加」タップで貼り付け取り込みフォームを開き、他の人がこのツールで
     //     出力したテキストを parseSetlistText で読み取る。読み取った内容は確認画面で
     //     見せてから、「登録する」で保存一覧へ1件追加する。
-    //   - 「保存一覧」タップで保存一覧ページ（#saved）へ移動し、保存済みを
-    //     日付の新しい順に一覧表示する。
+    //   - 保存一覧ページ（#saved）で、保存済みを日付の新しい順に一覧表示する。
     //   - 一覧の項目タップで state へ読み込む（作業中の内容がある場合は確認する）。
     //   - 各項目の削除ボタンで1件削除する（確認あり）。
     // state 変更後は必ず applyStateToInputs → renderAll → saveState の順で反映する。
@@ -5306,7 +5446,8 @@
     }
 
     /**
-     * 「DBに追加」「保存一覧」「戻る」ボタンの結線を行う初期化（冪等）。
+     * 「DBに追加」「編集をやめる」「追加（貼り付け取り込み）」の結線（冪等）。
+     * ページの移動はページ切替メニュー（Router）が受け持つ。
      * 二重結線を避けるため一度だけ実行する（項目側の結線は renderSavedList が都度行う）。
      * @returns {void}
      */
@@ -5316,8 +5457,6 @@
         return;
       }
       const saveButton = document.getElementById('btn-save-db');
-      const listButton = document.getElementById('btn-saved-list');
-      const backButton = document.getElementById('btn-saved-back');
       const editingCancelButton = document.getElementById('btn-editing-cancel');
       const importOpenButton = document.getElementById('btn-saved-add-open');
       const importCancelButton = document.getElementById('btn-saved-add-cancel');
@@ -5346,12 +5485,6 @@
           const record = appendSavedSetlist(state);
           showToast(record ? SAVE_SUCCESS_MESSAGE : SAVE_FAILURE_MESSAGE);
         });
-      }
-      if (listButton) {
-        listButton.addEventListener('click', goToSavedPage);
-      }
-      if (backButton) {
-        backButton.addEventListener('click', goBackToMainPage);
       }
       if (editingCancelButton) {
         editingCancelButton.addEventListener('click', cancelEditing);
@@ -7007,43 +7140,80 @@
     // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
-    // セトリ作成画面（既定）と保存一覧画面を URL のハッシュで切り替える。
-    // 保存一覧は `#saved`。別ページとして扱えるので、ブラウザの戻る／進む・
-    // リロード・ブックマーク・リンク共有がそのまま効く。
+    // ページは URL のハッシュで切り替える（セトリ登録＝既定 / #saved / #analysis）。
+    // 別ページとして扱えるので、ブラウザの戻る／進む・リロード・ブックマーク・
+    // リンク共有がそのまま効く。ページを増やすときは PAGES に1行足せばよく、
+    // ページ切替のメニューと見出しはそこから作る。
     // 曲選択／曲検索／曲名確認は一時的な操作なのでポップアップのまま残す。
     // ============================================================
+
+    /**
+     * ページの定義。並び順がページ切替メニューの並びになる。
+     * hash が '' のページを既定（未知のハッシュもここへ倒す）とする。
+     * icon は 24x24 のアイコンを描くパス（線で描くので fill は使わない）。
+     * @type {ReadonlyArray<{id: string, hash: string, name: string, element: string, icon: string[]}>}
+     */
+    const PAGES = [
+      { id: 'main',     hash: '',          name: 'セトリ登録',   element: 'page-main',
+        icon: ['M4 20l0.8-3.6L15.6 5.6a2 2 0 0 1 2.8 2.8L7.6 19.2 4 20z', 'M13.5 7.5l3 3'] },
+      { id: 'saved',    hash: '#saved',    name: '保存したセトリ', element: 'page-saved',
+        icon: ['M6 4h12v16l-6-3.6L6 20z'] },
+      { id: 'analysis', hash: '#analysis', name: '分析',         element: 'page-analysis',
+        icon: ['M4 20h16', 'M7.5 20v-6', 'M12 20V6', 'M16.5 20v-9'] }
+    ];
 
     /** 保存一覧ページを表す URL ハッシュ。 */
     const SAVED_PAGE_HASH = '#saved';
 
-    /** 画面内の「保存一覧」から移動してきたか（「戻る」の挙動を分けるため）。 */
+    /** 画面内の操作で別ページへ移ったか（「戻る」で履歴を1つ戻すため）。 */
     let enteredSavedPageInApp = false;
 
     /**
-     * 現在の URL ハッシュから表示すべき画面名を返す。
-     * 未知のハッシュはメイン画面として扱う。
-     * @returns {'main'|'saved'} 画面名
+     * 現在の URL ハッシュから表示すべきページを返す。
+     * 未知のハッシュは既定ページ（セトリ登録）として扱う。
+     * @returns {{id: string, hash: string, name: string, element: string}} ページ定義
      */
-    function currentPageName() {
-      return window.location.hash === SAVED_PAGE_HASH ? 'saved' : 'main';
+    function currentPage() {
+      const hash = window.location.hash;
+      let found = null;
+      PAGES.forEach(function (page) {
+        if (page.hash !== '' && page.hash === hash) {
+          found = page;
+        }
+      });
+      return found || PAGES[0];
     }
 
     /**
-     * 指定した画面を表示する（もう一方は隠す）。
+     * 現在のページ名（id）を返す。
+     * @returns {string} ページの id
+     */
+    function currentPageName() {
+      return currentPage().id;
+    }
+
+    /**
+     * 指定したページを表示する（他は隠す）。
      * 保存一覧を表示するときは最新の保存データを描画し、離れるときは
      * 取り込みフォームやバックアップパネル、絞り込みを初期化する。
-     * @param {'main'|'saved'} name 表示する画面名
+     * @param {string} name 表示するページの id
      * @returns {void}
      */
     function renderPage(name) {
-      const mainPage = document.getElementById('page-main');
-      const savedPage = document.getElementById('page-saved');
-      if (!mainPage || !savedPage) {
+      const target = PAGES.filter(function (page) { return page.id === name; })[0] || PAGES[0];
+      const elements = PAGES.map(function (page) { return document.getElementById(page.element); });
+      if (elements.some(function (element) { return !element; })) {
         return;
       }
-      const showSaved = name === 'saved';
-      mainPage.hidden = showSaved;
-      savedPage.hidden = !showSaved;
+      PAGES.forEach(function (page, index) {
+        elements[index].hidden = page.id !== target.id;
+      });
+      const showSaved = target.id === 'saved';
+
+      // ページ切替ボタンに今いるページ名を出す（各ページに1つずつある）。
+      document.querySelectorAll('[data-role="page-name"]').forEach(function (label) {
+        label.textContent = target.name;
+      });
 
       // ページをまたいで一時的なポップアップが残らないようにする
       // （オーバーレイはページ要素の外にあるため、画面を切り替えても消えない）。
@@ -7052,6 +7222,7 @@
       closeVenueAddPopup();
       closeVenueManagePopup();
       closeAddSongPopup();
+      closePageMenu();
 
       if (showSaved) {
         renderSavedList(); // 表示直前に最新の保存データを反映
@@ -7091,6 +7262,173 @@
     }
 
     /**
+     * ページのアイコン（角丸の枠に入った線画）を組み立てる。
+     * SVG は createElementNS で作る（innerHTML だと名前空間が付かず描画されない）。
+     * @param {string[]} paths 24x24 座標系のパス
+     * @returns {HTMLElement} アイコンの入れ物
+     */
+    function buildPageIcon(paths) {
+      const box = document.createElement('span');
+      box.className = 'page-menu__icon';
+
+      const ns = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'page-menu__glyph');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('aria-hidden', 'true'); // 名前は下のラベルが担う
+      svg.setAttribute('focusable', 'false');
+      (paths || []).forEach(function (d) {
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+      });
+
+      box.appendChild(svg);
+      return box;
+    }
+
+    /**
+     * ページ切替メニューの一覧を描画する。今いるページには印を付ける。
+     * @returns {void}
+     */
+    function renderPageMenu() {
+      const list = document.getElementById('page-menu-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const current = currentPage();
+      const fragment = document.createDocumentFragment();
+      PAGES.forEach(function (page) {
+        const item = document.createElement('li');
+        item.className = 'page-menu__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = page.id === current.id
+          ? 'page-menu__button page-menu__button--current'
+          : 'page-menu__button';
+        button.dataset.role = 'page-menu-item';
+        button.dataset.page = page.id;
+        button.appendChild(buildPageIcon(page.icon));
+
+        const label = document.createElement('span');
+        label.className = 'page-menu__label';
+        label.textContent = page.name; // textContent で挿入（XSS安全）
+        button.appendChild(label);
+        if (page.id === current.id) {
+          button.setAttribute('aria-current', 'true');
+        }
+        button.addEventListener('click', function () {
+          goToPage(page.id);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /** メニューを閉じるための後始末（開いている間だけ登録する）。 */
+    let pageMenuDismiss = null;
+
+    /**
+     * ページ切替メニューを、押したボタンの真下へ出す。
+     * 位置は viewport 基準（position: fixed）で決めるので、スクロールや
+     * 画面の回転で位置がずれる。その場合は閉じる。
+     * @param {HTMLElement} trigger 押された切替ボタン
+     * @returns {void}
+     */
+    function openPageMenu(trigger) {
+      const menu = document.getElementById('page-menu');
+      if (!menu || !trigger) {
+        return;
+      }
+      renderPageMenu();
+
+      const rect = trigger.getBoundingClientRect();
+      menu.style.top = Math.round(rect.bottom + 4) + 'px';
+      menu.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+      menu.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+
+      // メニューの外を触ったら閉じる（押したボタン自体は開閉のトグルに任せる）。
+      const onPointerDown = function (event) {
+        if (menu.contains(event.target) || trigger.contains(event.target)) {
+          return;
+        }
+        closePageMenu();
+      };
+      const onKeyDown = function (event) {
+        if (event.key === 'Escape') {
+          closePageMenu();
+        }
+      };
+      const onViewportChange = function () {
+        closePageMenu(); // 位置が合わなくなるので閉じる
+      };
+
+      document.addEventListener('pointerdown', onPointerDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      window.addEventListener('scroll', onViewportChange, true);
+      window.addEventListener('resize', onViewportChange);
+
+      pageMenuDismiss = function () {
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        window.removeEventListener('scroll', onViewportChange, true);
+        window.removeEventListener('resize', onViewportChange);
+        trigger.setAttribute('aria-expanded', 'false');
+      };
+    }
+
+    /**
+     * ページ切替メニューを閉じる（開いている間だけ付けた後始末も外す）。
+     * @returns {void}
+     */
+    function closePageMenu() {
+      const menu = document.getElementById('page-menu');
+      if (pageMenuDismiss) {
+        pageMenuDismiss();
+        pageMenuDismiss = null;
+      }
+      if (menu) {
+        menu.hidden = true;
+      }
+    }
+
+    /**
+     * ページ切替メニューが開いているかを返す。
+     * @returns {boolean} 開いていれば true
+     */
+    function isPageMenuOpen() {
+      const menu = document.getElementById('page-menu');
+      return Boolean(menu) && !menu.hidden;
+    }
+
+    /**
+     * 指定したページへ移動する（履歴に積むのでブラウザの戻るで帰れる）。
+     * hashchange は次のタスクで発火するため、待たずにその場でも描画する。
+     * @param {string} id ページの id
+     * @returns {void}
+     */
+    function goToPage(id) {
+      const target = PAGES.filter(function (page) { return page.id === id; })[0] || PAGES[0];
+      closePageMenu();
+      if (target.id === currentPageName()) {
+        return; // 同じページなら何もしない（履歴を無駄に増やさない）
+      }
+      enteredSavedPageInApp = target.id !== 'main';
+      if (target.hash === '') {
+        window.location.hash = '';
+      } else {
+        window.location.hash = target.hash;
+      }
+      renderPage(target.id);
+    }
+
+    /**
      * ハッシュ変更の結線と初期表示を行う（冪等）。
      * ブラウザの戻る／進むでも同じ経路（hashchange）で画面が切り替わる。
      * @returns {void}
@@ -7102,6 +7440,16 @@
       }
       window.addEventListener('hashchange', function () {
         renderPage(currentPageName());
+      });
+      document.querySelectorAll('[data-role="page-menu"]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          // 同じボタンをもう一度押したら閉じる（トグル）。
+          if (isPageMenuOpen()) {
+            closePageMenu();
+            return;
+          }
+          openPageMenu(button);
+        });
       });
       routerWired = true;
       renderPage(currentPageName()); // リロード・直リンクでも現在のハッシュに従う
