@@ -2394,21 +2394,73 @@
         return { ok: false, updated: 0, removed: false };
       }
 
+      const result = renameSavedVenue(fromName, toName);
+      if (!result.ok) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const removed = removeUserVenue(fromName);
+      return { ok: true, updated: result.updated, removed: removed };
+    }
+
+    /**
+     * 保存データの会場名を付け替える（統合・リネームで共用）。
+     * 表記の差は同じ会場として扱い、書き込む表記は toName に揃える。
+     * @param {string} fromName 付け替える前の会場名
+     * @param {string} toName 付け替え後の会場名
+     * @returns {{ok: boolean, updated: number}} 書き込み成否と件数
+     */
+    function renameSavedVenue(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      if (fromKey === '' || typeof toName !== 'string' || toName === '') {
+        return { ok: false, updated: 0 };
+      }
+
       const records = loadSavedSetlists();
       let updated = 0;
       const next = records.map(function (record) {
-        if (masterNameKey(record.venue) !== fromKey) {
+        if (masterNameKey(record.venue) !== fromKey || record.venue === toName) {
           return record;
         }
         updated += 1;
         return Object.assign({}, record, { venue: toName });
       });
       if (updated > 0 && !writeSavedSetlists(next)) {
-        return { ok: false, updated: 0, removed: false };
+        return { ok: false, updated: 0 };
+      }
+      return { ok: true, updated: updated };
+    }
+
+    /**
+     * 追加分の会場の内容（名前・読み仮名・エリア）を書き換える。
+     * 名前が変わった場合は保存データの会場名も付け替える。
+     * 組み込みの会場はファイル管理なので書き換えない。
+     * @param {string} oldName 変更前の会場名
+     * @param {Venue} next 変更後の内容
+     * @returns {{ok: boolean, updated: number}} 書き込み成否と付け替えた件数
+     */
+    function renameUserVenue(oldName, next) {
+      const key = masterNameKey(oldName);
+      const entry = normalizeVenueEntry(next);
+      if (key === '' || !entry || isBuiltInVenue(oldName)) {
+        return { ok: false, updated: 0 };
       }
 
-      const removed = removeUserVenue(fromName);
-      return { ok: true, updated: updated, removed: removed };
+      const list = loadUserVenues();
+      let found = false;
+      const updatedList = list.map(function (venue) {
+        if (masterNameKey(venue.name) !== key) {
+          return venue;
+        }
+        found = true;
+        return entry;
+      });
+      if (!found || !writeStoredList(USER_VENUE_STORAGE_KEY, updatedList)) {
+        return { ok: false, updated: 0 };
+      }
+
+      const renamed = renameSavedVenue(oldName, entry.name);
+      return { ok: true, updated: renamed.updated };
     }
 
     /**
@@ -6185,7 +6237,7 @@
 
     /**
      * 会場の管理の1行を組み立てる。
-     * 組み込みの会場は消せないので、削除ボタンの代わりにその旨を出す。
+     * 組み込みの会場はファイル管理なので編集・削除は出さない（まとめ先には選べる）。
      * @param {Venue} venue 対象の会場
      * @returns {HTMLLIElement} 一覧へ差し込む行
      */
@@ -6227,6 +6279,17 @@
       actions.appendChild(mergeButton);
 
       if (!builtIn) {
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'venue-row__button';
+        editButton.dataset.role = 'venue-edit';
+        editButton.textContent = '編集';
+        editButton.setAttribute('aria-label', venue.name + ' の名前やエリアを変える');
+        editButton.addEventListener('click', function () {
+          openVenueEditPopup(venue);
+        });
+        actions.appendChild(editButton);
+
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.className = 'venue-row__button venue-row__button--danger';
@@ -6405,6 +6468,9 @@
     /** 会場登録フォームで選んでいるエリア名（未選択は ''）。 */
     let venueAddArea = '';
 
+    /** 編集中の会場名（''なら新規登録。フォームを使い回すため持つ）。 */
+    let venueEditTarget = '';
+
     /**
      * 「登録」ボタンの出し入れを入力欄の内容に合わせる。
      * 何か入力されていて、まだマスタに無い会場のときだけ出す。
@@ -6454,23 +6520,54 @@
      * @returns {void}
      */
     function openVenueAddPopup() {
+      openVenueForm({ name: state.venue.trim(), reading: '', area: '' }, '');
+    }
+
+    /**
+     * 追加した会場の内容を編集する（フォームは登録と同じものを使い回す）。
+     * @param {Venue} venue 編集する会場
+     * @returns {void}
+     */
+    function openVenueEditPopup(venue) {
+      openVenueForm(venue, venue.name);
+    }
+
+    /**
+     * 会場フォームを初期値付きで開く。
+     * editTarget が空なら新規登録、入っていればその会場の編集として振る舞う
+     * （見出しとボタンの文言だけを切り替える）。
+     * @param {Venue} venue フォームの初期値
+     * @param {string} editTarget 編集対象の会場名（新規登録なら ''）
+     * @returns {void}
+     */
+    function openVenueForm(venue, editTarget) {
       const overlay = document.getElementById('venue-add-overlay');
+      const title = document.getElementById('venue-add-title');
+      const submitButton = document.getElementById('btn-venue-add-submit');
       const nameInput = document.getElementById('venue-add-name');
       const readingInput = document.getElementById('venue-add-reading');
       const newAreaInput = document.getElementById('venue-add-new-area');
       if (!overlay) {
         return;
       }
+
+      venueEditTarget = editTarget;
+      if (title) {
+        title.textContent = editTarget === '' ? '会場を登録' : '会場を編集';
+      }
+      if (submitButton) {
+        submitButton.textContent = editTarget === '' ? '登録する' : '保存する';
+      }
       if (nameInput) {
-        nameInput.value = state.venue.trim();
+        nameInput.value = typeof venue.name === 'string' ? venue.name : '';
       }
       if (readingInput) {
-        readingInput.value = '';
+        readingInput.value = typeof venue.reading === 'string' ? venue.reading : '';
       }
       if (newAreaInput) {
         newAreaInput.value = '';
       }
-      venueAddArea = '';
+      venueAddArea = typeof venue.area === 'string' ? venue.area : '';
       renderVenueAreaChoices();
       overlay.hidden = false;
     }
@@ -6481,6 +6578,7 @@
      */
     function closeVenueAddPopup() {
       const overlay = document.getElementById('venue-add-overlay');
+      venueEditTarget = '';
       if (!overlay) {
         return;
       }
@@ -6488,9 +6586,10 @@
     }
 
     /**
-     * 入力された内容で会場をマスタへ追加する。
+     * 入力された内容で会場を登録する（編集中はその会場を書き換える）。
      * 新しいエリアが書かれていればエリアも追加し、その会場のエリアにする。
-     * 追加した会場は入力欄へも反映する（そのまま使えるように）。
+     * 登録した会場は入力欄へも反映する（そのまま使えるように）。
+     * 編集で名前を変えた場合は保存データの会場名も付け替える。
      * @returns {void}
      */
     function submitVenueAdd() {
@@ -6503,8 +6602,14 @@
         showToast('会場名を入力してください');
         return;
       }
-      if (findVenueByName(name)) {
-        showToast('すでに登録されています');
+
+      // 編集中は自分自身との衝突を除いて判定する（名前を変えないこともあるため）。
+      const duplicate = findVenueByName(name);
+      if (duplicate &&
+        (venueEditTarget === '' || masterNameKey(duplicate.name) !== masterNameKey(venueEditTarget))) {
+        showToast(venueEditTarget === ''
+          ? 'すでに登録されています'
+          : '同じ会場があります。まとめる場合は「まとめる」から');
         return;
       }
 
@@ -6519,6 +6624,29 @@
       }
 
       const reading = readingInput ? readingInput.value.trim() : '';
+      const editing = venueEditTarget;
+
+      if (editing !== '') {
+        const result = renameUserVenue(editing, { name: name, reading: reading, area: area });
+        if (!result.ok) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        closeVenueAddPopup();
+        // 作業中の会場名も揃える（同じ会場を指しているため）。
+        if (masterNameKey(state.venue) === masterNameKey(editing)) {
+          applyVenue(name);
+        }
+        renderVenueManageList();
+        renderVenueList();
+        renderSavedList();    // 保存一覧を開いていれば会場名の表示も更新する
+        syncVenueAddButton();
+        showToast(result.updated > 0
+          ? '会場を変更しました（保存' + result.updated + '件を付け替え）'
+          : '会場を変更しました');
+        return;
+      }
+
       if (!addUserVenue({ name: name, reading: reading, area: area })) {
         showToast(SAVE_FAILURE_MESSAGE);
         return;
@@ -6526,6 +6654,7 @@
 
       closeVenueAddPopup();
       applyVenue(name);       // 入力欄・作業中データへ反映し、選択ポップアップも閉じる
+      renderVenueManageList();
       syncVenueAddButton();   // 登録済みになったのでボタンを引っ込める
       showToast('会場を登録しました');
     }
