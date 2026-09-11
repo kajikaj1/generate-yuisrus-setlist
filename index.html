@@ -5605,20 +5605,8 @@
      * @returns {void}
      */
     function editSavedSetlist(record) {
-      // 曲だけでなく、ライブ名・会場・対バン・MCメモ・属性も置き換わる。曲が空でも
-      // 長文のメモを書いている最中があり得るので、何か入力があれば確認する。
-      const hasDraft = state.setlist.length > 0 ||
-        state.liveName !== '' ||
-        state.venue !== '' ||
-        state.bands.length > 0 ||
-        state.memo !== '' ||
-        state.tags.length > 0;
-      if (
-        hasDraft &&
-        !window.confirm('編集を始めると、作業中の内容は選んだ保存データで置き換わります。よろしいですか？')
-      ) {
-        return;
-      }
+      // 曲だけでなく、ライブ名・会場・対バン・MCメモ・属性も選んだ保存データで
+      // 置き換わる。押すたびに確認を挟むと編集の邪魔になるため、確認は出さない。
       state.date = record.date;
       state.liveName = record.liveName;
       state.venue = record.venue;
