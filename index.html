@@ -1177,6 +1177,12 @@
       z-index: 100;
     }
 
+    /* 会場まわりのポップアップは、別のポップアップ（取り込みの確認）の上から
+       開くことがあるので、1段上に重ねる。 */
+    .popup-overlay--stacked {
+      z-index: 110; /* ポップアップ(100)より前、ページ切替メニュー(150)より後ろ */
+    }
+
     .popup {
       display: flex;
       flex-direction: column;
@@ -1524,36 +1530,23 @@
       color: var(--color-muted);
     }
 
-    /* 取り込み確認のライブ情報（日付・ライブ名・会場） */
+    /* 取り込み確認のライブ情報（日付・ライブ名・会場）。読み取り違いをその場で
+       直せるよう、作成画面と同じ入力欄で出す。 */
     .confirm-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       margin: 0 0 var(--gap);
-      padding: var(--gap);
+      padding: 8px var(--gap);
       background-color: var(--color-bg);
       border-radius: var(--radius);
     }
 
-    .confirm-row {
-      display: flex;
-      gap: 8px;
-      padding: 2px 0;
-    }
-
-    .confirm-row__label {
-      flex: 0 0 5.5em;
-      color: var(--color-muted);
-      font-size: 14px;
-    }
-
-    .confirm-row__value {
-      flex: 1 1 auto;
-      min-width: 0;
-      margin: 0;
-      word-break: break-word;
-    }
-
-    /* 未入力の項目は薄く出して、入力済みと見分けられるようにする */
-    .confirm-row__value--empty {
-      color: var(--color-muted);
+    /* 背景が付く枠の中なので、下線は入力欄の色に合わせて見えるようにする。 */
+    .confirm-info .field__input {
+      background-color: var(--color-surface);
+      padding-left: 8px;
+      padding-right: 8px;
     }
 
     /* 確認画面の曲行（番号・曲名・注記） */
@@ -2083,7 +2076,7 @@
   </div>
 
   <!-- ===== Venue picker popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="venue-overlay" data-role="venue-overlay" hidden>
+  <div class="popup-overlay popup-overlay--stacked" id="venue-overlay" data-role="venue-overlay" hidden>
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-title">会場を選択</h2>
@@ -2102,7 +2095,7 @@
   </div>
 
   <!-- ===== Venue manage popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="venue-manage-overlay" data-role="venue-manage-overlay" hidden>
+  <div class="popup-overlay popup-overlay--stacked" id="venue-manage-overlay" data-role="venue-manage-overlay" hidden>
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-manage-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-manage-title">会場の管理</h2>
@@ -2127,7 +2120,7 @@
   </div>
 
   <!-- ===== Venue merge target popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="venue-merge-overlay" data-role="venue-merge-overlay" hidden>
+  <div class="popup-overlay popup-overlay--stacked" id="venue-merge-overlay" data-role="venue-merge-overlay" hidden>
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-merge-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-merge-title">まとめ先を選択</h2>
@@ -2147,7 +2140,7 @@
   </div>
 
   <!-- ===== Venue register popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="venue-add-overlay" data-role="venue-add-overlay" hidden>
+  <div class="popup-overlay popup-overlay--stacked" id="venue-add-overlay" data-role="venue-add-overlay" hidden>
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-add-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-add-title">会場を登録</h2>
@@ -2371,9 +2364,43 @@
         </div>
       </div>
       <div class="popup__body">
-        <dl class="confirm-info" id="confirm-info" data-role="confirm-info">
-          <!-- 日付・ライブ名・会場は renderImportConfirm() が描画する -->
-        </dl>
+        <div class="confirm-info">
+          <!-- 読み取った内容はそのまま直せるようにする（値は renderImportConfirm()）。 -->
+          <div class="field">
+            <label class="field__label" for="confirm-date">日付</label>
+            <input class="field__input" type="date" id="confirm-date" data-role="confirm-date">
+          </div>
+          <div class="field">
+            <label class="field__label" for="confirm-live-name">ライブ名</label>
+            <input class="field__input" type="text" id="confirm-live-name"
+              data-role="confirm-live-name" placeholder="ライブ名を入力" autocomplete="off">
+          </div>
+          <div class="field field--venue">
+            <label class="field__label" for="confirm-venue">会場</label>
+            <div class="field__control">
+              <input class="field__input" type="text" id="confirm-venue"
+                data-role="confirm-venue" placeholder="会場名を入力" autocomplete="off">
+              <span class="input-icons">
+                <button type="button" class="input-icon" id="btn-confirm-venue-add"
+                  data-role="confirm-venue-add" aria-label="この会場を登録する"
+                  title="この会場を登録する" hidden>
+                  <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </button>
+                <button type="button" class="input-icon" id="btn-confirm-venue-pick"
+                  data-role="confirm-venue-pick" aria-label="会場を選ぶ" title="会場を選ぶ">
+                  <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M9 6h11M9 12h11M9 18h11"/>
+                    <circle cx="4.5" cy="6" r="1.1"/>
+                    <circle cx="4.5" cy="12" r="1.1"/>
+                    <circle cx="4.5" cy="18" r="1.1"/>
+                  </svg>
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
 
         <p class="resolve-section-title confirm-section-title">MCメモ</p>
         <textarea class="memo-input confirm-memo" id="confirm-memo" data-role="confirm-memo"
@@ -7892,8 +7919,11 @@
     // 貼り付けたテキストをどう解釈したか（日付・ライブ名・会場・曲順と区分）を
     // 登録前に見せる。読み取り違いに気づけるようにするのが目的なので、
     // 「登録する」を押すまで保存一覧には何も追加しない。
-    // あわせて、貼り付けた文面からは分からない MCメモ・属性・対バン相手を
-    // ここで足せるようにする（作成画面と同じ内容を、登録前に1画面で揃える）。
+    // 日付・ライブ名・会場はその場で直せる（貼り付け元に無い情報も足せるよう、
+    // 入力欄の内容を pendingConfirm へ書き戻してから登録する）。曲順の直しは
+    // 貼り付け文面を直すか、登録後に「編集」で行う。
+    // あわせて、貼り付けた文面からは分からない MCメモ・属性・対バン相手も
+    // ここで足せる（作成画面と同じ内容を、登録前に1画面で揃える）。
     // これらは pendingConfirm の上だけで編集し、作業中の state には触れない。
     // 「戻る」は貼り付けフォームへ戻すだけで、入力した文面はそのまま残す。
     // ============================================================
@@ -7902,32 +7932,6 @@
     let pendingConfirm = null;
 
     /**
-     * 確認画面のライブ情報1行を組み立てる。
-     * 未入力の項目は「未設定」と薄く出して、空欄と見分けられるようにする。
-     * 値は textContent で挿入する（XSS安全）。
-     * @param {string} label 項目名
-     * @param {string} value 値（空文字なら未設定表示）
-     * @returns {HTMLDivElement} 1行分の要素
-     */
-    function buildConfirmRow(label, value) {
-      const row = document.createElement('div');
-      row.className = 'confirm-row';
-
-      const term = document.createElement('dt');
-      term.className = 'confirm-row__label';
-      term.textContent = label;
-
-      const detail = document.createElement('dd');
-      detail.className = value === ''
-        ? 'confirm-row__value confirm-row__value--empty'
-        : 'confirm-row__value';
-      detail.textContent = value === '' ? '未設定' : value;
-
-      row.appendChild(term);
-      row.appendChild(detail);
-      return row;
-    }
-
     /**
      * 確認画面のMCメモ欄へ現在の値を入れる。
      * 入力中の再描画で打ち込みが飛ばないよう、値が変わるときだけ書き戻す。
@@ -8060,25 +8064,35 @@
     }
 
     /**
-     * 確認画面（ライブ情報と曲順）を描画する。
-     * 曲順は区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
+     * 確認画面を描画する。ライブ情報・MCメモ・属性・対バン相手は入力欄へ
+     * 現在の内容を入れ（そのまま直せる）、曲順は読み取ったとおりに並べる。
+     * 曲順には区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
      * 注記を添える（「このまま追加」した曲をここで見直せるようにする）。
      * @returns {void}
      */
     function renderImportConfirm() {
-      const info = document.getElementById('confirm-info');
+      const dateInput = document.getElementById('confirm-date');
+      const liveNameInput = document.getElementById('confirm-live-name');
+      const venueInput = document.getElementById('confirm-venue');
       const count = document.getElementById('confirm-count');
       const songs = document.getElementById('confirm-songs');
-      if (!pendingConfirm || !info || !count || !songs) {
+      if (!pendingConfirm || !count || !songs) {
         return;
       }
 
-      info.textContent = '';  // 全再描画
-      songs.textContent = '';
+      songs.textContent = ''; // 全再描画
 
-      info.appendChild(buildConfirmRow('日付', formatDate(pendingConfirm.date)));
-      info.appendChild(buildConfirmRow('ライブ名', pendingConfirm.liveName));
-      info.appendChild(buildConfirmRow('会場', pendingConfirm.venue));
+      // 読み取れなかった項目は空欄のままにして、ここで足せるようにする。
+      if (dateInput) {
+        dateInput.value = pendingConfirm.date;
+      }
+      if (liveNameInput) {
+        liveNameInput.value = pendingConfirm.liveName;
+      }
+      if (venueInput) {
+        venueInput.value = pendingConfirm.venue;
+      }
+      syncConfirmVenueAddButton();
 
       renderConfirmMemo();
       renderConfirmTags();
@@ -8161,6 +8175,7 @@
       const overlay = document.getElementById('confirm-overlay');
       const bandInput = document.getElementById('confirm-band-input');
       pendingConfirm = null;
+      venuePickerTarget = 'main'; // 会場の反映先を作成画面へ戻す
       if (overlay) {
         overlay.hidden = true;
       }
@@ -8197,7 +8212,7 @@
     }
 
     /**
-     * 確認画面のボタン（戻る／登録する）を結線する（冪等）。
+     * 確認画面のライブ情報の入力欄と、ボタン（戻る／登録する）を結線する（冪等）。
      * @returns {void}
      */
     let importConfirmWired = false;
@@ -8207,6 +8222,33 @@
       }
       const backButton = document.getElementById('btn-confirm-back');
       const submitButton = document.getElementById('btn-confirm-submit');
+      const dateInput = document.getElementById('confirm-date');
+      const liveNameInput = document.getElementById('confirm-live-name');
+      const venueInput = document.getElementById('confirm-venue');
+
+      // 直した内容は確認中の1件へ即座に書き戻す（登録はこの内容で行う）。
+      if (dateInput) {
+        dateInput.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.date = dateInput.value;
+          }
+        });
+      }
+      if (liveNameInput) {
+        liveNameInput.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.liveName = liveNameInput.value;
+          }
+        });
+      }
+      if (venueInput) {
+        venueInput.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.venue = venueInput.value;
+          }
+          syncConfirmVenueAddButton(); // マスタに無い会場なら「登録」を出す
+        });
+      }
       const memo = document.getElementById('confirm-memo');
       const bandInput = document.getElementById('confirm-band-input');
       const bandAdd = document.getElementById('btn-confirm-band-add');
@@ -8332,20 +8374,79 @@
     }
 
     /**
-     * 選んだ会場を入力欄と state へ反映する。
-     * 入力欄は renderAll を呼ばないため、ここで保存まで行う。
+     * 会場を選んだときの反映先。'main' は作成画面、'confirm' は取り込みの確認。
+     * 一覧・登録フォームは共用なので、開いたボタンでどちらへ返すかを決める。
+     * @type {'main'|'confirm'}
+     */
+    let venuePickerTarget = 'main';
+
+    /**
+     * 反映先の会場欄に今入っている名前を返す。
+     * 一覧の印（今の会場）と、登録フォームの初期値に使う。
+     * @returns {string} 会場名（未入力は ''）
+     */
+    function currentVenueTargetName() {
+      if (venuePickerTarget === 'confirm') {
+        const input = document.getElementById('confirm-venue');
+        return input ? input.value.trim() : '';
+      }
+      return state.venue.trim();
+    }
+
+    /**
+     * 会場名を指定した先へ反映する。
+     * 作成画面は state と入力欄（renderAll を呼ばないためここで保存まで行う）、
+     * 取り込みの確認は確認中の1件と入力欄へ入れる。
+     * @param {'main'|'confirm'} target 反映先
+     * @param {string} name 会場名
+     * @returns {void}
+     */
+    function applyVenueTo(target, name) {
+      if (target === 'confirm') {
+        const input = document.getElementById('confirm-venue');
+        if (pendingConfirm) {
+          pendingConfirm.venue = name;
+        }
+        if (input) {
+          input.value = name;
+        }
+      } else {
+        const venueInput = document.getElementById('input-venue');
+        state.venue = name;
+        if (venueInput) {
+          venueInput.value = name;
+        }
+        saveState();
+      }
+      syncVenueAddButtons();
+    }
+
+    /**
+     * 一覧・登録フォームで選んだ会場を、開いた側の欄へ反映する。
      * @param {string} name 会場名
      * @returns {void}
      */
     function applyVenue(name) {
-      const venueInput = document.getElementById('input-venue');
-      state.venue = name;
-      if (venueInput) {
-        venueInput.value = name;
-      }
-      saveState();
-      syncVenueAddButton();
+      applyVenueTo(venuePickerTarget, name);
       closeVenuePopup();
+    }
+
+    /**
+     * 会場名の付け替え（まとめる・名前の変更）に、開いている会場欄を追従させる。
+     * 同じ会場を指している欄だけを新しい表記へ揃える。
+     * @param {string} fromName 付け替える前の会場名
+     * @param {string} toName 付け替え後の会場名
+     * @returns {void}
+     */
+    function syncVenueRename(fromName, toName) {
+      const key = masterNameKey(fromName);
+      if (masterNameKey(state.venue) === key) {
+        applyVenueTo('main', toName);
+      }
+      const confirmInput = document.getElementById('confirm-venue');
+      if (confirmInput && masterNameKey(confirmInput.value) === key) {
+        applyVenueTo('confirm', toName);
+      }
     }
 
     /**
@@ -8389,7 +8490,7 @@
           button.className = 'popup__item-button';
           button.dataset.role = 'venue-option';
           button.textContent = name; // textContent で挿入（XSS安全）
-          if (name === state.venue) {
+          if (name === currentVenueTargetName()) {
             // 今入っている会場が分かるように印を付ける。
             button.classList.add('popup__item-button--selected');
             button.setAttribute('aria-current', 'true');
@@ -8641,10 +8742,7 @@
         return;
       }
 
-      // 作業中の会場名も揃える（同じ会場を指しているため）。
-      if (masterNameKey(state.venue) === masterNameKey(sourceName)) {
-        applyVenue(targetName);
-      }
+      syncVenueRename(sourceName, targetName); // 同じ会場を指している欄を揃える
 
       closeVenueMergePopup();
       renderVenueManageList();
@@ -8711,6 +8809,29 @@
     }
 
     /**
+     * 取り込みの確認の「登録」ボタンの出し入れを、その欄の内容に合わせる。
+     * @returns {void}
+     */
+    function syncConfirmVenueAddButton() {
+      const addButton = document.getElementById('btn-confirm-venue-add');
+      const input = document.getElementById('confirm-venue');
+      if (!addButton) {
+        return;
+      }
+      const name = input ? input.value.trim() : '';
+      addButton.hidden = name === '' || findVenueByName(name) !== null;
+    }
+
+    /**
+     * 会場の「登録」ボタン（作成画面・取り込みの確認）をまとめて合わせる。
+     * @returns {void}
+     */
+    function syncVenueAddButtons() {
+      syncVenueAddButton();
+      syncConfirmVenueAddButton();
+    }
+
+    /**
      * 登録フォームのエリア選択肢を描画する（組み込み＋追加分）。
      * 1つだけ選べるトグルで、もう一度押すと未選択へ戻る。
      * @returns {void}
@@ -8745,7 +8866,7 @@
      * @returns {void}
      */
     function openVenueAddPopup() {
-      openVenueForm({ name: state.venue.trim(), reading: '', area: '' }, '');
+      openVenueForm({ name: currentVenueTargetName(), reading: '', area: '' }, '');
     }
 
     /**
@@ -8867,10 +8988,7 @@
           return;
         }
         closeVenueAddPopup();
-        // 作業中の会場名も揃える（同じ会場を指しているため）。
-        if (masterNameKey(state.venue) === masterNameKey(editing)) {
-          applyVenue(name);
-        }
+        syncVenueRename(editing, name); // 同じ会場を指している欄を揃える
         renderVenueManageList();
         renderVenueList();
         renderSavedList();    // 保存一覧を開いていれば会場名の表示も更新する
@@ -8890,10 +9008,10 @@
       if (venueFormFromManage) {
         renderVenueList();    // 選択ポップアップを開いていれば一覧も最新化する
       } else {
-        applyVenue(name);     // 入力欄・作業中データへ反映し、選択ポップアップも閉じる
+        applyVenue(name);     // 開いた側の欄へ反映し、選択ポップアップも閉じる
       }
       renderVenueManageList();
-      syncVenueAddButton();   // 登録済みになったのでボタンを引っ込める
+      syncVenueAddButtons();  // 登録済みになったのでボタンを引っ込める
       showToast('会場を登録しました');
     }
 
@@ -8923,7 +9041,8 @@
     }
 
     /**
-     * 「選ぶ」「閉じる」ボタンの結線を行う初期化（冪等）。
+     * 「選ぶ」「登録」「閉じる」ボタンの結線を行う初期化（冪等）。
+     * 作成画面と取り込みの確認、どちらの欄から開いたかをここで覚える。
      * 項目タップの結線は renderVenueList 側で都度行う。
      * @returns {void}
      */
@@ -8935,6 +9054,8 @@
       const pickButton = document.getElementById('btn-venue-pick');
       const closeButton = document.getElementById('btn-venue-close');
       const addButton = document.getElementById('btn-venue-add');
+      const confirmPickButton = document.getElementById('btn-confirm-venue-pick');
+      const confirmAddButton = document.getElementById('btn-confirm-venue-add');
       const addCancelButton = document.getElementById('btn-venue-add-cancel');
       const addSubmitButton = document.getElementById('btn-venue-add-submit');
       const manageButton = document.getElementById('btn-venue-manage');
@@ -8943,13 +9064,31 @@
       const mergeCancelButton = document.getElementById('btn-venue-merge-cancel');
 
       if (pickButton) {
-        pickButton.addEventListener('click', openVenuePopup);
+        pickButton.addEventListener('click', function () {
+          venuePickerTarget = 'main';
+          openVenuePopup();
+        });
       }
       if (closeButton) {
         closeButton.addEventListener('click', closeVenuePopup);
       }
       if (addButton) {
-        addButton.addEventListener('click', openVenueAddPopup);
+        addButton.addEventListener('click', function () {
+          venuePickerTarget = 'main';
+          openVenueAddPopup();
+        });
+      }
+      if (confirmPickButton) {
+        confirmPickButton.addEventListener('click', function () {
+          venuePickerTarget = 'confirm';
+          openVenuePopup();
+        });
+      }
+      if (confirmAddButton) {
+        confirmAddButton.addEventListener('click', function () {
+          venuePickerTarget = 'confirm';
+          openVenueAddPopup();
+        });
       }
       if (addCancelButton) {
         addCancelButton.addEventListener('click', closeVenueAddPopup);
@@ -8969,7 +9108,7 @@
       if (mergeCancelButton) {
         mergeCancelButton.addEventListener('click', closeVenueMergePopup);
       }
-      syncVenueAddButton(); // 復元した内容に合わせて初期状態を決める
+      syncVenueAddButtons(); // 復元した内容に合わせて初期状態を決める
       venuePickerWired = true;
     }
 
