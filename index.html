@@ -319,6 +319,62 @@
       color: var(--color-muted);
     }
 
+    /* 入力に合うマスタの候補。相手が増えても探さずに済むよう、打った文字で
+       絞った候補を入力欄のすぐ下へ並べる（先頭一致が上、途中一致がその下）。 */
+    .band-suggest {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      /* 候補が多くても、追加済みのチップを画面の外へ押し出さない高さに留める。 */
+      max-height: 40vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .band-suggest__button {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: var(--tap-min);
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 16px;
+      text-align: left;
+      color: var(--color-text);
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .band-suggest__item:last-child .band-suggest__button {
+      border-bottom: none;
+    }
+
+    .band-suggest__button:active {
+      background-color: var(--color-bg);
+    }
+
+    .band-suggest__button:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    /* 候補が入りきらないときの案内（続けて打てば絞り込める、と伝える）。 */
+    .band-suggest__more {
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--color-muted);
+      background-color: var(--color-bg);
+    }
+
     .band-list {
       display: flex;
       flex-wrap: wrap;
@@ -1799,6 +1855,9 @@
             </button>
           </span>
         </div>
+        <ul class="band-suggest" id="band-suggest" data-role="band-suggest" hidden>
+          <!-- 入力に合う候補は renderBandSuggest() が描画する -->
+        </ul>
         <div class="band-list" id="band-list" data-role="band-list" aria-label="追加した対バン相手">
           <!-- 対バン相手のチップは renderBandChips() が描画する -->
         </div>
@@ -2472,6 +2531,18 @@
     }
 
     /**
+     * カタカナ（ァ〜ヶ）をひらがなへ寄せる（純粋関数）。
+     * 長音符「ー」や「・」は対象外。曲名の照合と対バン相手の候補で共用する。
+     * @param {string} text 元の文字列
+     * @returns {string} カナを寄せた文字列
+     */
+    function foldKatakana(text) {
+      return text.replace(/[\u30a1-\u30f6]/g, function (kana) {
+        return String.fromCharCode(kana.charCodeAt(0) - 0x60);
+      });
+    }
+
+    /**
      * 曲名の照合キーを作る（純粋関数）。
      * 過去の投稿は表記がゆれるため、次の差を無視して曲マスタと突き合わせる:
      *   - 空白（全角含む）    「えれくとりかる ぴょんぴょこ」＝「えれくとりかるぴょんぴょこ」
@@ -2483,13 +2554,7 @@
      */
     function songMatchKey(title) {
       const normalized = typeof title.normalize === 'function' ? title.normalize('NFKC') : title;
-      return normalized
-        .replace(/[\s\u3000]/g, '')
-        .toLowerCase()
-        // カタカナ（ァ〜ヶ）をひらがなへ寄せる。長音符「ー」や「・」は対象外。
-        .replace(/[\u30a1-\u30f6]/g, function (kana) {
-          return String.fromCharCode(kana.charCodeAt(0) - 0x60);
-        });
+      return foldKatakana(normalized.replace(/[\s\u3000]/g, '').toLowerCase());
     }
 
     /**
@@ -4608,6 +4673,143 @@
       list.appendChild(fragment);
     }
 
+    /** 入力の下に出す候補の最大件数（多すぎると選びにくいので頭から数件に絞る）。 */
+    const BAND_SUGGEST_LIMIT = 8;
+
+    /**
+     * 候補の突合に使うキーを作る（純粋関数）。
+     * 表記の差（全角半角・英字の大小・空白）を masterNameKey で吸収したうえで、
+     * カタカナをひらがなへ寄せる。「バンド」と打っても「ばんど」と打っても
+     * 同じ相手に当たるようにするため。
+     * @param {string} text 元の文字列
+     * @returns {string} 突合キー
+     */
+    function bandSuggestKey(text) {
+      return foldKatakana(masterNameKey(text));
+    }
+
+    /**
+     * その相手がこのライブの対バン相手に入っているかを返す（表記の差は無視する）。
+     * @param {string} name 対バン相手の名前
+     * @returns {boolean} 入っていれば true
+     */
+    function isBandOnThisLive(name) {
+      const key = masterNameKey(name);
+      return state.bands.some(function (current) {
+        return masterNameKey(current) === key;
+      });
+    }
+
+    /**
+     * 入力された文字に合う対バン相手をマスタから探す。
+     * 名前・読み仮名の先頭一致を上に、途中一致をその下に並べる。すでにこの
+     * ライブへ入れている相手は出さない（下のチップに出ているため）。
+     * @param {string} text 入力中の文字
+     * @returns {{matches: Band[], total: number}} 出す候補と、合致した総数
+     */
+    function findBandSuggestions(text) {
+      const key = bandSuggestKey(text);
+      if (key === '') {
+        return { matches: [], total: 0 };
+      }
+
+      const starts = [];
+      const includes = [];
+      getSortedBandMaster().forEach(function (band) {
+        if (isBandOnThisLive(band.name)) {
+          return;
+        }
+        const targets = [bandSuggestKey(band.name), bandSuggestKey(band.reading)]
+          .filter(function (target) { return target !== ''; });
+        if (targets.some(function (target) { return target.indexOf(key) === 0; })) {
+          starts.push(band);
+        } else if (targets.some(function (target) { return target.indexOf(key) !== -1; })) {
+          includes.push(band);
+        }
+      });
+
+      const all = starts.concat(includes);
+      return { matches: all.slice(0, BAND_SUGGEST_LIMIT), total: all.length };
+    }
+
+    /**
+     * 候補の1つをこのライブの対バン相手へ入れる。
+     * 打ちかけの文字は先に捨てる（このあと走る blur での二重追加を防ぐ）。
+     * @param {string} name 選んだ相手の名前
+     * @returns {void}
+     */
+    function applyBandSuggestion(name) {
+      const input = document.getElementById('input-band');
+      if (input) {
+        input.value = '';
+      }
+      if (addBand(name)) {
+        renderAll(); // チップを描き直して作業中データを保存（候補も畳まれる）
+      } else {
+        renderBandSuggest();
+      }
+      if (input) {
+        input.focus(); // 続けて次の相手を打てるようにする
+      }
+    }
+
+    /**
+     * 入力中の文字に合う候補を描画する（合致が無ければ畳む）。
+     * 名前は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderBandSuggest() {
+      const list = document.getElementById('band-suggest');
+      const input = document.getElementById('input-band');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存の候補とリスナを捨てる）
+
+      const found = findBandSuggestions(input ? input.value : '');
+      if (found.matches.length === 0) {
+        list.hidden = true;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      found.matches.forEach(function (band) {
+        const item = document.createElement('li');
+        item.className = 'band-suggest__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'band-suggest__button';
+        button.dataset.role = 'band-suggest-option';
+        button.textContent = band.name; // textContent で挿入（XSS安全）
+        // タップは pointerdown で拾う。click まで待つと先に blur が走り、
+        // 打ちかけの文字が別の相手として追加されてしまうため。
+        button.addEventListener('pointerdown', function (event) {
+          event.preventDefault();
+          applyBandSuggestion(band.name);
+        });
+        // キーボード操作（Tab → Enter）でも選べるようにする。上の pointerdown で
+        // 追加済みの場合は二重にならない（addBand が弾く）。
+        button.addEventListener('click', function () {
+          applyBandSuggestion(band.name);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+
+      if (found.total > found.matches.length) {
+        const more = document.createElement('li');
+        more.className = 'band-suggest__more';
+        more.textContent = 'ほか' + (found.total - found.matches.length) +
+          '件。続けて入力すると絞り込めます';
+        fragment.appendChild(more);
+      }
+
+      list.appendChild(fragment);
+      list.hidden = false;
+    }
+
     /**
      * 属性チップ（ワンマン・生誕など）を描画する。押下状態は aria-pressed で持つ。
      * 項目はマスタ順に固定なので、状態が変わるたびに作り直して構わない。
@@ -4808,6 +5010,7 @@
      */
     function renderAll() {
       renderBandChips();
+      renderBandSuggest();
       renderTagChips();
       renderSetlist();
       saveState(); // 状態変更のたびに保存（間違って閉じても直前の内容を復元できる）
@@ -9599,13 +9802,14 @@
         return;
       }
       input.value = '';
-      renderAll(); // チップを描き直して作業中データを保存
+      renderAll(); // チップと候補を描き直して作業中データを保存
     }
 
     /**
      * 対バン欄（#input-band）を結線する。
      * 「＋」と Enter で1組ずつ追加し、打ったまま他を触った場合も取りこぼさない
      * よう、フォーカスが外れた時点でも追加する。
+     * 打つたびにマスタから候補を出し、タップすればその表記で入れられる。
      * @returns {void}
      */
     function initBandInput() {
@@ -9613,6 +9817,8 @@
       const addButton = document.getElementById('btn-band-add');
 
       if (input) {
+        // 打つたびに候補を出し直す（変換中の文字でも拾えるよう input で見る）。
+        input.addEventListener('input', renderBandSuggest);
         input.addEventListener('keydown', function (event) {
           if (event.key !== 'Enter') {
             return;
