@@ -810,6 +810,26 @@
       color: var(--color-muted);
     }
 
+    /* 「もしかしてこの曲？」の候補と、その下の曲一覧の見出し */
+    .resolve-suggest {
+      margin-bottom: var(--gap);
+    }
+
+    .resolve-section-title {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--color-muted);
+    }
+
+    /* 候補は淡いアクセント色で、下の曲一覧と見分けられるようにする */
+    .popup__item-button--suggest {
+      background-color: var(--color-accent-soft);
+      color: var(--color-accent);
+      font-weight: 600;
+      border-bottom-color: var(--color-surface);
+    }
+
     .resolve-notice__actions {
       display: flex;
       flex-wrap: wrap;
@@ -1115,6 +1135,13 @@
         </div>
       </div>
       <div class="popup__body">
+        <div class="resolve-suggest" id="resolve-suggest" data-role="resolve-suggest" hidden>
+          <p class="resolve-section-title">もしかしてこの曲？</p>
+          <ul class="popup__list" id="resolve-candidates" data-role="resolve-candidates">
+            <!-- 候補は renderResolveCandidates() が描画する -->
+          </ul>
+        </div>
+        <p class="resolve-section-title">曲一覧</p>
         <ul class="popup__list" id="resolve-list" data-role="resolve-list">
           <!-- 曲一覧は renderResolveList() が描画する -->
         </ul>
@@ -1384,6 +1411,150 @@
       }
       const found = SONG_TITLE_BY_KEY.get(songMatchKey(title));
       return typeof found === 'string' ? found : null;
+    }
+
+    // ------------------------------------------------------------
+    // 表記ゆれの候補探索（FuzzySongMatcher）
+    // ------------------------------------------------------------
+    // 完全一致しなかった曲名に対して「もしかしてこの曲？」の候補を出すための
+    // 類似度計算。外部ライブラリを足さずに済むよう、2文字組（bigram）の
+    // Dice 係数で測る。候補は提示するだけで自動採用はしない（誤った曲名が
+    // 保存に残ると後から直しにくいため、選ぶのは必ず人）。
+
+    /** 候補として出す最大件数。多すぎると曲一覧から選ぶのと変わらなくなる。 */
+    const CANDIDATE_LIMIT = 5;
+
+    /** 候補として認める最低スコア（0〜1）。これ未満は無関係とみなす。 */
+    const CANDIDATE_MIN_SCORE = 0.4;
+
+    /**
+     * 類似度計算用のキーを作る（純粋関数）。
+     * 照合キー（songMatchKey）からさらに記号・約物・長音を落とし、
+     * 「爆上げキュート！」＝「爆上げキュート」のような差を無視する。
+     * 照合キーと違い一致判定には使わない（落としすぎると別曲を取り違えるため、
+     * あくまで候補を並べる順番を決めるためだけに使う）。
+     * @param {string} title 曲名
+     * @returns {string} 類似度計算用のキー
+     */
+    function songSimilarityKey(title) {
+      return songMatchKey(title).replace(/[ー・…！？?!☆★♪∞、。，．,.「」『』（）()\[\]【】\-‐–—〜~_]/g, '');
+    }
+
+    /**
+     * 文字列の2文字組（bigram）の出現数を数える（純粋関数）。
+     * 1文字の場合はその1文字を1つの組として扱う。
+     * @param {string} text 対象文字列
+     * @returns {Map<string, number>} 2文字組 → 出現数
+     */
+    function countBigrams(text) {
+      const counts = new Map();
+      if (text.length === 1) {
+        counts.set(text, 1);
+        return counts;
+      }
+      for (let i = 0; i + 1 < text.length; i += 1) {
+        const gram = text.slice(i, i + 2);
+        counts.set(gram, (counts.get(gram) || 0) + 1);
+      }
+      return counts;
+    }
+
+    /**
+     * 2文字組の Dice 係数で文字列の近さを返す（純粋関数）。
+     * 0（無関係）〜1（同じ）。語順の入れ替えや1〜2文字の違いに強い。
+     * @param {string} a 比較文字列
+     * @param {string} b 比較文字列
+     * @returns {number} 類似度
+     */
+    function diceSimilarity(a, b) {
+      if (a === '' || b === '') {
+        return 0;
+      }
+      if (a === b) {
+        return 1;
+      }
+      const aGrams = countBigrams(a);
+      const bGrams = countBigrams(b);
+      let shared = 0;
+      let aTotal = 0;
+      let bTotal = 0;
+      aGrams.forEach(function (count, gram) {
+        aTotal += count;
+        const other = bGrams.get(gram);
+        if (other) {
+          shared += Math.min(count, other);
+        }
+      });
+      bGrams.forEach(function (count) {
+        bTotal += count;
+      });
+      return (2 * shared) / (aTotal + bTotal);
+    }
+
+    /**
+     * 入力された曲名と、曲マスタの1曲との近さを返す（純粋関数）。
+     * 正式名称・省略名称・読み仮名それぞれと比べて最も高いスコアを採用する
+     * （「あいしてやるから…」のようにかな書きされた曲名は読み仮名で拾える）。
+     * 一方が他方を丸ごと含む場合（「日本の夏」→「日本の夏 ゆいざらすの夏」など
+     * 略して書かれた場合）は、文字数差で不利にならないよう下限を与える。
+     * @param {string} queryKey 入力側の類似度キー
+     * @param {Song} song 比較する曲
+     * @returns {number} 類似度（0〜1）
+     */
+    function songSimilarity(queryKey, song) {
+      const targets = [song.title, song.short, song.reading];
+      let best = 0;
+
+      targets.forEach(function (value) {
+        if (typeof value !== 'string' || value.trim() === '') {
+          return;
+        }
+        const targetKey = songSimilarityKey(value);
+        if (targetKey === '') {
+          return;
+        }
+        let score = diceSimilarity(queryKey, targetKey);
+        // 略記（部分一致）は bigram だけだと不当に低く出るため下限を与える。
+        if (queryKey.length >= 2 && targetKey.indexOf(queryKey) !== -1) {
+          score = Math.max(score, 0.8);
+        } else if (targetKey.length >= 2 && queryKey.indexOf(targetKey) !== -1) {
+          score = Math.max(score, 0.8);
+        }
+        best = Math.max(best, score);
+      });
+
+      return best;
+    }
+
+    /**
+     * 曲マスタから「もしかしてこの曲？」の候補を近い順に返す（純粋関数）。
+     * CANDIDATE_MIN_SCORE 未満は捨て、最大 CANDIDATE_LIMIT 件まで。
+     * 同点は曲マスタのあいうえお順を保つ（安定ソート）。
+     * @param {string} title 完全一致しなかった曲名
+     * @returns {Song[]} 候補の曲（該当なしなら空配列）
+     */
+    function findSongCandidates(title) {
+      if (typeof title !== 'string') {
+        return [];
+      }
+      const queryKey = songSimilarityKey(title);
+      if (queryKey === '') {
+        return [];
+      }
+      return getSortedSongMaster()
+        .map(function (song) {
+          return { song: song, score: songSimilarity(queryKey, song) };
+        })
+        .filter(function (entry) {
+          return entry.score >= CANDIDATE_MIN_SCORE;
+        })
+        .sort(function (a, b) {
+          return b.score - a.score;
+        })
+        .slice(0, CANDIDATE_LIMIT)
+        .map(function (entry) {
+          return entry.song;
+        });
     }
 
     /**
@@ -3868,7 +4039,9 @@
     // ------------------------------------------------------------
     // 貼り付けたテキストの曲名を曲マスタと照合し、一致した曲は正式名称へ揃える
     // （省略名称や空白差での表記ゆれもここで吸収する）。一致しなかった曲名は
-    // その場でユーザーへ確認する: 曲一覧から選ぶ／このまま追加／この曲を除く。
+    // その場でユーザーへ確認する: 近い曲の候補（もしかしてこの曲？）か曲一覧から
+    // 選ぶ／このまま追加／この曲を除く。候補は提示するだけで自動採用はしない
+    // （誤った曲名が保存に残ると後から直しにくいため、選ぶのは必ず人）。
     // 同じ曲名が複数行にある場合は1回の確認をすべての行へまとめて適用する。
     // 確認をすべて終えたら（または未知の曲が無ければ）保存一覧へ1件追加する。
     // ============================================================
@@ -4041,6 +4214,60 @@
     }
 
     /**
+     * 曲を選ぶボタン（li 要素）を組み立てる。
+     * タップでその曲へ置き換える。曲名は textContent で挿入する（XSS安全）。
+     * @param {string} title 曲の正式名称
+     * @param {boolean} suggested 候補として目立たせるなら true
+     * @returns {HTMLLIElement} 一覧へ差し込む項目
+     */
+    function buildResolveOption(title, suggested) {
+      const item = document.createElement('li');
+      item.className = 'popup__item';
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = suggested
+        ? 'popup__item-button popup__item-button--suggest'
+        : 'popup__item-button';
+      button.dataset.role = suggested ? 'resolve-candidate' : 'resolve-option';
+      button.textContent = title; // textContent で挿入（XSS安全）
+      button.addEventListener('click', function () {
+        chooseResolveSong(title);
+      });
+
+      item.appendChild(button);
+      return item;
+    }
+
+    /**
+     * 「もしかしてこの曲？」の候補（#resolve-candidates）を近い順に描画する。
+     * 候補が1件も無ければブロックごと隠す（下の曲一覧から選べばよい）。
+     * @param {string} unknownTitle 完全一致しなかった曲名
+     * @returns {void}
+     */
+    function renderResolveCandidates(unknownTitle) {
+      const box = document.getElementById('resolve-suggest');
+      const list = document.getElementById('resolve-candidates');
+      if (!box || !list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存候補をクリア）
+
+      const candidates = findSongCandidates(unknownTitle);
+      if (candidates.length === 0) {
+        box.hidden = true;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      candidates.forEach(function (song) {
+        fragment.appendChild(buildResolveOption(song.title, true));
+      });
+      list.appendChild(fragment);
+      box.hidden = false;
+    }
+
+    /**
      * 確認用の曲一覧（#resolve-list）を SONG_MASTER のあいうえお順で描画する。
      * 曲名タップでその曲へ置き換える。曲名は textContent で挿入する（XSS安全）。
      * @returns {void}
@@ -4065,27 +4292,13 @@
       const fragment = document.createDocumentFragment();
       songs.forEach(function (song) {
         const title = typeof song.title === 'string' ? song.title : '';
-
-        const item = document.createElement('li');
-        item.className = 'popup__item';
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'popup__item-button';
-        button.dataset.role = 'resolve-option';
-        button.textContent = title; // textContent で挿入（XSS安全）
-        button.addEventListener('click', function () {
-          chooseResolveSong(title);
-        });
-
-        item.appendChild(button);
-        fragment.appendChild(item);
+        fragment.appendChild(buildResolveOption(title, false));
       });
       list.appendChild(fragment);
     }
 
     /**
-     * 確認中の1件分（進捗と対象の曲名、曲一覧）を描画する。
+     * 確認中の1件分（進捗と対象の曲名、候補、曲一覧）を描画する。
      * 一覧は毎回描き直し、先頭から選べる状態にする。
      * @returns {void}
      */
@@ -4100,10 +4313,12 @@
         progress.textContent = pendingImport.queue.length + '件中 ' +
           (pendingImport.position + 1) + '件目';
       }
+      const target = pendingImport.queue[pendingImport.position];
       if (unknown) {
         // textContent で挿入（XSS安全）。
-        unknown.textContent = '「' + pendingImport.queue[pendingImport.position] + '」';
+        unknown.textContent = '「' + target + '」';
       }
+      renderResolveCandidates(target); // 近い曲があれば一覧の上に出す
       renderResolveList();
       scrollResolveListTop();
     }
