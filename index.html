@@ -101,6 +101,24 @@
       outline-offset: 1px;
     }
 
+    /* 保存一覧を開いたときに見せるMCメモ。改行をそのまま出す。 */
+    .saved-memo {
+      margin: 8px 0 0;
+      padding: 8px;
+      background-color: var(--color-bg);
+      border-radius: var(--radius);
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .saved-memo__label {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--color-muted);
+      font-size: 13px;
+    }
+
     /* ===== Page header（保存したセトリページの見出し行） ===== */
     .page-header {
       display: flex;
@@ -211,6 +229,14 @@
       background-color: var(--color-accent-soft);
       border-radius: 999px;
       white-space: nowrap;
+    }
+
+    /* MCメモ。複数行を書くので高さを持たせ、縦だけ広げられるようにする。 */
+    .field__input--memo {
+      min-height: 84px;
+      font-family: inherit;
+      line-height: 1.5;
+      resize: vertical;
     }
 
     /* ===== Setlist table area ===== */
@@ -1039,6 +1065,11 @@
         <input class="field__input" type="text" id="input-venue" data-role="venue"
           placeholder="会場名を入力" autocomplete="off">
       </div>
+      <div class="field">
+        <label class="field__label" for="input-memo">MCメモ</label>
+        <textarea class="field__input field__input--memo" id="input-memo" data-role="memo"
+          placeholder="MCで話したことなど（保存用のメモ。コピーする文面には入りません）"></textarea>
+      </div>
       <div class="field field--tags">
         <span class="field__label" id="tags-label">属性</span>
         <div class="tag-list" id="tag-list" data-role="tag-list" role="group" aria-labelledby="tags-label">
@@ -1679,6 +1710,7 @@
      * @property {number[]} tags  ライブの属性ID（TAG_MASTER の id。並びはマスタ順）
      * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
      * @property {number} enCount  末尾から数えたアンコール(En)の曲数
+     * @property {string} memo      MCで話したことなどの自由記入メモ。未入力は ""
      * @property {string} editingId 編集中の保存データのID。新規作成中は ""
      */
 
@@ -1694,6 +1726,7 @@
       date: '',
       liveName: '',
       venue: '',
+      memo: '',
       setlist: [],
       tags: [],
       oaCount: 0,
@@ -1878,6 +1911,7 @@
       state.date = '';
       state.liveName = '';
       state.venue = '';
+      state.memo = '';
       state.editingId = ''; // 編集中の紐づけも解除する（新規作成へ戻る）
     }
 
@@ -1904,6 +1938,7 @@
           date: state.date,
           liveName: state.liveName,
           venue: state.venue,
+          memo: state.memo,                        // MCメモ
           setlist: toStoredSetlist(state.setlist), // 曲はIDで持つ
           tags: state.tags,                        // 属性もIDで持つ
           oaCount: state.oaCount,                  // 先頭から数えた O.A の曲数
@@ -1944,6 +1979,7 @@
       state.date = typeof data.date === 'string' ? data.date : '';
       state.liveName = typeof data.liveName === 'string' ? data.liveName : '';
       state.venue = typeof data.venue === 'string' ? data.venue : '';
+      state.memo = typeof data.memo === 'string' ? data.memo : '';
       // 曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
       state.setlist = fromStoredSetlist(data.setlist);
       state.tags = normalizeTagIds(data.tags);
@@ -1976,6 +2012,7 @@
      * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
      * @property {string} liveName  ライブ名。未入力は ""
      * @property {string} venue     会場名。未入力は ""
+     * @property {string} memo      MCメモ。未入力は ""
      * @property {number[]} tags   ライブの属性ID（TAG_MASTER の id）
      * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
      * @property {number} enCount  末尾から数えたアンコール(En)の曲数
@@ -2016,6 +2053,7 @@
         date: typeof data.date === 'string' ? data.date : '',
         liveName: typeof data.liveName === 'string' ? data.liveName : '',
         venue: typeof data.venue === 'string' ? data.venue : '',
+        memo: typeof data.memo === 'string' ? data.memo : '',
         tags: normalizeTagIds(data.tags),
         oaCount: counts.oaCount,
         enCount: counts.enCount,
@@ -2110,7 +2148,10 @@
         venue: record.venue,
         setlist: toStoredSetlist(record.setlist)
       };
-      // 属性なし・区分なし（従来どおりのセトリ）のときは書き出さず、形も大きさも変えない。
+      // メモ・属性・区分が無い（従来どおりのセトリ）のときは書き出さず、形も大きさも変えない。
+      if (record.memo !== '') {
+        stored.memo = record.memo;
+      }
       if (record.tags.length > 0) {
         stored.tags = record.tags.slice();
       }
@@ -2137,6 +2178,7 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        memo: source.memo,
         tags: source.tags,
         oaCount: source.oaCount,
         enCount: source.enCount,
@@ -2178,6 +2220,7 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        memo: source.memo,
         tags: source.tags,
         oaCount: source.oaCount,
         enCount: source.enCount,
@@ -3446,6 +3489,7 @@
       state.date = record.date;
       state.liveName = record.liveName;
       state.venue = record.venue;
+      state.memo = record.memo;
       state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
       state.tags = record.tags.slice();
       state.oaCount = record.oaCount;
@@ -3528,6 +3572,26 @@
      * @param {SavedSetlist} record 表示する保存データ
      * @returns {HTMLOListElement} 曲順のリスト要素
      */
+    /**
+     * 保存一覧で見せるMCメモの要素を組み立てる。
+     * 改行はそのまま見せる（CSS の white-space: pre-wrap）。
+     * メモは textContent で挿入する（XSS安全）。
+     * @param {string} memo メモ本文（空でないこと）
+     * @returns {HTMLLIElement} 一覧へ差し込む要素
+     */
+    function buildSavedMemo(memo) {
+      const item = document.createElement('li');
+      item.className = 'saved-memo';
+
+      const label = document.createElement('span');
+      label.className = 'saved-memo__label';
+      label.textContent = 'MCメモ';
+
+      item.appendChild(label);
+      item.appendChild(document.createTextNode(memo));
+      return item;
+    }
+
     function buildSavedSongList(record) {
       const songs = document.createElement('ul');
       songs.className = 'saved-songs';
@@ -3625,8 +3689,11 @@
         toggleButton.appendChild(caret);
         toggleButton.appendChild(label);
 
-        // セトリ本体（参照用）。行タップで開閉する。
+        // セトリ本体（参照用）。行タップで開閉する。MCメモがあれば下に添える。
         const songs = buildSavedSongList(record);
+        if (record.memo !== '') {
+          songs.appendChild(buildSavedMemo(record.memo));
+        }
         songs.hidden = !expanded;
 
         toggleButton.addEventListener('click', function () {
@@ -3876,6 +3943,7 @@
           date: record.date,
           liveName: record.liveName,
           venue: record.venue,
+          memo: record.memo,
           tags: record.tags.slice(),
           oaCount: record.oaCount,
           enCount: record.enCount,
@@ -5164,6 +5232,7 @@
       const dateInput = document.getElementById('input-date');
       const liveNameInput = document.getElementById('input-live-name');
       const venueInput = document.getElementById('input-venue');
+      const memoInput = document.getElementById('input-memo');
 
       if (dateInput) {
         // 初期値: アクセス日（ローカルの今日）を YYYY-MM-DD で設定（未入力時のみ）
@@ -5185,6 +5254,12 @@
       if (venueInput) {
         venueInput.addEventListener('input', function () {
           state.venue = venueInput.value;
+          saveState();
+        });
+      }
+      if (memoInput) {
+        memoInput.addEventListener('input', function () {
+          state.memo = memoInput.value;
           saveState();
         });
       }
@@ -5231,6 +5306,7 @@
         const dateInput = document.getElementById('input-date');
         const liveNameInput = document.getElementById('input-live-name');
         const venueInput = document.getElementById('input-venue');
+        const memoInput = document.getElementById('input-memo');
         if (dateInput) {
           dateInput.value = todayString();
           state.date = dateInput.value;
@@ -5240,6 +5316,9 @@
         }
         if (venueInput) {
           venueInput.value = '';
+        }
+        if (memoInput) {
+          memoInput.value = '';
         }
 
         renderAll();     // セトリ表を空状態へ再描画
@@ -5259,6 +5338,7 @@
       const dateInput = document.getElementById('input-date');
       const liveNameInput = document.getElementById('input-live-name');
       const venueInput = document.getElementById('input-venue');
+      const memoInput = document.getElementById('input-memo');
       if (dateInput) {
         dateInput.value = state.date || todayString();
         state.date = dateInput.value;
@@ -5268,6 +5348,9 @@
       }
       if (venueInput) {
         venueInput.value = state.venue;
+      }
+      if (memoInput) {
+        memoInput.value = state.memo;
       }
     }
 
