@@ -2097,8 +2097,12 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-manage-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-manage-title">会場の管理</h2>
-        <button type="button" class="btn btn--ghost" id="btn-venue-manage-close"
-          data-role="venue-manage-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-venue-manage-add"
+            data-role="venue-manage-add">登録</button>
+          <button type="button" class="btn btn--ghost" id="btn-venue-manage-close"
+            data-role="venue-manage-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__notice">
         <p class="resolve-notice__help">
@@ -2200,8 +2204,12 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="band-manage-title">
       <div class="popup__header">
         <h2 class="popup__title" id="band-manage-title">対バン相手の管理</h2>
-        <button type="button" class="btn btn--ghost" id="btn-band-manage-close"
-          data-role="band-manage-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-band-manage-add"
+            data-role="band-manage-add">登録</button>
+          <button type="button" class="btn btn--ghost" id="btn-band-manage-close"
+            data-role="band-manage-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__notice">
         <p class="resolve-notice__help">
@@ -8673,6 +8681,13 @@
     let venueEditTarget = '';
 
     /**
+     * 登録フォームを管理画面から開いたか。
+     * 管理画面はマスタの手入れをする場所なので、ここから登録した会場は
+     * 作成中のセトリの会場欄には入れない（入力欄から登録したときだけ入れる）。
+     */
+    let venueFormFromManage = false;
+
+    /**
      * 「登録」ボタンの出し入れを入力欄の内容に合わせる。
      * 何か入力されていて、まだマスタに無い会場のときだけ出す。
      * @returns {void}
@@ -8725,6 +8740,14 @@
     }
 
     /**
+     * 管理画面から会場を新しく登録する（作成中のセトリには入れない）。
+     * @returns {void}
+     */
+    function openVenueAddFromManage() {
+      openVenueForm({ name: '', reading: '', area: '' }, '', true);
+    }
+
+    /**
      * 追加した会場の内容を編集する（フォームは登録と同じものを使い回す）。
      * @param {Venue} venue 編集する会場
      * @returns {void}
@@ -8741,7 +8764,7 @@
      * @param {string} editTarget 編集対象の会場名（新規登録なら ''）
      * @returns {void}
      */
-    function openVenueForm(venue, editTarget) {
+    function openVenueForm(venue, editTarget, fromManage) {
       const overlay = document.getElementById('venue-add-overlay');
       const title = document.getElementById('venue-add-title');
       const submitButton = document.getElementById('btn-venue-add-submit');
@@ -8753,6 +8776,7 @@
       }
 
       venueEditTarget = editTarget;
+      venueFormFromManage = fromManage === true;
       if (title) {
         title.textContent = editTarget === '' ? '会場を登録' : '会場を編集';
       }
@@ -8854,7 +8878,11 @@
       }
 
       closeVenueAddPopup();
-      applyVenue(name);       // 入力欄・作業中データへ反映し、選択ポップアップも閉じる
+      if (venueFormFromManage) {
+        renderVenueList();    // 選択ポップアップを開いていれば一覧も最新化する
+      } else {
+        applyVenue(name);     // 入力欄・作業中データへ反映し、選択ポップアップも閉じる
+      }
       renderVenueManageList();
       syncVenueAddButton();   // 登録済みになったのでボタンを引っ込める
       showToast('会場を登録しました');
@@ -8901,6 +8929,7 @@
       const addCancelButton = document.getElementById('btn-venue-add-cancel');
       const addSubmitButton = document.getElementById('btn-venue-add-submit');
       const manageButton = document.getElementById('btn-venue-manage');
+      const manageAddButton = document.getElementById('btn-venue-manage-add');
       const manageCloseButton = document.getElementById('btn-venue-manage-close');
       const mergeCancelButton = document.getElementById('btn-venue-merge-cancel');
 
@@ -8918,6 +8947,9 @@
       }
       if (addSubmitButton) {
         addSubmitButton.addEventListener('click', submitVenueAdd);
+      }
+      if (manageAddButton) {
+        manageAddButton.addEventListener('click', openVenueAddFromManage);
       }
       if (manageButton) {
         manageButton.addEventListener('click', openVenueManagePopup);
@@ -9463,6 +9495,13 @@
     let bandEditTarget = '';
 
     /**
+     * 登録フォームを管理画面から開いたか。
+     * 管理画面はマスタの手入れをする場所なので、ここから登録した相手は
+     * 作成中のセトリの対バン相手には入れない（入力欄から登録したときだけ入れる）。
+     */
+    let bandFormFromManage = false;
+
+    /**
      * 登録フォームを初期値付きで開く。
      * editTarget が空なら新規登録、入っていればその相手の編集として振る舞う
      * （見出しとボタンの文言だけを切り替える）。
@@ -9470,7 +9509,7 @@
      * @param {string} editTarget 編集対象の名前（新規登録なら ''）
      * @returns {void}
      */
-    function openBandForm(band, editTarget) {
+    function openBandForm(band, editTarget, fromManage) {
       const overlay = document.getElementById('band-add-overlay');
       const title = document.getElementById('band-add-title');
       const submitButton = document.getElementById('btn-band-add-submit');
@@ -9481,6 +9520,7 @@
       }
 
       bandEditTarget = editTarget;
+      bandFormFromManage = fromManage === true;
       if (title) {
         title.textContent = editTarget === '' ? '対バン相手を登録' : '対バン相手を編集';
       }
@@ -9507,6 +9547,14 @@
       const input = document.getElementById('input-band');
       const typed = input ? input.value.trim() : '';
       openBandForm({ name: typed, reading: '' }, '');
+    }
+
+    /**
+     * 管理画面から対バン相手を新しく登録する（作成中のセトリには入れない）。
+     * @returns {void}
+     */
+    function openBandAddFromManage() {
+      openBandForm({ name: '', reading: '' }, '', true);
     }
 
     /**
@@ -9574,12 +9622,14 @@
       }
 
       closeBandAddPopup();
-      const input = document.getElementById('input-band');
-      if (input && masterNameKey(input.value) === masterNameKey(name)) {
-        input.value = ''; // 打ちかけの名前をそのまま登録したときは残さない
-      }
-      if (addBand(name)) {
-        renderAll(); // 登録した相手をこのライブへも入れる
+      if (!bandFormFromManage) {
+        const input = document.getElementById('input-band');
+        if (input && masterNameKey(input.value) === masterNameKey(name)) {
+          input.value = ''; // 打ちかけの名前をそのまま登録したときは残さない
+        }
+        if (addBand(name)) {
+          renderAll(); // 登録した相手をこのライブへも入れる
+        }
       }
       renderBandPickList();  // 「未登録」から「登録済み」へ移す
       renderBandManageList();
@@ -9626,6 +9676,7 @@
       const closeButton = document.getElementById('btn-band-close');
       const registerButton = document.getElementById('btn-band-register');
       const manageButton = document.getElementById('btn-band-manage');
+      const manageAddButton = document.getElementById('btn-band-manage-add');
       const manageCloseButton = document.getElementById('btn-band-manage-close');
       const mergeCancelButton = document.getElementById('btn-band-merge-cancel');
       const addCancelButton = document.getElementById('btn-band-add-cancel');
@@ -9639,6 +9690,9 @@
       }
       if (registerButton) {
         registerButton.addEventListener('click', openBandAddPopup);
+      }
+      if (manageAddButton) {
+        manageAddButton.addEventListener('click', openBandAddFromManage);
       }
       if (manageButton) {
         manageButton.addEventListener('click', openBandManagePopup);
