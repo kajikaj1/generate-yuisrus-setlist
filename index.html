@@ -652,9 +652,52 @@
       padding: 8px 0 0;
     }
 
-    /* フッターのアクション群（保存一覧・DBに追加・リセット・コピー）。
-       文字だけだと4つで2行になり窮屈なので、アイコン＋小さなラベルにして
-       画面幅を4等分し、狭い画面でも1行に収める。 */
+    /* 画面移動（保存一覧へ）。フッターの操作と混ぜると役割が分かりにくいので、
+       上部に控えめなリンクとして置く。 */
+    .page-nav {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .page-nav__link {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 36px;
+      padding: 4px 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: transparent;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .page-nav__link:active {
+      background-color: var(--color-bg);
+    }
+
+    .page-nav__glyph {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .page-nav__caret {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    /* フッターはこのセトリへの操作だけ。主操作（DBに追加・コピー）を大きく取り、
+       破棄（リセット）は誤タップを避けるためアイコンだけの小さなボタンにする。 */
     .app__footer-actions {
       display: flex;
       align-items: stretch;
@@ -663,8 +706,8 @@
     }
 
     .btn-icon {
-      flex: 1 1 0;
-      min-width: 0; /* ラベルが長くても4等分を崩さない */
+      flex: 0 0 auto;
+      min-width: 0; /* ラベルが長くても並びを崩さない */
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -701,6 +744,22 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+
+    /* 主操作。横並びにして文字を大きくし、残り幅を分け合う。 */
+    .btn-icon--wide {
+      flex: 1 1 0;
+      flex-direction: row;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    /* 破棄のような控えめな操作。アイコンだけで幅を取らない。 */
+    .btn-icon--quiet {
+      flex: 0 0 auto;
+      width: var(--tap-min);
+      color: var(--color-muted);
+      border-color: var(--color-border);
     }
 
     /* 役割ごとの色分け（意味は文字だけでなく色でも補う）。 */
@@ -1389,6 +1448,20 @@
         data-role="editing-cancel">編集をやめる</button>
     </div>
 
+    <!-- ===== 画面移動（保存一覧へ）。操作ではないのでフッターと分ける ===== -->
+    <nav class="page-nav">
+      <button type="button" class="page-nav__link" id="btn-saved-list" data-role="saved-list-button">
+        <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 6h11M9 12h11M9 18h11"/>
+          <circle cx="4.5" cy="6" r="1.1"/>
+          <circle cx="4.5" cy="12" r="1.1"/>
+          <circle cx="4.5" cy="18" r="1.1"/>
+        </svg>
+        <span>保存一覧</span>
+        <span class="page-nav__caret" aria-hidden="true">›</span>
+      </button>
+    </nav>
+
     <!-- ===== Header: live info inputs ===== -->
     <header class="app__header">
       <div class="field">
@@ -1469,19 +1542,19 @@
       </button>
     </main>
 
-    <!-- ===== Footer: actions ===== -->
+    <!-- ===== Footer: このセトリへの操作。主操作を大きく、破棄は小さく ===== -->
     <footer class="app__footer">
       <div class="app__footer-actions">
-        <button type="button" class="btn-icon" id="btn-saved-list" data-role="saved-list-button">
+        <button type="button" class="btn-icon btn-icon--quiet" id="btn-reset" data-role="reset-button"
+          aria-label="リセット" title="リセット">
           <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M9 6h11M9 12h11M9 18h11"/>
-            <circle cx="4.5" cy="6" r="1.1"/>
-            <circle cx="4.5" cy="12" r="1.1"/>
-            <circle cx="4.5" cy="18" r="1.1"/>
+            <path d="M4 7h16M9.5 7V4.5h5V7"/>
+            <path d="M6.5 7l1 12.5h9l1-12.5"/>
+            <path d="M10.5 10.5v6M13.5 10.5v6"/>
           </svg>
-          <span class="btn-icon__label">保存一覧</span>
         </button>
-        <button type="button" class="btn-icon btn-icon--accent" id="btn-save-db" data-role="save-button">
+        <button type="button" class="btn-icon btn-icon--wide btn-icon--accent" id="btn-save-db"
+          data-role="save-button">
           <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <ellipse cx="10" cy="6" rx="6" ry="2.5"/>
             <path d="M4 6v5c0 1.4 2.7 2.5 6 2.5"/>
@@ -1490,15 +1563,8 @@
           </svg>
           <span class="btn-icon__label">DBに追加</span>
         </button>
-        <button type="button" class="btn-icon btn-icon--danger" id="btn-reset" data-role="reset-button">
-          <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M4 7h16M9.5 7V4.5h5V7"/>
-            <path d="M6.5 7l1 12.5h9l1-12.5"/>
-            <path d="M10.5 10.5v6M13.5 10.5v6"/>
-          </svg>
-          <span class="btn-icon__label">リセット</span>
-        </button>
-        <button type="button" class="btn-icon btn-icon--primary" id="btn-copy" data-role="copy-button">
+        <button type="button" class="btn-icon btn-icon--wide btn-icon--primary" id="btn-copy"
+          data-role="copy-button">
           <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <rect x="9" y="9" width="11" height="11" rx="2"/>
             <path d="M15 5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15"/>
@@ -1591,7 +1657,7 @@
       </div>
       <div class="popup__body">
         <textarea class="memo-input" id="input-memo" data-role="memo"
-          placeholder="MCで話したことなど（保存用のメモ。コピーする文面には入りません）"></textarea>
+          placeholder="MCで話したこと"></textarea>
       </div>
     </div>
   </div>
@@ -6868,8 +6934,8 @@
     // セトリ表が下へ押し下げられるため、行にはボタンと先頭の抜粋だけを出す。
     // 中身は入力のたびに保存するので、閉じるボタンだけで取りこぼしは出ない。
 
-    /** メモ未入力のときにボタンへ出す文言。 */
-    const MEMO_EMPTY_LABEL = 'MCで話したことを書く';
+    /** メモ未入力のときにボタンへ出す文言（ポップアップのプレースホルダと揃える）。 */
+    const MEMO_EMPTY_LABEL = 'MCで話したこと';
 
     /**
      * メモ行のボタン表示を state に合わせる。
