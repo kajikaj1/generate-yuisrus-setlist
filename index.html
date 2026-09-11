@@ -18,12 +18,20 @@
       --color-border: #d4d7dd;
       --color-text: #1c1e21;
       --color-muted: #6b7280;
-      --color-accent: #2563eb;
+      /* 推し色の黄色を主役にした配色。
+         黄色は白地だと文字が読めないため、役割で2つに分ける:
+           --color-brand … 面で見せる黄色（塗りつぶしのボタン・現在地の印）。
+                           文字は濃色（--color-brand-text）を載せる。
+           --color-accent … 文字・枠線・アイコンに使う濃い山吹色。
+                           白地で 5.5:1、淡色地でも 5:1 を確保する。 */
+      --color-brand: #ffd60a;
+      --color-brand-text: #1c1e21;
+      --color-accent: #8a6100;
       --color-accent-text: #ffffff;
       --color-danger: #dc2626;
       --color-overlay: rgba(0, 0, 0, 0.5);
-      --color-accent-soft: #e8f0fe; /* 選択中の項目の淡い塗り */
-      --color-drop-indicator: #38bdf8; /* 挿入位置ライン（水色） */
+      --color-accent-soft: #fff4cc; /* 選択中の項目の淡い塗り（淡い黄色） */
+      --color-drop-indicator: #d97706; /* 挿入位置ライン（濃い橙。白地で目立たせる） */
       --radius: 10px;
       --tap-min: 48px;
       --btn-min-height: 38px; /* ボタンの標準の高さ（上下の余白を詰めた値） */
@@ -985,8 +993,8 @@
     }
 
     .page-menu__button--current .page-menu__icon {
-      color: var(--color-surface);
-      background-color: var(--color-accent);
+      color: var(--color-brand-text);
+      background-color: var(--color-brand);
     }
 
     /* 中身がまだ無いページの案内。 */
@@ -1075,9 +1083,9 @@
     }
 
     .btn-icon--primary {
-      color: var(--color-accent-text);
-      background-color: var(--color-accent);
-      border-color: var(--color-accent);
+      color: var(--color-brand-text);
+      background-color: var(--color-brand);
+      border-color: var(--color-brand);
     }
 
     .btn-icon:active {
@@ -1111,8 +1119,9 @@
     }
 
     .btn--copy {
-      background-color: var(--color-accent);
-      color: var(--color-accent-text);
+      background-color: var(--color-brand);
+      color: var(--color-brand-text);
+      border-color: var(--color-brand);
     }
 
     .btn--ghost {
@@ -1330,9 +1339,9 @@
 
     /* トグルON時は塗りつぶしにして、現在どちらの表示かひと目で分かるようにする */
     .btn--toggle[aria-pressed="true"] {
-      background-color: var(--color-accent);
-      color: var(--color-accent-text);
-      border-color: var(--color-accent);
+      background-color: var(--color-brand);
+      color: var(--color-brand-text);
+      border-color: var(--color-brand);
     }
 
     /* 省略名称モードの曲一覧: 1行1件のレコード表示をやめ、ボタンを折り返して詰める */
