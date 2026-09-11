@@ -18,12 +18,20 @@
       --color-border: #d4d7dd;
       --color-text: #1c1e21;
       --color-muted: #6b7280;
-      --color-accent: #2563eb;
+      /* 推し色の黄色を主役にした配色。
+         黄色は白地だと文字が読めないため、役割で2つに分ける:
+           --color-brand … 面で見せる黄色（塗りつぶしのボタン・現在地の印）。
+                           文字は濃色（--color-brand-text）を載せる。
+           --color-accent … 文字・枠線・アイコンに使う濃い山吹色。
+                           白地で 5.5:1、淡色地でも 5:1 を確保する。 */
+      --color-brand: #ffd60a;
+      --color-brand-text: #1c1e21;
+      --color-accent: #8a6100;
       --color-accent-text: #ffffff;
       --color-danger: #dc2626;
       --color-overlay: rgba(0, 0, 0, 0.5);
-      --color-accent-soft: #e8f0fe; /* 選択中の項目の淡い塗り */
-      --color-drop-indicator: #38bdf8; /* 挿入位置ライン（水色） */
+      --color-accent-soft: #fff4cc; /* 選択中の項目の淡い塗り（淡い黄色） */
+      --color-drop-indicator: #d97706; /* 挿入位置ライン（濃い橙。白地で目立たせる） */
       --radius: 10px;
       --tap-min: 48px;
       --btn-min-height: 38px; /* ボタンの標準の高さ（上下の余白を詰めた値） */
@@ -539,6 +547,42 @@
       resize: vertical;
     }
 
+    /* 取り込みの確認で書くMCメモ。作成画面ほど高さは要らないので低くする
+       （.memo-input の後ろに置いて min-height を上書きする）。 */
+    .confirm-memo {
+      min-height: 88px;
+      margin-bottom: 12px;
+    }
+
+    /* 確認画面の各まとまりは、見出しの前に少し間を空けて読みやすくする。 */
+    .confirm-section-title {
+      margin-top: 12px;
+    }
+
+    /* 確認画面の対バン入力（入力欄＋追加ボタン）。 */
+    .confirm-band-add {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .confirm-band-add .field__input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .confirm-band-add .btn {
+      flex: 0 0 auto;
+      white-space: nowrap; /* 「追／加」と折り返させない */
+    }
+
+    /* 属性チップと対バンのチップ列にも下の余白を持たせる。 */
+    #confirm-tags,
+    #confirm-bands {
+      margin-bottom: 12px;
+    }
+
     .memo-input:focus {
       outline: 2px solid var(--color-accent);
       outline-offset: -2px;
@@ -949,8 +993,8 @@
     }
 
     .page-menu__button--current .page-menu__icon {
-      color: var(--color-surface);
-      background-color: var(--color-accent);
+      color: var(--color-brand-text);
+      background-color: var(--color-brand);
     }
 
     /* 中身がまだ無いページの案内。 */
@@ -1039,9 +1083,9 @@
     }
 
     .btn-icon--primary {
-      color: var(--color-accent-text);
-      background-color: var(--color-accent);
-      border-color: var(--color-accent);
+      color: var(--color-brand-text);
+      background-color: var(--color-brand);
+      border-color: var(--color-brand);
     }
 
     .btn-icon:active {
@@ -1075,8 +1119,9 @@
     }
 
     .btn--copy {
-      background-color: var(--color-accent);
-      color: var(--color-accent-text);
+      background-color: var(--color-brand);
+      color: var(--color-brand-text);
+      border-color: var(--color-brand);
     }
 
     .btn--ghost {
@@ -1300,9 +1345,9 @@
 
     /* トグルON時は塗りつぶしにして、現在どちらの表示かひと目で分かるようにする */
     .btn--toggle[aria-pressed="true"] {
-      background-color: var(--color-accent);
-      color: var(--color-accent-text);
-      border-color: var(--color-accent);
+      background-color: var(--color-brand);
+      color: var(--color-brand-text);
+      border-color: var(--color-brand);
     }
 
     /* 省略名称モードの曲一覧: 1行1件のレコード表示をやめ、ボタンを折り返して詰める */
@@ -2054,8 +2099,12 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-manage-title">
       <div class="popup__header">
         <h2 class="popup__title" id="venue-manage-title">会場の管理</h2>
-        <button type="button" class="btn btn--ghost" id="btn-venue-manage-close"
-          data-role="venue-manage-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-venue-manage-add"
+            data-role="venue-manage-add">登録</button>
+          <button type="button" class="btn btn--ghost" id="btn-venue-manage-close"
+            data-role="venue-manage-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__notice">
         <p class="resolve-notice__help">
@@ -2157,8 +2206,12 @@
     <div class="popup" role="dialog" aria-modal="true" aria-labelledby="band-manage-title">
       <div class="popup__header">
         <h2 class="popup__title" id="band-manage-title">対バン相手の管理</h2>
-        <button type="button" class="btn btn--ghost" id="btn-band-manage-close"
-          data-role="band-manage-close">閉じる</button>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--add" id="btn-band-manage-add"
+            data-role="band-manage-add">登録</button>
+          <button type="button" class="btn btn--ghost" id="btn-band-manage-close"
+            data-role="band-manage-close">閉じる</button>
+        </div>
       </div>
       <div class="popup__notice">
         <p class="resolve-notice__help">
@@ -2348,7 +2401,31 @@
             </div>
           </div>
         </div>
-        <p class="resolve-section-title" id="confirm-count" data-role="confirm-count"></p>
+
+        <p class="resolve-section-title confirm-section-title">MCメモ</p>
+        <textarea class="memo-input confirm-memo" id="confirm-memo" data-role="confirm-memo"
+          placeholder="MCで話したこと"></textarea>
+
+        <p class="resolve-section-title confirm-section-title">属性</p>
+        <div class="tag-list" id="confirm-tags" data-role="confirm-tags" role="group" aria-label="属性">
+          <!-- 属性チップは renderConfirmTags() が描画する -->
+        </div>
+
+        <p class="resolve-section-title confirm-section-title">対バン相手</p>
+        <div class="confirm-band-add">
+          <input class="field__input" type="text" id="confirm-band-input" data-role="confirm-band-input"
+            placeholder="対バン相手を入力・貼り付け" aria-label="対バン相手" autocomplete="off"
+            enterkeyhint="done">
+          <button type="button" class="btn btn--add" id="btn-confirm-band-add"
+            data-role="confirm-band-add">追加</button>
+        </div>
+        <div class="band-list" id="confirm-bands" data-role="confirm-bands"
+          aria-label="追加した対バン相手">
+          <!-- 対バン相手のチップは renderConfirmBands() が描画する -->
+        </div>
+
+        <p class="resolve-section-title confirm-section-title" id="confirm-count"
+          data-role="confirm-count"></p>
         <ul class="popup__list" id="confirm-songs" data-role="confirm-songs">
           <!-- 曲順は renderImportConfirm() が描画する -->
         </ul>
@@ -5697,18 +5774,22 @@
     }
 
     /**
-     * 編集中の紐づけを解除する（入力内容はそのまま残す）。
-     * 以降の保存は新規追加になるため、複製を作りたいときにも使える。
+     * 編集をやめて作成画面を空へ戻す。
+     * 読み込んだ内容がそのまま残っていると、次に作るセトリへ紛れ込むため、
+     * 紐づけの解除と一緒に入力内容も捨てる（保存済みの1件は変わらない）。
      * @returns {void}
      */
     function cancelEditing() {
       if (state.editingId === '') {
         return;
       }
-      state.editingId = '';
-      saveState();
-      syncEditingUi();
-      showToast('編集を解除しました。保存すると新規追加になります');
+      setInputMode('songs'); // 空のセトリ表へ戻す
+      resetState();          // 読み込んだ内容ごとクリア（editingId も解除される）
+      applyStateToInputs();  // 入力欄を state に合わせる（日付は本日へ戻る）
+
+      renderAll();     // 空状態へ再描画＋作業中データの保存
+      syncEditingUi(); // 編集中の帯を消して「DBに追加」へ戻す
+      showToast('編集をやめました');
     }
 
     /**
@@ -7841,6 +7922,9 @@
     // 日付・ライブ名・会場はその場で直せる（貼り付け元に無い情報も足せるよう、
     // 入力欄の内容を pendingConfirm へ書き戻してから登録する）。曲順の直しは
     // 貼り付け文面を直すか、登録後に「編集」で行う。
+    // あわせて、貼り付けた文面からは分からない MCメモ・属性・対バン相手も
+    // ここで足せる（作成画面と同じ内容を、登録前に1画面で揃える）。
+    // これらは pendingConfirm の上だけで編集し、作業中の state には触れない。
     // 「戻る」は貼り付けフォームへ戻すだけで、入力した文面はそのまま残す。
     // ============================================================
 
@@ -7848,9 +7932,141 @@
     let pendingConfirm = null;
 
     /**
-     * 確認画面を描画する。ライブ情報は入力欄へ読み取り結果を入れ（そのまま
-     * 直せる）、曲順は読み取ったとおりに並べる。
-     * 曲順は区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
+    /**
+     * 確認画面のMCメモ欄へ現在の値を入れる。
+     * 入力中の再描画で打ち込みが飛ばないよう、値が変わるときだけ書き戻す。
+     * @returns {void}
+     */
+    function renderConfirmMemo() {
+      const memo = document.getElementById('confirm-memo');
+      if (!memo || !pendingConfirm) {
+        return;
+      }
+      if (memo.value !== pendingConfirm.memo) {
+        memo.value = pendingConfirm.memo;
+      }
+    }
+
+    /**
+     * 確認画面の属性チップを描画する（作成画面と同じ見た目・操作）。
+     * 押すと pendingConfirm.tags だけが変わり、作業中の state には触れない。
+     * @returns {void}
+     */
+    function renderConfirmTags() {
+      const list = document.getElementById('confirm-tags');
+      if (!list || !pendingConfirm) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      const fragment = document.createDocumentFragment();
+      TAG_MASTER.forEach(function (tag) {
+        const selected = pendingConfirm.tags.indexOf(tag.id) !== -1;
+
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.role = 'confirm-tag-chip';
+        chip.dataset.tagId = String(tag.id);
+        chip.textContent = tag.name; // textContent で挿入（XSS安全）
+        chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        chip.addEventListener('click', function () {
+          const next = selected
+            ? pendingConfirm.tags.filter(function (id) { return id !== tag.id; })
+            : pendingConfirm.tags.concat([tag.id]);
+          pendingConfirm.tags = normalizeTagIds(next); // マスタ順に揃える
+          renderConfirmTags();
+        });
+
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 確認画面の対バン相手チップを描画する（×で1組ずつ外せる）。
+     * @returns {void}
+     */
+    function renderConfirmBands() {
+      const list = document.getElementById('confirm-bands');
+      if (!list || !pendingConfirm) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      if (pendingConfirm.bands.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'band-panel__empty';
+        empty.textContent = '対バン相手を入力して「追加」で足します';
+        list.appendChild(empty);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      pendingConfirm.bands.forEach(function (name) {
+        const chip = document.createElement('span');
+        chip.className = 'band-chip';
+
+        const label = document.createElement('span');
+        label.className = 'band-chip__name';
+        label.textContent = name; // textContent で挿入（XSS安全）
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'band-chip__remove';
+        remove.dataset.role = 'confirm-band-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', name + ' を外す');
+        remove.addEventListener('click', function () {
+          pendingConfirm.bands = pendingConfirm.bands.filter(function (current) {
+            return current !== name;
+          });
+          renderConfirmBands();
+        });
+
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 確認画面の入力欄から対バン相手を足す（まとめ貼り付けと同じ切り出しを使う）。
+     * @param {string} text 入力・貼り付けたテキスト
+     * @returns {void}
+     */
+    function addConfirmBands(text) {
+      if (!pendingConfirm) {
+        return;
+      }
+      const names = splitBandNames(text);
+      if (names.length === 0) {
+        return;
+      }
+      const before = pendingConfirm.bands.length;
+      pendingConfirm.bands = normalizeBandNames(pendingConfirm.bands.concat(names));
+      const added = pendingConfirm.bands.length - before;
+
+      renderConfirmBands();
+
+      if (added === 0) {
+        showToast(names.length === 1
+          ? '「' + names[0] + '」はすでに追加されています'
+          : names.length + '組ともすでに追加されています');
+        return;
+      }
+      if (names.length > 1) {
+        showToast(added === names.length
+          ? added + '組を追加しました'
+          : added + '組を追加しました（' + (names.length - added) + '組はすでに追加済み）');
+      }
+    }
+
+    /**
+     * 確認画面を描画する。ライブ情報・MCメモ・属性・対バン相手は入力欄へ
+     * 現在の内容を入れ（そのまま直せる）、曲順は読み取ったとおりに並べる。
+     * 曲順には区分ごとの番号（O.A 1／1／En.1）を付け、曲マスタに無い曲名には
      * 注記を添える（「このまま追加」した曲をここで見直せるようにする）。
      * @returns {void}
      */
@@ -7877,6 +8093,10 @@
         venueInput.value = pendingConfirm.venue;
       }
       syncConfirmVenueAddButton();
+
+      renderConfirmMemo();
+      renderConfirmTags();
+      renderConfirmBands();
 
       const length = pendingConfirm.setlist.length;
       count.textContent = 'セトリ（' + length + '曲）';
@@ -7925,6 +8145,11 @@
         commitImport(source); // 確認画面が無い場合でも取り込みは進める
         return;
       }
+      // 貼り付け文面には無い項目は、ここで書き足せるよう空で用意しておく。
+      source.memo = typeof source.memo === 'string' ? source.memo : '';
+      source.tags = normalizeTagIds(source.tags);
+      source.bands = normalizeBandNames(source.bands);
+
       pendingConfirm = source;
       renderImportConfirm();  // 中身を用意してから表示する
       overlay.hidden = false;
@@ -7948,10 +8173,14 @@
      */
     function closeImportConfirm() {
       const overlay = document.getElementById('confirm-overlay');
+      const bandInput = document.getElementById('confirm-band-input');
       pendingConfirm = null;
       venuePickerTarget = 'main'; // 会場の反映先を作成画面へ戻す
       if (overlay) {
         overlay.hidden = true;
+      }
+      if (bandInput) {
+        bandInput.value = ''; // 打ちかけを次回へ持ち越さない
       }
     }
 
@@ -7960,6 +8189,11 @@
      * @returns {void}
      */
     function submitImportConfirm() {
+      const bandInput = document.getElementById('confirm-band-input');
+      if (bandInput && bandInput.value.trim() !== '') {
+        addConfirmBands(bandInput.value); // 「追加」を押し忘れた分も拾う
+        bandInput.value = '';
+      }
       const source = pendingConfirm;
       if (!source) {
         return;
@@ -8013,6 +8247,52 @@
             pendingConfirm.venue = venueInput.value;
           }
           syncConfirmVenueAddButton(); // マスタに無い会場なら「登録」を出す
+        });
+      }
+      const memo = document.getElementById('confirm-memo');
+      const bandInput = document.getElementById('confirm-band-input');
+      const bandAdd = document.getElementById('btn-confirm-band-add');
+
+      if (memo) {
+        memo.addEventListener('input', function () {
+          if (pendingConfirm) {
+            pendingConfirm.memo = memo.value;
+          }
+        });
+      }
+      if (bandInput) {
+        bandInput.addEventListener('keydown', function (event) {
+          if (event.key !== 'Enter') {
+            return;
+          }
+          event.preventDefault(); // 変換確定の Enter は isComposing で除く
+          if (!event.isComposing) {
+            addConfirmBands(bandInput.value);
+            bandInput.value = '';
+          }
+        });
+        // 出演者一覧の貼り付け。input 要素は改行を落とすため生テキストから拾う。
+        bandInput.addEventListener('paste', function (event) {
+          const clipboard = event.clipboardData || window.clipboardData;
+          if (!clipboard) {
+            return;
+          }
+          const names = splitBandNames(clipboard.getData('text'));
+          if (names.length < 2) {
+            return; // 1組だけなら普通に貼り付けて、確定は従来どおり
+          }
+          event.preventDefault();
+          bandInput.value = '';
+          addConfirmBands(names.join('\n'));
+        });
+      }
+      if (bandAdd) {
+        bandAdd.addEventListener('click', function () {
+          addConfirmBands(bandInput ? bandInput.value : '');
+          if (bandInput) {
+            bandInput.value = '';
+            bandInput.focus(); // 続けて次の相手を打てるようにする
+          }
         });
       }
 
@@ -8508,6 +8788,13 @@
     let venueEditTarget = '';
 
     /**
+     * 登録フォームを管理画面から開いたか。
+     * 管理画面はマスタの手入れをする場所なので、ここから登録した会場は
+     * 作成中のセトリの会場欄には入れない（入力欄から登録したときだけ入れる）。
+     */
+    let venueFormFromManage = false;
+
+    /**
      * 「登録」ボタンの出し入れを入力欄の内容に合わせる。
      * 何か入力されていて、まだマスタに無い会場のときだけ出す。
      * @returns {void}
@@ -8583,6 +8870,14 @@
     }
 
     /**
+     * 管理画面から会場を新しく登録する（作成中のセトリには入れない）。
+     * @returns {void}
+     */
+    function openVenueAddFromManage() {
+      openVenueForm({ name: '', reading: '', area: '' }, '', true);
+    }
+
+    /**
      * 追加した会場の内容を編集する（フォームは登録と同じものを使い回す）。
      * @param {Venue} venue 編集する会場
      * @returns {void}
@@ -8599,7 +8894,7 @@
      * @param {string} editTarget 編集対象の会場名（新規登録なら ''）
      * @returns {void}
      */
-    function openVenueForm(venue, editTarget) {
+    function openVenueForm(venue, editTarget, fromManage) {
       const overlay = document.getElementById('venue-add-overlay');
       const title = document.getElementById('venue-add-title');
       const submitButton = document.getElementById('btn-venue-add-submit');
@@ -8611,6 +8906,7 @@
       }
 
       venueEditTarget = editTarget;
+      venueFormFromManage = fromManage === true;
       if (title) {
         title.textContent = editTarget === '' ? '会場を登録' : '会場を編集';
       }
@@ -8709,7 +9005,11 @@
       }
 
       closeVenueAddPopup();
-      applyVenue(name);       // 開いた側の欄へ反映し、選択ポップアップも閉じる
+      if (venueFormFromManage) {
+        renderVenueList();    // 選択ポップアップを開いていれば一覧も最新化する
+      } else {
+        applyVenue(name);     // 開いた側の欄へ反映し、選択ポップアップも閉じる
+      }
       renderVenueManageList();
       syncVenueAddButtons();  // 登録済みになったのでボタンを引っ込める
       showToast('会場を登録しました');
@@ -8759,6 +9059,7 @@
       const addCancelButton = document.getElementById('btn-venue-add-cancel');
       const addSubmitButton = document.getElementById('btn-venue-add-submit');
       const manageButton = document.getElementById('btn-venue-manage');
+      const manageAddButton = document.getElementById('btn-venue-manage-add');
       const manageCloseButton = document.getElementById('btn-venue-manage-close');
       const mergeCancelButton = document.getElementById('btn-venue-merge-cancel');
 
@@ -8794,6 +9095,9 @@
       }
       if (addSubmitButton) {
         addSubmitButton.addEventListener('click', submitVenueAdd);
+      }
+      if (manageAddButton) {
+        manageAddButton.addEventListener('click', openVenueAddFromManage);
       }
       if (manageButton) {
         manageButton.addEventListener('click', openVenueManagePopup);
@@ -9339,6 +9643,13 @@
     let bandEditTarget = '';
 
     /**
+     * 登録フォームを管理画面から開いたか。
+     * 管理画面はマスタの手入れをする場所なので、ここから登録した相手は
+     * 作成中のセトリの対バン相手には入れない（入力欄から登録したときだけ入れる）。
+     */
+    let bandFormFromManage = false;
+
+    /**
      * 登録フォームを初期値付きで開く。
      * editTarget が空なら新規登録、入っていればその相手の編集として振る舞う
      * （見出しとボタンの文言だけを切り替える）。
@@ -9346,7 +9657,7 @@
      * @param {string} editTarget 編集対象の名前（新規登録なら ''）
      * @returns {void}
      */
-    function openBandForm(band, editTarget) {
+    function openBandForm(band, editTarget, fromManage) {
       const overlay = document.getElementById('band-add-overlay');
       const title = document.getElementById('band-add-title');
       const submitButton = document.getElementById('btn-band-add-submit');
@@ -9357,6 +9668,7 @@
       }
 
       bandEditTarget = editTarget;
+      bandFormFromManage = fromManage === true;
       if (title) {
         title.textContent = editTarget === '' ? '対バン相手を登録' : '対バン相手を編集';
       }
@@ -9383,6 +9695,14 @@
       const input = document.getElementById('input-band');
       const typed = input ? input.value.trim() : '';
       openBandForm({ name: typed, reading: '' }, '');
+    }
+
+    /**
+     * 管理画面から対バン相手を新しく登録する（作成中のセトリには入れない）。
+     * @returns {void}
+     */
+    function openBandAddFromManage() {
+      openBandForm({ name: '', reading: '' }, '', true);
     }
 
     /**
@@ -9450,12 +9770,14 @@
       }
 
       closeBandAddPopup();
-      const input = document.getElementById('input-band');
-      if (input && masterNameKey(input.value) === masterNameKey(name)) {
-        input.value = ''; // 打ちかけの名前をそのまま登録したときは残さない
-      }
-      if (addBand(name)) {
-        renderAll(); // 登録した相手をこのライブへも入れる
+      if (!bandFormFromManage) {
+        const input = document.getElementById('input-band');
+        if (input && masterNameKey(input.value) === masterNameKey(name)) {
+          input.value = ''; // 打ちかけの名前をそのまま登録したときは残さない
+        }
+        if (addBand(name)) {
+          renderAll(); // 登録した相手をこのライブへも入れる
+        }
       }
       renderBandPickList();  // 「未登録」から「登録済み」へ移す
       renderBandManageList();
@@ -9502,6 +9824,7 @@
       const closeButton = document.getElementById('btn-band-close');
       const registerButton = document.getElementById('btn-band-register');
       const manageButton = document.getElementById('btn-band-manage');
+      const manageAddButton = document.getElementById('btn-band-manage-add');
       const manageCloseButton = document.getElementById('btn-band-manage-close');
       const mergeCancelButton = document.getElementById('btn-band-merge-cancel');
       const addCancelButton = document.getElementById('btn-band-add-cancel');
@@ -9515,6 +9838,9 @@
       }
       if (registerButton) {
         registerButton.addEventListener('click', openBandAddPopup);
+      }
+      if (manageAddButton) {
+        manageAddButton.addEventListener('click', openBandAddFromManage);
       }
       if (manageButton) {
         manageButton.addEventListener('click', openBandManagePopup);
@@ -9560,6 +9886,24 @@
         icon: ['M12 4v9', 'M8.5 9.5L12 13l3.5-3.5', 'M4.5 15v4.5h15V15'] },
       { id: 'analysis', hash: '#analysis', name: '分析',         element: 'page-analysis',
         icon: ['M4 20h16', 'M7.5 20v-6', 'M12 20V6', 'M16.5 20v-9'] }
+    ];
+
+    /**
+     * ページ切替メニューに並べる操作。ページではなく管理用のポップアップを開く。
+     * マスタの手入れは頻度こそ低いものの、会場名・対バン相手の入力欄からしか
+     * 辿れないと探しにくいため、メニューからも開けるようにしている。
+     * @type {ReadonlyArray<{id: string, name: string, icon: string[], open: function(): void}>}
+     */
+    const MENU_ACTIONS = [
+      { id: 'venue-manage', name: 'ライブハウス',
+        icon: ['M4 20h16', 'M6 20V9.5L12 5l6 4.5V20', 'M10 20v-5h4v5'],
+        open: openVenueManagePopup },
+      { id: 'band-manage', name: '対バン',
+        icon: ['M9 11.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+               'M3.5 19.5c0-2.5 2.5-4 5.5-4s5.5 1.5 5.5 4',
+               'M16.5 10.5a2.5 2.5 0 1 0 0-5',
+               'M17 14.5c2.2.4 3.5 1.7 3.5 3.5'],
+        open: openBandManagePopup }
     ];
 
     /** 保存一覧ページを表す URL ハッシュ。 */
@@ -9735,6 +10079,32 @@
         item.appendChild(button);
         fragment.appendChild(item);
       });
+
+      // マスタの管理はページではないので、現在地の印は付けない。
+      MENU_ACTIONS.forEach(function (action) {
+        const item = document.createElement('li');
+        item.className = 'page-menu__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'page-menu__button';
+        button.dataset.role = 'page-menu-action';
+        button.dataset.action = action.id;
+        button.appendChild(buildPageIcon(action.icon));
+
+        const label = document.createElement('span');
+        label.className = 'page-menu__label';
+        label.textContent = action.name; // textContent で挿入（XSS安全）
+        button.appendChild(label);
+        button.addEventListener('click', function () {
+          closePageMenu();
+          action.open();
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+
       list.appendChild(fragment);
     }
 
