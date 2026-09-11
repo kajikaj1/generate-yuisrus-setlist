@@ -1591,7 +1591,7 @@
       </div>
       <div class="popup__body">
         <textarea class="memo-input" id="input-memo" data-role="memo"
-          placeholder="MCで話したことなど（保存用のメモ。コピーする文面には入りません）"></textarea>
+          placeholder="MCで話したこと"></textarea>
       </div>
     </div>
   </div>
@@ -6868,8 +6868,8 @@
     // セトリ表が下へ押し下げられるため、行にはボタンと先頭の抜粋だけを出す。
     // 中身は入力のたびに保存するので、閉じるボタンだけで取りこぼしは出ない。
 
-    /** メモ未入力のときにボタンへ出す文言。 */
-    const MEMO_EMPTY_LABEL = 'MCで話したことを書く';
+    /** メモ未入力のときにボタンへ出す文言（ポップアップのプレースホルダと揃える）。 */
+    const MEMO_EMPTY_LABEL = 'MCで話したこと';
 
     /**
      * メモ行のボタン表示を state に合わせる。
