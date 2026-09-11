@@ -565,13 +565,22 @@
     .saved-songs {
       flex: 1 0 100%;
       margin: 0;
-      padding: 4px 8px 8px 40px;
-      list-style: decimal;
+      padding: 4px 8px 8px 16px;
+      list-style: none;
       font-size: 15px;
       line-height: 1.7;
     }
 
-    .saved-songs__item::marker {
+    .saved-songs__item {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* 区分ごとに振り直す番号（O.A 1. ／ 1. ／ En.1.）。右揃えで曲名の頭を揃える。 */
+    .saved-songs__no {
+      flex: 0 0 auto;
+      min-width: 3.5em;
+      text-align: right;
       color: var(--color-muted);
     }
 
@@ -1204,6 +1213,8 @@
      * @property {string} liveName ライブ名。未入力は ""
      * @property {string} venue    会場名。未入力は ""
      * @property {string[]} setlist 追加順の曲タイトル列。重複可
+     * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
+     * @property {number} enCount  末尾から数えたアンコール(En)の曲数
      * @property {string} editingId 編集中の保存データのID。新規作成中は ""
      */
 
@@ -1220,8 +1231,82 @@
       liveName: '',
       venue: '',
       setlist: [],
+      oaCount: 0,
+      enCount: 0,
       editingId: ''
     };
+
+    // ============================================================
+    // Sections: O.A ／ 本編 ／ アンコール の区分
+    // ------------------------------------------------------------
+    // セトリは「O.A → 本編 → アンコール」の順に並ぶ連続したかたまりなので、
+    // 曲ごとに区分を持たせず「先頭から O.A が何曲」「末尾からアンコールが何曲」
+    // の2つの数だけで表す。曲を動かすと、その位置に応じて区分も変わる。
+    // 番号は区分ごとに1から振り直す（出力例: O.A 1.曲名 ／ 1.曲名 ／ En.1.曲名）。
+    // ============================================================
+
+    /**
+     * セトリ内の位置から区分と区分内の番号を求める（純粋関数）。
+     * @param {number} index 0起算の位置
+     * @param {number} oaCount 先頭から数えた O.A の曲数
+     * @param {number} enCount 末尾から数えたアンコールの曲数
+     * @param {number} length セトリ全体の曲数
+     * @returns {{section: 'oa'|'main'|'en', number: number}} 区分と1起算の番号
+     */
+    function setlistPosition(index, oaCount, enCount, length) {
+      if (index < oaCount) {
+        return { section: 'oa', number: index + 1 };
+      }
+      if (index >= length - enCount) {
+        return { section: 'en', number: index - (length - enCount) + 1 };
+      }
+      return { section: 'main', number: index - oaCount + 1 };
+    }
+
+    /**
+     * 出力テキストの行頭（曲名の直前まで）を組み立てる（純粋関数）。
+     * O.A は `O.A 1.`、本編は `1.`、アンコールは `En.1.`。
+     * @param {{section: string, number: number}} position setlistPosition の結果
+     * @returns {string} 行頭の文字列
+     */
+    function setlistLineLabel(position) {
+      if (position.section === 'oa') {
+        return 'O.A ' + position.number + '.';
+      }
+      if (position.section === 'en') {
+        return 'En.' + position.number + '.';
+      }
+      return position.number + '.';
+    }
+
+    /**
+     * 画面の番号欄に出す短いラベルを組み立てる（純粋関数。末尾のドットは付けない）。
+     * @param {{section: string, number: number}} position setlistPosition の結果
+     * @returns {string} 番号欄に出す文字列
+     */
+    function setlistNoLabel(position) {
+      if (position.section === 'oa') {
+        return 'O.A ' + position.number;
+      }
+      if (position.section === 'en') {
+        return 'En.' + position.number;
+      }
+      return String(position.number);
+    }
+
+    /**
+     * 区分の曲数を妥当な範囲へ丸める（純粋関数）。
+     * 負の数・小数・合計が曲数を超える指定は切り詰める（壊れた保存データ対策）。
+     * @param {unknown} oaCount O.A の曲数
+     * @param {unknown} enCount アンコールの曲数
+     * @param {number} length セトリ全体の曲数
+     * @returns {{oaCount: number, enCount: number}} 丸めた曲数
+     */
+    function clampSectionCounts(oaCount, enCount, length) {
+      const oa = Number.isInteger(oaCount) && oaCount > 0 ? Math.min(oaCount, length) : 0;
+      const en = Number.isInteger(enCount) && enCount > 0 ? Math.min(enCount, length - oa) : 0;
+      return { oaCount: oa, enCount: en };
+    }
 
     /**
      * セトリ末尾に曲タイトルを追加する（重複許可 / Requirements 3.5）。
@@ -1229,7 +1314,8 @@
      * @returns {void}
      */
     function addSong(title) {
-      state.setlist.push(title);
+      // アンコールがある場合は、その手前（本編の末尾）へ足す。
+      state.setlist.splice(state.setlist.length - state.enCount, 0, title);
     }
 
     /**
@@ -1242,6 +1328,13 @@
     function removeSongAt(index) {
       if (!Number.isInteger(index) || index < 0 || index >= state.setlist.length) {
         return;
+      }
+      // 消した曲がどの区分に属していたかで、区分の曲数も1つ減らす。
+      const position = setlistPosition(index, state.oaCount, state.enCount, state.setlist.length);
+      if (position.section === 'oa') {
+        state.oaCount -= 1;
+      } else if (position.section === 'en') {
+        state.enCount -= 1;
       }
       state.setlist.splice(index, 1);
     }
@@ -1281,6 +1374,8 @@
      */
     function resetState() {
       state.setlist.length = 0;
+      state.oaCount = 0;
+      state.enCount = 0;
       state.date = '';
       state.liveName = '';
       state.venue = '';
@@ -1311,6 +1406,8 @@
           liveName: state.liveName,
           venue: state.venue,
           setlist: toStoredSetlist(state.setlist), // 曲はIDで持つ
+          oaCount: state.oaCount,                  // 先頭から数えた O.A の曲数
+          enCount: state.enCount,                  // 末尾から数えたアンコールの曲数
           editingId: state.editingId               // 編集中なら対象のID
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
@@ -1349,6 +1446,9 @@
       state.venue = typeof data.venue === 'string' ? data.venue : '';
       // 曲ID配列（現行）と曲名配列（旧形式）の両方を受け付ける。
       state.setlist = fromStoredSetlist(data.setlist);
+      const counts = clampSectionCounts(data.oaCount, data.enCount, state.setlist.length);
+      state.oaCount = counts.oaCount;
+      state.enCount = counts.enCount;
       state.editingId = typeof data.editingId === 'string' ? data.editingId : '';
     }
 
@@ -1375,6 +1475,8 @@
      * @property {string} date      日付 (YYYY-MM-DD)。未入力は ""
      * @property {string} liveName  ライブ名。未入力は ""
      * @property {string} venue     会場名。未入力は ""
+     * @property {number} oaCount  先頭から数えたオープニングアクト(O.A)の曲数
+     * @property {number} enCount  末尾から数えたアンコール(En)の曲数
      * @property {string[]} setlist 曲タイトルの配列（保存時点のコピー）。
      *   localStorage・書き出し JSON では曲ID（マスタ外の曲だけ文字列）へ変換して
      *   持ち、読み込み時にタイトルへ戻す（toStoredSetlist / fromStoredSetlist）。
@@ -1405,12 +1507,15 @@
       if (setlist.length === 0) {
         return null; // 空セトリは保存しない
       }
+      const counts = clampSectionCounts(data.oaCount, data.enCount, setlist.length);
       return {
         id: typeof data.id === 'string' && data.id !== '' ? data.id : createSavedId(),
         savedAt: typeof data.savedAt === 'string' ? data.savedAt : '',
         date: typeof data.date === 'string' ? data.date : '',
         liveName: typeof data.liveName === 'string' ? data.liveName : '',
         venue: typeof data.venue === 'string' ? data.venue : '',
+        oaCount: counts.oaCount,
+        enCount: counts.enCount,
         setlist: setlist
       };
     }
@@ -1494,7 +1599,7 @@
      * @returns {Object} localStorage・JSON へ書き出す1件
      */
     function toStoredSavedSetlist(record) {
-      return {
+      const stored = {
         id: record.id,
         savedAt: record.savedAt,
         date: record.date,
@@ -1502,6 +1607,14 @@
         venue: record.venue,
         setlist: toStoredSetlist(record.setlist)
       };
+      // 区分なし（従来どおりのセトリ）のときは書き出さず、形も大きさも変えない。
+      if (record.oaCount > 0) {
+        stored.oaCount = record.oaCount;
+      }
+      if (record.enCount > 0) {
+        stored.enCount = record.enCount;
+      }
+      return stored;
     }
 
     /**
@@ -1518,6 +1631,8 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        oaCount: source.oaCount,
+        enCount: source.enCount,
         setlist: source.setlist.slice() // 参照を共有しない
       });
       if (!record) {
@@ -1556,6 +1671,8 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        oaCount: source.oaCount,
+        enCount: source.enCount,
         setlist: source.setlist.slice() // 参照を共有しない
       });
       if (!updated) {
@@ -1659,9 +1776,11 @@
       lines.push('『' + liveName + '』');             // 2. 『ライブ名』
       lines.push('会場：' + venue);                   // 3. 会場：会場名
 
-      // 4. 各曲（1起算の連番 + 曲名）
+      // 4. 各曲（区分ごとに1起算の番号 + 曲名）
+      const counts = clampSectionCounts(source.oaCount, source.enCount, setlist.length);
       setlist.forEach(function (title, index) {
-        lines.push(String(index + 1) + '.' + (typeof title === 'string' ? title : ''));
+        const position = setlistPosition(index, counts.oaCount, counts.enCount, setlist.length);
+        lines.push(setlistLineLabel(position) + (typeof title === 'string' ? title : ''));
       });
 
       lines.push(FIXED_HASHTAG);                      // 5. 固定ハッシュタグ（常に付与）
@@ -1722,11 +1841,26 @@
      * @returns {string|null} 曲名。曲行でなければ null（曲名が空なら ''）
      */
     function parseSongLine(line) {
-      const match = /^\d{1,3}\s*[.:)]\s*/.exec(normalizeForParse(line));
+      const normalized = normalizeForParse(line);
+
+      // O.A / En の行は「ラベル（＋番号）＋曲名」。過去の投稿の表記ゆれに広めに合わせる:
+      //   O.A 1.曲名 ／ OA.曲名 ／ O.A 曲名 ／ En.1.曲名 ／ En.曲名 ／ En 1.曲名
+      const marked = /^(o\s*\.?\s*a|e\s*\.?\s*n)\s*\.?\s*(\d{1,3}\s*[.:)]\s*)?/i.exec(normalized);
+      if (marked && marked[0].length < normalized.length) {
+        const rest = line.slice(marked[0].length).trim();
+        if (rest !== '') {
+          return {
+            title: rest,
+            section: /^o/i.test(marked[1]) ? 'oa' : 'en'
+          };
+        }
+      }
+
+      const match = /^\d{1,3}\s*[.:)]\s*/.exec(normalized);
       if (!match) {
         return null;
       }
-      return line.slice(match[0].length).trim();
+      return { title: line.slice(match[0].length).trim(), section: 'main' };
     }
 
     /**
@@ -1742,7 +1876,12 @@
       if (typeof text !== 'string') {
         return null;
       }
-      const parsed = { date: '', liveName: '', venue: '', setlist: [] };
+      // 区分ごとに受けてから「O.A → 本編 → アンコール」の順に並べ直す
+      // （過去の投稿で行が前後していても、保存の形は常に連続したかたまりになる）。
+      const parsed = { date: '', liveName: '', venue: '', setlist: [], oaCount: 0, enCount: 0 };
+      const oaSongs = [];
+      const mainSongs = [];
+      const enSongs = [];
 
       text.replace(/\r\n?/g, '\n').split('\n').forEach(function (rawLine) {
         // 全角空白も含めて前後の空白を落とす。
@@ -1777,10 +1916,20 @@
         }
 
         const song = parseSongLine(line);
-        if (song !== null && song !== '') {
-          parsed.setlist.push(song);
+        if (song !== null && song.title !== '') {
+          if (song.section === 'oa') {
+            oaSongs.push(song.title);
+          } else if (song.section === 'en') {
+            enSongs.push(song.title);
+          } else {
+            mainSongs.push(song.title);
+          }
         }
       });
+
+      parsed.setlist = oaSongs.concat(mainSongs, enSongs);
+      parsed.oaCount = oaSongs.length;
+      parsed.enCount = enSongs.length;
 
       return parsed.setlist.length > 0 ? parsed : null;
     }
@@ -1915,6 +2064,8 @@
      * @returns {HTMLTableRowElement}
      */
     function createSetlistRow(title, index) {
+      const position = setlistPosition(index, state.oaCount, state.enCount, state.setlist.length);
+      const noLabel = setlistNoLabel(position);
       const row = document.createElement('tr');
       row.className = 'setlist__row';
       row.dataset.index = String(index);
@@ -1936,7 +2087,7 @@
       // ② 通し番号（1起算 = index+1）
       const noCell = document.createElement('td');
       noCell.className = 'setlist__col--no';
-      noCell.textContent = String(index + 1);
+      noCell.textContent = noLabel; // O.A 1 ／ 1 ／ En.1
 
       // ③ 曲名（非編集の表示テキスト。input要素にしない / textContentで挿入）
       const titleCell = document.createElement('td');
@@ -1954,7 +2105,7 @@
       removeBtn.className = 'setlist__remove';
       removeBtn.dataset.role = 'remove-button';
       removeBtn.dataset.index = String(index);
-      removeBtn.setAttribute('aria-label', String(index + 1) + '曲目を削除');
+      removeBtn.setAttribute('aria-label', noLabel + ' を削除');
       removeBtn.textContent = '削除';
       removeBtn.addEventListener('click', function () {
         removeSongAt(index);
@@ -2557,6 +2708,17 @@
         parts.push(record.venue);
       }
       parts.push(record.setlist.length + '曲');
+      // 区分がある場合だけ内訳を添える（例: 12曲（O.A 1・En 2））。
+      const breakdown = [];
+      if (record.oaCount > 0) {
+        breakdown.push('O.A ' + record.oaCount);
+      }
+      if (record.enCount > 0) {
+        breakdown.push('En ' + record.enCount);
+      }
+      if (breakdown.length > 0) {
+        parts[parts.length - 1] += '（' + breakdown.join('・') + '）';
+      }
       return parts.join('・');
     }
 
@@ -2577,6 +2739,8 @@
       state.liveName = record.liveName;
       state.venue = record.venue;
       state.setlist = record.setlist.slice(); // 保存データと配列を共有しない
+      state.oaCount = record.oaCount;
+      state.enCount = record.enCount;
       state.editingId = record.id;            // 以降の保存はこの1件の上書きになる
 
       applyStateToInputs(); // 入力欄（日付・ライブ名・会場名）へ反映
@@ -2656,12 +2820,26 @@
      * @returns {HTMLOListElement} 曲順のリスト要素
      */
     function buildSavedSongList(record) {
-      const songs = document.createElement('ol');
+      const songs = document.createElement('ul');
       songs.className = 'saved-songs';
-      record.setlist.forEach(function (title) {
+      record.setlist.forEach(function (title, index) {
+        const position = setlistPosition(
+          index, record.oaCount, record.enCount, record.setlist.length
+        );
+
         const song = document.createElement('li');
         song.className = 'saved-songs__item';
-        song.textContent = title; // textContent で挿入（XSS安全）
+
+        // 番号は区分ごとに振り直すため、リストの自動採番ではなく明示的に出す。
+        const no = document.createElement('span');
+        no.className = 'saved-songs__no';
+        no.textContent = setlistNoLabel(position) + '.';
+
+        const name = document.createElement('span');
+        name.textContent = title; // textContent で挿入（XSS安全）
+
+        song.appendChild(no);
+        song.appendChild(name);
         songs.appendChild(song);
       });
       return songs;
@@ -2872,7 +3050,7 @@
 
     /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
     const BACKUP_FORMAT = 'yuisrus-setlist-backup';
-    const BACKUP_VERSION = 2; // 2: setlist を曲名の配列から曲IDの配列へ変更
+    const BACKUP_VERSION = 3; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
 
     /** 取り込み結果の通知文。 */
     const BACKUP_PARSE_FAILURE_MESSAGE = 'JSONを読み取れませんでした';
@@ -2899,7 +3077,14 @@
      * @returns {string} 内容の同一性を比べるキー
      */
     function savedSetlistKey(record) {
-      return [record.date, record.liveName, record.venue, record.setlist.join('\u0000')].join('\u0001');
+      return [
+        record.date,
+        record.liveName,
+        record.venue,
+        record.oaCount,
+        record.enCount,
+        record.setlist.join('\u0000')
+      ].join('\u0001');
     }
 
     /**
@@ -2967,6 +3152,8 @@
           date: record.date,
           liveName: record.liveName,
           venue: record.venue,
+          oaCount: record.oaCount,
+          enCount: record.enCount,
           setlist: record.setlist.slice()
         });
         added += 1;
@@ -3270,6 +3457,10 @@
     function startImport(parsed) {
       const setlist = [];
       const queue = [];
+      // 確認で曲が除かれても区分が崩れないよう、曲と同じ並びで区分も持ち回る。
+      const sections = parsed.setlist.map(function (title, index) {
+        return setlistPosition(index, parsed.oaCount, parsed.enCount, parsed.setlist.length).section;
+      });
 
       parsed.setlist.forEach(function (title) {
         const resolved = resolveSongTitle(title);
@@ -3284,6 +3475,8 @@
           date: parsed.date,
           liveName: parsed.liveName,
           venue: parsed.venue,
+          oaCount: parsed.oaCount,
+          enCount: parsed.enCount,
           setlist: setlist
         });
         return;
@@ -3294,6 +3487,7 @@
         liveName: parsed.liveName,
         venue: parsed.venue,
         setlist: setlist,
+        sections: sections,
         queue: queue,
         position: 0
       };
@@ -3338,8 +3532,20 @@
       pendingImport = null;
       closeResolvePopup();
 
-      const setlist = source.setlist.filter(function (title) {
-        return typeof title === 'string' && title !== '';
+      // 「除く」で消えた曲を落としつつ、残った曲の区分から曲数を数え直す。
+      const setlist = [];
+      let oaCount = 0;
+      let enCount = 0;
+      source.setlist.forEach(function (title, index) {
+        if (typeof title !== 'string' || title === '') {
+          return;
+        }
+        setlist.push(title);
+        if (source.sections[index] === 'oa') {
+          oaCount += 1;
+        } else if (source.sections[index] === 'en') {
+          enCount += 1;
+        }
       });
       if (setlist.length === 0) {
         showToast('取り込む曲がなくなりました');
@@ -3349,6 +3555,8 @@
         date: source.date,
         liveName: source.liveName,
         venue: source.venue,
+        oaCount: oaCount,
+        enCount: enCount,
         setlist: setlist
       });
     }
