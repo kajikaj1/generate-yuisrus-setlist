@@ -249,6 +249,50 @@
       overflow-x: auto;
     }
 
+    /* セトリ表の下の余白 をまるごと追加領域にするため、縦並びにする。 */
+    .app__main--setlist {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 表の下の空き全体が「曲を追加」のタップ領域。曲が増えて表が伸びたら
+       一行分（--tap-min）まで縮み、一覧の最下部に残る。 */
+    .add-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: var(--tap-min);
+      margin-top: 8px;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: transparent;
+      border: 2px dashed var(--color-border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .add-area:active {
+      background-color: var(--color-bg);
+    }
+
+    .add-area:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    .add-area__plus {
+      font-size: 20px;
+      line-height: 1;
+    }
+
     .setlist {
       width: 100%;
       border-collapse: collapse;
@@ -1079,7 +1123,7 @@
     </header>
 
     <!-- ===== Main: setlist table ===== -->
-    <main class="app__main">
+    <main class="app__main app__main--setlist">
       <div class="setlist-tools" id="setlist-tools" data-role="setlist-tools" hidden>
         <button type="button" class="btn btn--add" id="btn-add-oa" data-role="add-oa">＋O.A</button>
         <button type="button" class="btn btn--add" id="btn-add-en" data-role="add-en">＋アンコール</button>
@@ -1099,11 +1143,16 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- 表の下の空き全体が曲追加のタップ領域（曲が増えたら一行分まで縮む） -->
+      <button type="button" class="add-area" id="btn-add" data-role="add-button">
+        <span class="add-area__text">曲を追加する</span>
+        <span class="add-area__plus" aria-hidden="true">＋</span>
+      </button>
     </main>
 
     <!-- ===== Footer: actions ===== -->
     <footer class="app__footer">
-      <button type="button" class="btn btn--add" id="btn-add" data-role="add-button">＋ 曲を追加</button>
       <div class="app__footer-actions">
         <button type="button" class="btn btn--ghost" id="btn-saved-list" data-role="saved-list-button">保存一覧</button>
         <button type="button" class="btn btn--add" id="btn-save-db" data-role="save-button">DBに追加</button>
