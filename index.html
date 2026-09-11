@@ -702,6 +702,55 @@
       text-overflow: ellipsis;
     }
 
+    /* ページ切替のドロップダウン。押したボタンの真下へ出す（位置はJSで決める）。
+       全画面のポップアップにすると、ページを選ぶだけの操作には重すぎるため。 */
+    .page-menu {
+      position: fixed;
+      z-index: 150; /* ポップアップ(100)より前、トースト(200)より後ろ */
+      min-width: 180px;
+      max-width: calc(100vw - 24px);
+      padding: 4px;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .page-menu__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .page-menu__button {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: var(--tap-min);
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 15px;
+      text-align: left;
+      color: var(--color-text);
+      background-color: transparent;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .page-menu__button:active {
+      background-color: var(--color-bg);
+    }
+
+    /* 今いるページ。選べないわけではないので、色と太さで示すだけにする。 */
+    .page-menu__button--current {
+      color: var(--color-accent);
+      font-weight: 600;
+      background-color: var(--color-accent-soft);
+    }
+
     /* 中身がまだ無いページの案内。 */
     .page-empty {
       margin: 0;
@@ -1464,7 +1513,8 @@
 
     <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
     <nav class="page-nav">
-      <button type="button" class="page-nav__link" data-role="page-menu">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
         <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M4 7h16M4 12h16M4 17h16"/>
         </svg>
@@ -1608,7 +1658,8 @@
   <div class="app page-saved" id="page-saved" data-role="page-saved" hidden>
     <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
     <nav class="page-nav">
-      <button type="button" class="page-nav__link" data-role="page-menu">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
         <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M4 7h16M4 12h16M4 17h16"/>
         </svg>
@@ -1673,7 +1724,8 @@
   <div class="app" id="page-analysis" data-role="page-analysis" hidden>
     <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
     <nav class="page-nav">
-      <button type="button" class="page-nav__link" data-role="page-menu">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
         <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M4 7h16M4 12h16M4 17h16"/>
         </svg>
@@ -1691,20 +1743,11 @@
     </main>
   </div>
 
-  <!-- ===== Page menu popup (initially hidden) ===== -->
-  <div class="popup-overlay" id="page-menu-overlay" data-role="page-menu-overlay" hidden>
-    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="page-menu-title">
-      <div class="popup__header">
-        <h2 class="popup__title" id="page-menu-title">ページを選択</h2>
-        <button type="button" class="btn btn--ghost" id="btn-page-menu-close"
-          data-role="page-menu-close">閉じる</button>
-      </div>
-      <div class="popup__body">
-        <ul class="popup__list" id="page-menu-list" data-role="page-menu-list">
-          <!-- ページ一覧は renderPageMenu() が描画する -->
-        </ul>
-      </div>
-    </div>
+  <!-- ===== ページ切替のドロップダウン（切替ボタンの真下に出す） ===== -->
+  <div class="page-menu" id="page-menu" data-role="page-menu-popup" hidden>
+    <ul class="page-menu__list" id="page-menu-list" data-role="page-menu-list">
+      <!-- ページ一覧は renderPageMenu() が描画する -->
+    </ul>
   </div>
 
   <!-- ===== MC memo popup (initially hidden) ===== -->
@@ -7190,13 +7233,13 @@
       const fragment = document.createDocumentFragment();
       PAGES.forEach(function (page) {
         const item = document.createElement('li');
-        item.className = 'popup__item';
+        item.className = 'page-menu__item';
 
         const button = document.createElement('button');
         button.type = 'button';
         button.className = page.id === current.id
-          ? 'popup__item-button popup__item-button--selected'
-          : 'popup__item-button';
+          ? 'page-menu__button page-menu__button--current'
+          : 'page-menu__button';
         button.dataset.role = 'page-menu-item';
         button.dataset.page = page.id;
         button.textContent = page.name; // textContent で挿入（XSS安全）
@@ -7213,29 +7256,81 @@
       list.appendChild(fragment);
     }
 
+    /** メニューを閉じるための後始末（開いている間だけ登録する）。 */
+    let pageMenuDismiss = null;
+
     /**
-     * ページ切替メニューを開く。
+     * ページ切替メニューを、押したボタンの真下へ出す。
+     * 位置は viewport 基準（position: fixed）で決めるので、スクロールや
+     * 画面の回転で位置がずれる。その場合は閉じる。
+     * @param {HTMLElement} trigger 押された切替ボタン
      * @returns {void}
      */
-    function openPageMenu() {
-      const overlay = document.getElementById('page-menu-overlay');
-      if (!overlay) {
+    function openPageMenu(trigger) {
+      const menu = document.getElementById('page-menu');
+      if (!menu || !trigger) {
         return;
       }
       renderPageMenu();
-      overlay.hidden = false;
+
+      const rect = trigger.getBoundingClientRect();
+      menu.style.top = Math.round(rect.bottom + 4) + 'px';
+      menu.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+      menu.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+
+      // メニューの外を触ったら閉じる（押したボタン自体は開閉のトグルに任せる）。
+      const onPointerDown = function (event) {
+        if (menu.contains(event.target) || trigger.contains(event.target)) {
+          return;
+        }
+        closePageMenu();
+      };
+      const onKeyDown = function (event) {
+        if (event.key === 'Escape') {
+          closePageMenu();
+        }
+      };
+      const onViewportChange = function () {
+        closePageMenu(); // 位置が合わなくなるので閉じる
+      };
+
+      document.addEventListener('pointerdown', onPointerDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      window.addEventListener('scroll', onViewportChange, true);
+      window.addEventListener('resize', onViewportChange);
+
+      pageMenuDismiss = function () {
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        window.removeEventListener('scroll', onViewportChange, true);
+        window.removeEventListener('resize', onViewportChange);
+        trigger.setAttribute('aria-expanded', 'false');
+      };
     }
 
     /**
-     * ページ切替メニューを閉じる。
+     * ページ切替メニューを閉じる（開いている間だけ付けた後始末も外す）。
      * @returns {void}
      */
     function closePageMenu() {
-      const overlay = document.getElementById('page-menu-overlay');
-      if (!overlay) {
-        return;
+      const menu = document.getElementById('page-menu');
+      if (pageMenuDismiss) {
+        pageMenuDismiss();
+        pageMenuDismiss = null;
       }
-      overlay.hidden = true;
+      if (menu) {
+        menu.hidden = true;
+      }
+    }
+
+    /**
+     * ページ切替メニューが開いているかを返す。
+     * @returns {boolean} 開いていれば true
+     */
+    function isPageMenuOpen() {
+      const menu = document.getElementById('page-menu');
+      return Boolean(menu) && !menu.hidden;
     }
 
     /**
@@ -7273,12 +7368,15 @@
         renderPage(currentPageName());
       });
       document.querySelectorAll('[data-role="page-menu"]').forEach(function (button) {
-        button.addEventListener('click', openPageMenu);
+        button.addEventListener('click', function () {
+          // 同じボタンをもう一度押したら閉じる（トグル）。
+          if (isPageMenuOpen()) {
+            closePageMenu();
+            return;
+          }
+          openPageMenu(button);
+        });
       });
-      const menuCloseButton = document.getElementById('btn-page-menu-close');
-      if (menuCloseButton) {
-        menuCloseButton.addEventListener('click', closePageMenu);
-      }
       routerWired = true;
       renderPage(currentPageName()); // リロード・直リンクでも現在のハッシュに従う
     }
