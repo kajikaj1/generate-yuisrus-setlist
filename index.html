@@ -173,51 +173,64 @@
       text-overflow: ellipsis;
     }
 
-    /* 入力欄の右にボタンを置く行（会場名）。ボタンは下の段へ回るので、
-       ラベルは行の中央ではなく先頭（＝入力欄の横）へ揃える。 */
-    .field--venue {
-      align-items: flex-start;
-    }
-
-    .field--venue .field__label {
-      /* 入力欄の文字位置に合わせる（入力欄の上下パディング5px＋境界1px分） */
-      padding-top: 7px;
-    }
-
-    /* 入力欄とボタンを縦に積む列（会場名＋「選ぶ」「登録」）。
-       横並びにすると狭い画面で入力欄が 68px まで潰れ、しかも「登録」の
-       出し入れで入力中に幅が飛ぶため、ボタンは常に下の段へ置く。 */
+    /* 会場名の入力欄。日付欄のカレンダーと同じように、操作ボタンを入力欄の
+       中へ入れる（横に並べると狭い画面で入力欄が潰れ、ボタンの出し入れで
+       入力中に幅が飛ぶため）。 */
     .field__control {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      position: relative;
       flex: 1 1 auto;
       min-width: 0;
-      gap: 8px;
     }
 
     .field__control .field__input {
-      flex: 1 1 100%; /* 常に1行分を占め、ボタンの有無で幅が変わらない */
+      width: 100%;
+      min-height: var(--tap-min); /* 中のアイコンを押しやすい高さにする */
+      padding-right: 84px;        /* アイコン2つ分。出し入れで幅を変えないため常に空ける */
     }
 
-    .btn-pick {
-      flex: 0 0 auto;
-      min-height: 44px;
-      padding: 5px 12px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 600;
+    /* 入力欄の中に重ねるアイコン列（右端＝日付のカレンダーと同じ位置）。 */
+    .input-icons {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 2px;
+    }
+
+    .input-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
       color: var(--color-accent);
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-accent);
+      background-color: transparent;
+      border: none;
       border-radius: var(--radius);
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
 
-    .btn-pick:active {
-      filter: brightness(0.95);
+    .input-icon:active {
+      background-color: var(--color-bg);
+    }
+
+    .input-icon:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: -2px;
+    }
+
+    .input-icon__glyph {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     /* ラベルを上に置く入力欄（会場の登録フォームで使う）。 */
@@ -1368,8 +1381,23 @@
         <div class="field__control">
           <input class="field__input" type="text" id="input-venue" data-role="venue"
             placeholder="会場名を入力" autocomplete="off">
-          <button type="button" class="btn-pick" id="btn-venue-pick" data-role="venue-pick">選ぶ</button>
-          <button type="button" class="btn-pick" id="btn-venue-add" data-role="venue-add" hidden>登録</button>
+          <span class="input-icons">
+            <button type="button" class="input-icon" id="btn-venue-add" data-role="venue-add"
+              aria-label="この会場を登録する" title="この会場を登録する" hidden>
+              <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <button type="button" class="input-icon" id="btn-venue-pick" data-role="venue-pick"
+              aria-label="会場を選ぶ" title="会場を選ぶ">
+              <svg class="input-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 6h11M9 12h11M9 18h11"/>
+                <circle cx="4.5" cy="6" r="1.1"/>
+                <circle cx="4.5" cy="12" r="1.1"/>
+                <circle cx="4.5" cy="18" r="1.1"/>
+              </svg>
+            </button>
+          </span>
         </div>
       </div>
       <div class="field">
