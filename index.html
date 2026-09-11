@@ -1113,12 +1113,24 @@
     }
 
     /**
-     * 曲名の照合キーを作る（純粋関数）。空白（全角含む）と英字の大小差を無視する。
+     * 曲名の照合キーを作る（純粋関数）。
+     * 過去の投稿は表記がゆれるため、次の差を無視して曲マスタと突き合わせる:
+     *   - 空白（全角含む）    「えれくとりかる ぴょんぴょこ」＝「えれくとりかるぴょんぴょこ」
+     *   - 全角／半角・英字の大小（NFKC 正規化＋小文字化）
+     *   - カタカナ／ひらがな   「ほくいもパラダイちゅ」＝「ほくいもぱらだいちゅ」
+     * カナを寄せるため、カナ種別だけが違う別の曲を作らないよう曲マスタ側で注意する。
      * @param {string} title 曲名
      * @returns {string} 照合キー
      */
     function songMatchKey(title) {
-      return title.replace(/[\s\u3000]/g, '').toLowerCase();
+      const normalized = typeof title.normalize === 'function' ? title.normalize('NFKC') : title;
+      return normalized
+        .replace(/[\s\u3000]/g, '')
+        .toLowerCase()
+        // カタカナ（ァ〜ヶ）をひらがなへ寄せる。長音符「ー」や「・」は対象外。
+        .replace(/[\u30a1-\u30f6]/g, function (kana) {
+          return String.fromCharCode(kana.charCodeAt(0) - 0x60);
+        });
     }
 
     /**
