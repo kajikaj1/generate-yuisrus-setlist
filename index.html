@@ -1157,16 +1157,6 @@
       outline-offset: 1px;
     }
 
-    /* 詰めた検索項目はチェック欄を狭めて、チップの横幅が広がりすぎないようにする */
-    .popup__list--compact .popup__item-button--search {
-      gap: 4px;
-    }
-
-    .popup__list--compact .popup__item-check {
-      width: 1em;
-      text-align: center;
-    }
-
     /* 保存一覧の各項目: 読込ボタン（可変幅）＋削除ボタン（固定幅）を横並びにする。 */
     .popup__item--saved {
       display: flex;
@@ -1274,19 +1264,8 @@
       filter: brightness(0.95);
     }
 
-    /* 曲検索の項目: 先頭にチェック欄を置き、選択中は淡いアクセント色で塗る。
-       色だけに頼らずチェック記号でも選択状態が分かるようにする。 */
-    .popup__item-button--search {
-      gap: 8px;
-    }
-
-    .popup__item-check {
-      flex: 0 0 auto;
-      width: 1.25em;
-      color: var(--color-accent);
-      font-weight: 700;
-    }
-
+    /* 曲検索の項目: 押すたびに切り替わるトグルなので、選択中は淡いアクセント色で
+       塗って示す（状態は aria-pressed でも伝える）。 */
     .popup__item-button--selected {
       background-color: var(--color-accent-soft);
       color: var(--color-accent);
@@ -6046,10 +6025,6 @@
     function updateSearchItem(button, selected) {
       button.classList.toggle('popup__item-button--selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-      const check = button.querySelector('.popup__item-check');
-      if (check) {
-        check.textContent = selected ? '✓' : '';
-      }
     }
 
     /**
@@ -6103,12 +6078,8 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'popup__item-button popup__item-button--search';
+        button.className = 'popup__item-button';
         button.dataset.role = 'search-option';
-
-        const check = document.createElement('span');
-        check.className = 'popup__item-check';
-        check.setAttribute('aria-hidden', 'true'); // 状態は aria-pressed で伝える
 
         const labelText = popupShortMode ? songShortTitle(title) : title;
 
@@ -6121,9 +6092,8 @@
           button.title = title;
         }
 
-        button.appendChild(check);
         button.appendChild(label);
-        updateSearchItem(button, selected); // 初期表示（選択中なら塗り＋チェック）
+        updateSearchItem(button, selected); // 初期表示（選択中なら塗る）
 
         button.addEventListener('click', function () {
           // トグル: 1回目のタップで選択、もう一度で解除する。
