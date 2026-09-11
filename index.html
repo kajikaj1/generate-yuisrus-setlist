@@ -173,27 +173,83 @@
       text-overflow: ellipsis;
     }
 
-    /* 属性（ワンマン・生誕など）の行。チップは折り返して並べる。 */
+    /* 入力欄とボタンを縦に積む列（会場名＋「選ぶ」「登録」）。
+       横並びにすると狭い画面で入力欄が 68px まで潰れ、しかも「登録」の
+       出し入れで入力中に幅が飛ぶため、ボタンは常に下の段へ置く。 */
+    .field__control {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex: 1 1 auto;
+      min-width: 0;
+      gap: 8px;
+    }
+
+    .field__control .field__input {
+      flex: 1 1 100%; /* 常に1行分を占め、ボタンの有無で幅が変わらない */
+    }
+
+    .btn-pick {
+      flex: 0 0 auto;
+      min-height: 44px;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .btn-pick:active {
+      filter: brightness(0.95);
+    }
+
+    /* ラベルを上に置く入力欄（会場の登録フォームで使う）。 */
+    .field--stacked {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+
+    .field--stacked .field__label {
+      flex: 0 0 auto;
+    }
+
+    .venue-add-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+
+    /* 属性（ワンマン・生誕など）の行。チップが5つ並ぶので、ラベルを上に置いて
+       横幅をすべてチップへ渡す（ラベルが左にあると約100px削られ1行に収まらない）。 */
     .field--tags {
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
     }
 
     .field--tags .field__label {
-      padding-top: 6px;
+      flex: 0 0 auto;
     }
 
     .tag-list {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
       flex: 1 1 auto;
       min-width: 0;
     }
 
     .tag-chip {
       min-height: 30px;
-      padding: 4px 12px;
-      font-size: 13px;
+      padding: 4px 8px;
+      font-size: 12px;
       color: var(--color-muted);
       background-color: var(--color-surface);
       border: 1px solid var(--color-border);
@@ -485,6 +541,11 @@
     .app__footer {
       position: sticky;
       bottom: 0;
+      /* 背景が透明だと、下に重なった「曲を追加する」領域の破線や文字が
+         ボタンの隙間から透けて見える（しかもその隙間は押せない）。 */
+      background-color: var(--color-bg);
+      /* iOS のホームインジケータに重ならないよう下端に余白を確保する。 */
+      padding-bottom: env(safe-area-inset-bottom);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -493,14 +554,81 @@
       padding: 8px 0 0;
     }
 
-    /* フッター右側のアクション群（保存系＋リセット＋コピー）。
-       ボタンが4つあり1行では収まらないため2列グリッドで2行に整列させる
-       （flex の折り返しだと行ごとの個数が幅次第でばらつくため）。 */
+    /* フッターのアクション群（保存一覧・DBに追加・リセット・コピー）。
+       文字だけだと4つで2行になり窮屈なので、アイコン＋小さなラベルにして
+       画面幅を4等分し、狭い画面でも1行に収める。 */
     .app__footer-actions {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: center;
+      display: flex;
+      align-items: stretch;
       gap: 8px;
+      width: 100%;
+    }
+
+    .btn-icon {
+      flex: 1 1 0;
+      min-width: 0; /* ラベルが長くても4等分を崩さない */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-height: var(--tap-min);
+      padding: 6px 4px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--color-text);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* アイコンは線画。色はボタンの文字色を継ぐ（currentColor）。 */
+    .btn-icon__glyph {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .btn-icon__label {
+      max-width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    /* 役割ごとの色分け（意味は文字だけでなく色でも補う）。 */
+    .btn-icon--accent {
+      color: var(--color-accent);
+      border-color: var(--color-accent);
+    }
+
+    .btn-icon--danger {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
+    }
+
+    .btn-icon--primary {
+      color: var(--color-accent-text);
+      background-color: var(--color-accent);
+      border-color: var(--color-accent);
+    }
+
+    .btn-icon:active {
+      filter: brightness(0.95);
+    }
+
+    .btn-icon:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
     }
 
     /* ボタンは上下の余白を詰めた控えめな高さに揃える（--btn-min-height）。
@@ -550,6 +678,9 @@
     /* ===== Toast / notification ===== */
     .toast {
       position: fixed;
+      /* ポップアップ（z-index:100）より前面へ。裏に回ると、モーダル内の
+         「会場名を入力してください」などが一切見えなくなる。 */
+      z-index: 200;
       left: 50%;
       bottom: 88px;
       transform: translateX(-50%);
@@ -659,6 +790,73 @@
     .popup__item-button:focus {
       outline: 2px solid var(--color-accent);
       outline-offset: -2px;
+    }
+
+    /* 会場の管理の1行（会場名＋使用件数＋操作ボタン）。 */
+    .venue-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .venue-row__label {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .venue-row__name {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .venue-row__meta {
+      font-size: 12px;
+      color: var(--color-muted);
+    }
+
+    .venue-row__actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 4px;
+    }
+
+    /* 管理画面の小さめボタン。行の高さを抑えつつタップ領域は確保する。 */
+    .venue-row__button {
+      min-width: var(--tap-min);
+      min-height: 36px;
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-accent);
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .venue-row__button--danger {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
+    }
+
+    .venue-row__button:active {
+      filter: brightness(0.95);
+    }
+
+    /* 会場一覧のエリア見出し。項目と区別できるよう小さく薄く出す。 */
+    .popup__group-title {
+      padding: 12px 8px 4px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-muted);
     }
 
     .popup__empty {
@@ -1106,8 +1304,12 @@
       </div>
       <div class="field">
         <label class="field__label" for="input-venue">会場名</label>
-        <input class="field__input" type="text" id="input-venue" data-role="venue"
-          placeholder="会場名を入力" autocomplete="off">
+        <div class="field__control">
+          <input class="field__input" type="text" id="input-venue" data-role="venue"
+            placeholder="会場名を入力" autocomplete="off">
+          <button type="button" class="btn-pick" id="btn-venue-pick" data-role="venue-pick">選ぶ</button>
+          <button type="button" class="btn-pick" id="btn-venue-add" data-role="venue-add" hidden>登録</button>
+        </div>
       </div>
       <div class="field">
         <label class="field__label" for="input-memo">MCメモ</label>
@@ -1154,10 +1356,39 @@
     <!-- ===== Footer: actions ===== -->
     <footer class="app__footer">
       <div class="app__footer-actions">
-        <button type="button" class="btn btn--ghost" id="btn-saved-list" data-role="saved-list-button">保存一覧</button>
-        <button type="button" class="btn btn--add" id="btn-save-db" data-role="save-button">DBに追加</button>
-        <button type="button" class="btn btn--danger" id="btn-reset" data-role="reset-button">リセット</button>
-        <button type="button" class="btn btn--copy" id="btn-copy" data-role="copy-button">コピー</button>
+        <button type="button" class="btn-icon" id="btn-saved-list" data-role="saved-list-button">
+          <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 6h11M9 12h11M9 18h11"/>
+            <circle cx="4.5" cy="6" r="1.1"/>
+            <circle cx="4.5" cy="12" r="1.1"/>
+            <circle cx="4.5" cy="18" r="1.1"/>
+          </svg>
+          <span class="btn-icon__label">保存一覧</span>
+        </button>
+        <button type="button" class="btn-icon btn-icon--accent" id="btn-save-db" data-role="save-button">
+          <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <ellipse cx="10" cy="6" rx="6" ry="2.5"/>
+            <path d="M4 6v5c0 1.4 2.7 2.5 6 2.5"/>
+            <path d="M4 11v5c0 1.4 2.7 2.5 6 2.5"/>
+            <path d="M17 14.5v6M14 17.5h6"/>
+          </svg>
+          <span class="btn-icon__label">DBに追加</span>
+        </button>
+        <button type="button" class="btn-icon btn-icon--danger" id="btn-reset" data-role="reset-button">
+          <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 7h16M9.5 7V4.5h5V7"/>
+            <path d="M6.5 7l1 12.5h9l1-12.5"/>
+            <path d="M10.5 10.5v6M13.5 10.5v6"/>
+          </svg>
+          <span class="btn-icon__label">リセット</span>
+        </button>
+        <button type="button" class="btn-icon btn-icon--primary" id="btn-copy" data-role="copy-button">
+          <svg class="btn-icon__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="9" y="9" width="11" height="11" rx="2"/>
+            <path d="M15 5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15"/>
+          </svg>
+          <span class="btn-icon__label">コピー</span>
+        </button>
       </div>
     </footer>
   </div>
@@ -1233,6 +1464,107 @@
         <!-- 保存済み一覧は renderSavedList() が描画する -->
       </ul>
     </main>
+  </div>
+
+  <!-- ===== Venue picker popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-overlay" data-role="venue-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-title">会場を選択</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-venue-manage"
+            data-role="venue-manage">管理</button>
+          <button type="button" class="btn btn--ghost" id="btn-venue-close" data-role="venue-close">閉じる</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="venue-list" data-role="venue-list">
+          <!-- 会場一覧は renderVenueList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Venue manage popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-manage-overlay" data-role="venue-manage-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-manage-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-manage-title">会場の管理</h2>
+        <button type="button" class="btn btn--ghost" id="btn-venue-manage-close"
+          data-role="venue-manage-close">閉じる</button>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__help">
+          表記のゆれた会場は「まとめる」で1つにできます。保存したセトリの会場名も付け替わります。
+        </p>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="venue-manage-list" data-role="venue-manage-list">
+          <!-- 会場の一覧は renderVenueManageList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Venue merge target popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-merge-overlay" data-role="venue-merge-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-merge-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-merge-title">まとめ先を選択</h2>
+        <button type="button" class="btn btn--ghost" id="btn-venue-merge-cancel"
+          data-role="venue-merge-cancel">やめる</button>
+      </div>
+      <div class="popup__notice">
+        <p class="resolve-notice__progress" id="venue-merge-source" data-role="venue-merge-source"></p>
+        <p class="resolve-notice__help">まとめ先の会場を選んでください。</p>
+      </div>
+      <div class="popup__body">
+        <ul class="popup__list" id="venue-merge-list" data-role="venue-merge-list">
+          <!-- まとめ先の候補は renderVenueMergeList() が描画する -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Venue register popup (initially hidden) ===== -->
+  <div class="popup-overlay" id="venue-add-overlay" data-role="venue-add-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="venue-add-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="venue-add-title">会場を登録</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-venue-add-cancel"
+            data-role="venue-add-cancel">キャンセル</button>
+          <button type="button" class="btn btn--copy" id="btn-venue-add-submit"
+            data-role="venue-add-submit">登録する</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <div class="venue-add-form">
+          <div class="field field--stacked">
+            <label class="field__label" for="venue-add-name">会場名</label>
+            <input class="field__input" type="text" id="venue-add-name" data-role="venue-add-name"
+              autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="venue-add-reading">読み仮名（並び順に使う。省略可）</label>
+            <input class="field__input" type="text" id="venue-add-reading" data-role="venue-add-reading"
+              placeholder="例：しんじゅくろふと" autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <span class="field__label" id="venue-add-area-label">エリア</span>
+            <div class="tag-list" id="venue-add-areas" data-role="venue-add-areas"
+              role="group" aria-labelledby="venue-add-area-label">
+              <!-- エリアの選択肢は renderVenueAreaChoices() が描画する -->
+            </div>
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="venue-add-new-area">新しいエリアを作る（省略可）</label>
+            <input class="field__input" type="text" id="venue-add-new-area" data-role="venue-add-new-area"
+              placeholder="例：高円寺" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ===== Song search popup (initially hidden) ===== -->
@@ -1736,8 +2068,430 @@
     }
 
     // ============================================================
+    // Data: 会場マスタ（HTML内固定埋め込み）
+    // ------------------------------------------------------------
+    // 会場は { name, reading, area }。reading はあいうえお順ソート用の読み仮名で、
+    // area は「新宿」「下北沢」のようなライブハウスの密集地（行政区画ではなく、
+    // 会場を探すときの感覚に合わせた粒度）。エリアは AREA_MASTER に並び順を持ち、
+    // 会場選択の一覧はそのエリアごとにまとめて出す。
+    // 会場名は手入力だと表記がゆれる（新宿LOFT／新宿ロフト／LOFT など）ため、
+    // ここから選べるようにする。曲マスタと同じく、実運用ではファイルを直接
+    // 編集して差し替える。以下は書き方の例なので、実際に使う会場へ置き換える。
+    // マスタに無い会場は今までどおり入力欄へ直接書ける（選択は必須ではない）。
+    // area が未設定・AREA_MASTER に無い会場は一覧の末尾（その他）へ回す。
+    // ============================================================
+
+    /** エリア（会場の密集地）。並び順は読み仮名のあいうえお順。 */
+    const AREA_MASTER = [
+      { name: '新宿',   reading: 'しんじゅく' },
+      { name: '渋谷',   reading: 'しぶや' },
+      { name: '下北沢', reading: 'しもきたざわ' },
+      { name: '高円寺', reading: 'こうえんじ' },
+      { name: '西永福', reading: 'にしえいふく' }
+    ];
+
+    /** エリアが分からない会場をまとめる見出し。 */
+    const OTHER_AREA_NAME = 'その他';
+
+    /** @type {ReadonlyArray<Venue>} */
+    const VENUE_MASTER = [
+      { name: '新宿LOFT',      reading: 'しんじゅくろふと',      area: '新宿' },
+      { name: 'Zepp Shinjuku', reading: 'ぜっぷしんじゅく',      area: '新宿' },
+      { name: '渋谷O-WEST',    reading: 'しぶやおーうぇすと',    area: '渋谷' },
+      { name: '下北沢SHELTER', reading: 'しもきたざわしぇるたー', area: '下北沢' },
+      { name: '高円寺HIGH',    reading: 'こうえんじはい',        area: '高円寺' },
+      { name: '西永福JAM',     reading: 'にしえいふくじゃむ',    area: '西永福' }
+    ];
+
+    // ============================================================
+    // Venue Store: 会場・エリアのユーザー追加分（VenueStore）
+    // ------------------------------------------------------------
+    // 組み込みのマスタ（AREA_MASTER / VENUE_MASTER）はファイルで管理するが、
+    // 自由入力した会場をその場でマスタへ足せるよう、追加分は localStorage に持つ。
+    // 読み出しは「組み込み＋追加分」を名前で重複排除して返す（同名は組み込み優先）。
+    // バックアップの書き出し・取り込みにも含めるので、機種変更や他の人との
+    // やり取りでも引き継げる。保存不可・データ破損時は組み込みだけで動く。
+    // ============================================================
+
+    /** ユーザーが追加したエリア／会場の localStorage キー。 */
+    const USER_AREA_STORAGE_KEY = 'yuisrus-setlist:areas:v1';
+    const USER_VENUE_STORAGE_KEY = 'yuisrus-setlist:venues:v1';
+
+    /**
+     * 会場・エリアの突合キーを作る（純粋関数）。
+     * 表示名は入力どおり残しつつ、全角半角・英字の大小・空白の差を無視して
+     * 同じ会場だと判定するために使う（新木場STUDIO COAST ＝ 新木場studio coast）。
+     * @param {string} name 会場名・エリア名
+     * @returns {string} 突合キー
+     */
+    function masterNameKey(name) {
+      if (typeof name !== 'string') {
+        return '';
+      }
+      const normalized = typeof name.normalize === 'function' ? name.normalize('NFKC') : name;
+      return normalized.replace(/[\s\u3000]/g, '').toLowerCase();
+    }
+
+    /**
+     * エリア1件を検証・正規化する（純粋関数）。名前が空なら null。
+     * @param {unknown} data 検証する値
+     * @returns {{name: string, reading: string}|null} 正規化した1件
+     */
+    function normalizeAreaEntry(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const name = typeof data.name === 'string' ? data.name.trim() : '';
+      if (name === '') {
+        return null;
+      }
+      return {
+        name: name,
+        reading: typeof data.reading === 'string' ? data.reading.trim() : ''
+      };
+    }
+
+    /**
+     * 会場1件を検証・正規化する（純粋関数）。名前が空なら null。
+     * @param {unknown} data 検証する値
+     * @returns {Venue|null} 正規化した1件
+     */
+    function normalizeVenueEntry(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const name = typeof data.name === 'string' ? data.name.trim() : '';
+      if (name === '') {
+        return null;
+      }
+      return {
+        name: name,
+        reading: typeof data.reading === 'string' ? data.reading.trim() : '',
+        area: typeof data.area === 'string' ? data.area.trim() : ''
+      };
+    }
+
+    /**
+     * localStorage から一覧を読み、要素ごとに正規化して返す。
+     * 参照不可・JSON破損・配列でない場合は空配列（アプリは組み込みだけで動く）。
+     * @param {string} key 保存キー
+     * @param {function(unknown): (Object|null)} normalize 1件の正規化関数
+     * @returns {Object[]} 正規化した一覧
+     */
+    function readStoredList(key, normalize) {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(key);
+      } catch (err) {
+        return [];
+      }
+      if (!raw) {
+        return [];
+      }
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        return [];
+      }
+      if (!Array.isArray(data)) {
+        return [];
+      }
+      const list = [];
+      data.forEach(function (item) {
+        const entry = normalize(item);
+        if (entry) {
+          list.push(entry);
+        }
+      });
+      return list;
+    }
+
+    /**
+     * localStorage へ一覧を書き込む（全置換）。
+     * @param {string} key 保存キー
+     * @param {Object[]} list 保存する一覧
+     * @returns {boolean} 書き込めたら true
+     */
+    function writeStoredList(key, list) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(list));
+        return true;
+      } catch (err) {
+        return false; // 容量超過・プライベートモード等
+      }
+    }
+
+    /**
+     * ユーザーが追加したエリア一覧を返す。
+     * @returns {{name: string, reading: string}[]} 追加分のエリア
+     */
+    function loadUserAreas() {
+      return readStoredList(USER_AREA_STORAGE_KEY, normalizeAreaEntry);
+    }
+
+    /**
+     * ユーザーが追加した会場一覧を返す。
+     * @returns {Venue[]} 追加分の会場
+     */
+    function loadUserVenues() {
+      return readStoredList(USER_VENUE_STORAGE_KEY, normalizeVenueEntry);
+    }
+
+    /**
+     * 組み込みと追加分をつないで返す（同じ会場は組み込みを優先して1件にする）。
+     * 同一判定は masterNameKey（全角半角・大小・空白差を無視）で行う。
+     * 辞書には Set を使う。素のオブジェクトだと `toString` のような
+     * Object.prototype 由来の名前が「既にある」と誤判定され、一覧から消える。
+     * 引数の配列は書き換えない。
+     * @param {Object[]} builtIn 組み込みの一覧
+     * @param {Object[]} added 追加分の一覧
+     * @returns {Object[]} つないだ一覧
+     */
+    function mergeByName(builtIn, added) {
+      const merged = builtIn.slice();
+      const keys = new Set();
+      merged.forEach(function (entry) {
+        keys.add(masterNameKey(entry.name));
+      });
+      added.forEach(function (entry) {
+        const key = masterNameKey(entry.name);
+        if (!keys.has(key)) {
+          keys.add(key);
+          merged.push(entry);
+        }
+      });
+      return merged;
+    }
+
+    /**
+     * 使えるエリア一覧（組み込み＋追加分）を返す。
+     * @returns {{name: string, reading: string}[]} エリア一覧
+     */
+    function allAreas() {
+      return mergeByName(AREA_MASTER.slice(), loadUserAreas());
+    }
+
+    /**
+     * 使える会場一覧（組み込み＋追加分）を返す。
+     * @returns {Venue[]} 会場一覧
+     */
+    function allVenues() {
+      return mergeByName(VENUE_MASTER.slice(), loadUserVenues());
+    }
+
+    /**
+     * 名前で会場を探す（組み込み・追加分の両方から）。
+     * 表記の差（全角半角・英字の大小・空白）は無視する。
+     * @param {string} name 会場名
+     * @returns {Venue|null} 見つかった会場。無ければ null
+     */
+    function findVenueByName(name) {
+      const key = masterNameKey(name);
+      if (key === '') {
+        return null;
+      }
+      const venues = allVenues();
+      for (let i = 0; i < venues.length; i += 1) {
+        if (masterNameKey(venues[i].name) === key) {
+          return venues[i];
+        }
+      }
+      return null;
+    }
+
+    /**
+     * エリアを追加分へ足す（すでにある名前なら何もしない）。
+     * @param {{name: string, reading: string}} area 追加するエリア
+     * @returns {boolean} 書き込めたら true（既存だった場合も true）
+     */
+    function addUserArea(area) {
+      const entry = normalizeAreaEntry(area);
+      if (!entry) {
+        return false;
+      }
+      // 「その他」は area 未設定の会場をまとめる見出しなので、同名のエリアは作らない
+      // （作ると一覧に同じ見出しが2つ並ぶ）。
+      if (masterNameKey(entry.name) === masterNameKey(OTHER_AREA_NAME)) {
+        return true;
+      }
+      const key = masterNameKey(entry.name);
+      const exists = allAreas().some(function (known) {
+        return masterNameKey(known.name) === key;
+      });
+      if (exists) {
+        return true;
+      }
+      const list = loadUserAreas();
+      list.push(entry);
+      return writeStoredList(USER_AREA_STORAGE_KEY, list);
+    }
+
+    /**
+     * その会場が組み込みマスタ（ファイル管理）のものかを返す。
+     * 組み込みは localStorage から消せないので、削除・統合元にはできない。
+     * @param {string} name 会場名
+     * @returns {boolean} 組み込みなら true
+     */
+    function isBuiltInVenue(name) {
+      const key = masterNameKey(name);
+      return VENUE_MASTER.some(function (venue) {
+        return masterNameKey(venue.name) === key;
+      });
+    }
+
+    /**
+     * 追加分の会場を削除する（組み込みは消せない）。
+     * 保存データは会場名を文字列で持つので、消しても過去のセトリは壊れない
+     * （一覧の選択肢から消えるだけ）。
+     * @param {string} name 会場名
+     * @returns {boolean} 削除して書き込めたら true
+     */
+    function removeUserVenue(name) {
+      const key = masterNameKey(name);
+      if (key === '' || isBuiltInVenue(name)) {
+        return false;
+      }
+      const list = loadUserVenues();
+      const rest = list.filter(function (venue) {
+        return masterNameKey(venue.name) !== key;
+      });
+      if (rest.length === list.length) {
+        return false; // 該当なし
+      }
+      return writeStoredList(USER_VENUE_STORAGE_KEY, rest);
+    }
+
+    /**
+     * その会場名を使っている保存データの件数を数える。
+     * 表記の差（全角半角・大小・空白）は同じ会場として数える。
+     * @param {string} name 会場名
+     * @returns {number} 件数
+     */
+    function countSavedByVenue(name) {
+      const key = masterNameKey(name);
+      if (key === '') {
+        return 0;
+      }
+      return loadSavedSetlists().filter(function (record) {
+        return masterNameKey(record.venue) === key;
+      }).length;
+    }
+
+    /**
+     * 会場を別の会場へまとめる（統合）。
+     * 保存データの会場名を統合先の表記へ書き換え、作業中の内容も追従させる。
+     * 統合元が追加分ならマスタからも消す（組み込みは消せないので残る）。
+     * @param {string} fromName まとめられる側の会場名
+     * @param {string} toName まとめ先の会場名
+     * @returns {{ok: boolean, updated: number, removed: boolean}}
+     *   書き込み成否・付け替えた保存データの件数・マスタから消せたか
+     */
+    function mergeVenues(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      const toKey = masterNameKey(toName);
+      if (fromKey === '' || toKey === '' || fromKey === toKey) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const result = renameSavedVenue(fromName, toName);
+      if (!result.ok) {
+        return { ok: false, updated: 0, removed: false };
+      }
+
+      const removed = removeUserVenue(fromName);
+      return { ok: true, updated: result.updated, removed: removed };
+    }
+
+    /**
+     * 保存データの会場名を付け替える（統合・リネームで共用）。
+     * 表記の差は同じ会場として扱い、書き込む表記は toName に揃える。
+     * @param {string} fromName 付け替える前の会場名
+     * @param {string} toName 付け替え後の会場名
+     * @returns {{ok: boolean, updated: number}} 書き込み成否と件数
+     */
+    function renameSavedVenue(fromName, toName) {
+      const fromKey = masterNameKey(fromName);
+      if (fromKey === '' || typeof toName !== 'string' || toName === '') {
+        return { ok: false, updated: 0 };
+      }
+
+      const records = loadSavedSetlists();
+      let updated = 0;
+      const next = records.map(function (record) {
+        if (masterNameKey(record.venue) !== fromKey || record.venue === toName) {
+          return record;
+        }
+        updated += 1;
+        return Object.assign({}, record, { venue: toName });
+      });
+      if (updated > 0 && !writeSavedSetlists(next)) {
+        return { ok: false, updated: 0 };
+      }
+      return { ok: true, updated: updated };
+    }
+
+    /**
+     * 追加分の会場の内容（名前・読み仮名・エリア）を書き換える。
+     * 名前が変わった場合は保存データの会場名も付け替える。
+     * 組み込みの会場はファイル管理なので書き換えない。
+     * @param {string} oldName 変更前の会場名
+     * @param {Venue} next 変更後の内容
+     * @returns {{ok: boolean, updated: number}} 書き込み成否と付け替えた件数
+     */
+    function renameUserVenue(oldName, next) {
+      const key = masterNameKey(oldName);
+      const entry = normalizeVenueEntry(next);
+      if (key === '' || !entry || isBuiltInVenue(oldName)) {
+        return { ok: false, updated: 0 };
+      }
+
+      const list = loadUserVenues();
+      let found = false;
+      const updatedList = list.map(function (venue) {
+        if (masterNameKey(venue.name) !== key) {
+          return venue;
+        }
+        found = true;
+        return entry;
+      });
+      if (!found || !writeStoredList(USER_VENUE_STORAGE_KEY, updatedList)) {
+        return { ok: false, updated: 0 };
+      }
+
+      const renamed = renameSavedVenue(oldName, entry.name);
+      return { ok: true, updated: renamed.updated };
+    }
+
+    /**
+     * 会場を追加分へ足す（すでにある名前なら何もしない）。
+     * @param {Venue} venue 追加する会場
+     * @returns {boolean} 書き込めたら true（既存だった場合も true）
+     */
+    function addUserVenue(venue) {
+      const entry = normalizeVenueEntry(venue);
+      if (!entry) {
+        return false;
+      }
+      if (findVenueByName(entry.name)) {
+        return true;
+      }
+      const list = loadUserVenues();
+      list.push(entry);
+      return writeStoredList(USER_VENUE_STORAGE_KEY, list);
+    }
+
+    // ============================================================
     // Types: JSDoc 型注釈（実装はバニラJS。any 相当の曖昧型は使わない）
     // ============================================================
+
+    /**
+     * 会場マスタの1会場を表す。
+     * @typedef {Object} Venue
+     * @property {string} name    入力欄へ入れる会場名
+     * @property {string} reading あいうえお順ソート用の読み仮名（ひらがな）
+     * @property {string} [area]  会場の密集地（AREA_MASTER の name）。未設定は「その他」
+     */
 
     /**
      * 曲マスタの1曲を表す。
@@ -2462,6 +3216,16 @@
     }
 
     /**
+     * 時刻らしい書き出しか（`18:00` `19:30〜` など）を判定する（純粋関数）。
+     * 連番区切りに `:` を許しているため、時刻行を曲行と取り違えないための番犬。
+     * @param {string} normalized normalizeForParse 済みの文字列
+     * @returns {boolean} 時刻らしければ true
+     */
+    function isTimeLike(normalized) {
+      return /^\d{1,2}\s*:\s*\d{2}/.test(normalized);
+    }
+
+    /**
      * 曲行（`1.曲名` など）から曲名を読み取る（純粋関数）。
      * 連番の区切りは `.` `:` `)` を許容し、連番と曲名の間の空白は無視する。
      * 曲名は元の行から切り出すため、全角記号の変換は曲名へ持ち込まない。
@@ -2473,10 +3237,13 @@
 
       // O.A / En の行は「ラベル（＋番号）＋曲名」。過去の投稿の表記ゆれに広めに合わせる:
       //   O.A 1.曲名 ／ OA.曲名 ／ O.A 曲名 ／ En.1.曲名 ／ En.曲名 ／ En 1.曲名
-      const marked = /^(o\s*\.?\s*a|e\s*\.?\s*n)\s*\.?\s*(\d{1,3}\s*[.:)]\s*)?/i.exec(normalized);
+      // ラベルの直後に英字が続く語（ENCORE / Ending / OASIS など）は区分ラベルでは
+      // ないので弾く。弾かないと「ENCORE」の残り "CORE" が曲名になってしまう。
+      const marked = /^(o\s*\.?\s*a|e\s*\.?\s*n)(?![a-z])\s*\.?\s*(\d{1,2}\s*[.:)]\s*)?/i
+        .exec(normalized);
       if (marked && marked[0].length < normalized.length) {
         const rest = line.slice(marked[0].length).trim();
-        if (rest !== '') {
+        if (rest !== '' && !isTimeLike(normalized.slice(marked[0].length))) {
           return {
             title: rest,
             section: /^o/i.test(marked[1]) ? 'oa' : 'en'
@@ -2484,11 +3251,32 @@
         }
       }
 
-      const match = /^\d{1,3}\s*[.:)]\s*/.exec(normalized);
+      // 連番は2桁まで（曲数としてはこれで足りる）。3桁まで許すと `100:` のような
+      // 時刻・年の一部まで拾ってしまう。
+      const match = /^\d{1,2}\s*[.:)]\s*/.exec(normalized);
       if (!match) {
         return null;
       }
+      // `18:00開演` のような時刻行は曲ではない（`:` を連番区切りに許しているため、
+      // ここで弾かないと "00開演" が曲名になる）。
+      if (isTimeLike(normalized)) {
+        return null;
+      }
       return { title: line.slice(match[0].length).trim(), section: 'main' };
+    }
+
+    /**
+     * 文字列から日付らしい部分を取り除く（純粋関数）。
+     * 「会場：新宿LOFT 2025.8.2」から会場名だけを取り出すために使う。
+     * @param {string} text 対象の文字列
+     * @returns {string} 日付部分を除いた文字列
+     */
+    function stripDateText(text) {
+      return text
+        .replace(/[(（][^)）]*[)）]\s*$/, '')                       // 末尾の (土) など
+        .replace(/(令和|平成|昭和)?\s*[0-9０-９]{1,4}\s*[.．/／\-年]\s*[0-9０-９]{1,2}\s*[.．/／\-月]\s*[0-9０-９]{1,2}\s*日?/, '')
+        .replace(/[\s\u3000]+/g, ' ')
+        .trim();
     }
 
     /**
@@ -2533,10 +3321,15 @@
 
         // 会場行。「会場：」「会場:」「会場 」「【会場】」「会場名：」などの揺れを許容する
         // （区切りが何も無い「会場新宿LOFT」は曲名との取り違えを避けるため拾わない）。
-        const venue = /^(?:【\s*)?会場名?\s*(?:】|[：:／/・＝=\-ー]|[\s\u3000])\s*([\s\S]+)$/.exec(line);
+        // 区切りに `・` や `ー` は入れない。「会場・アクセス」のような複合語を
+        // 会場行と誤認し、後に続く本物の会場行に勝ってしまうため。
+        const venue = /^(?:【\s*)?会場名?\s*(?:】|[：:／/＝=]|[\s\u3000])\s*([\s\S]+)$/.exec(line);
         if (venue) {
+          if (parsed.date === '') {
+            parsed.date = parseDateLine(line); // 「会場：新宿LOFT 2025.8.2」のような行から日付も拾う
+          }
           if (parsed.venue === '') {
-            parsed.venue = venue[1].trim();
+            parsed.venue = stripDateText(venue[1]).trim();
           }
           return;
         }
@@ -2846,11 +3639,6 @@
     }
 
     /**
-     * state.setlist をセトリ表 (<tbody data-role="setlist-body">) へ全再描画する。
-     * 通し番号は配列順の連番（index+1）へ常に同期される。
-     * @returns {void}
-     */
-    /**
      * 属性チップ（ワンマン・生誕など）を描画する。押下状態は aria-pressed で持つ。
      * 項目はマスタ順に固定なので、状態が変わるたびに作り直して構わない。
      * @returns {void}
@@ -2928,6 +3716,11 @@
       sectionToolsWired = true;
     }
 
+    /**
+     * state.setlist をセトリ表 (<tbody data-role="setlist-body">) へ全再描画する。
+     * 通し番号は配列順の連番（index+1）へ常に同期される。
+     * @returns {void}
+     */
     function renderSetlist() {
       syncSectionTools();
       const body = document.getElementById('setlist-body');
@@ -3529,9 +4322,16 @@
      * @returns {void}
      */
     function editSavedSetlist(record) {
+      // 曲だけでなく、ライブ名・会場・MCメモ・属性も置き換わる。曲が空でも
+      // 長文のメモを書いている最中があり得るので、何か入力があれば確認する。
+      const hasDraft = state.setlist.length > 0 ||
+        state.liveName !== '' ||
+        state.venue !== '' ||
+        state.memo !== '' ||
+        state.tags.length > 0;
       if (
-        state.setlist.length > 0 &&
-        !window.confirm('編集を始めると、作業中のセトリは選んだ保存データで置き換わります。よろしいですか？')
+        hasDraft &&
+        !window.confirm('編集を始めると、作業中の内容は選んだ保存データで置き換わります。よろしいですか？')
       ) {
         return;
       }
@@ -3582,7 +4382,11 @@
         text.textContent = '編集中：' + formatSavedTitle(target);
       }
       if (saveButton) {
-        saveButton.textContent = target ? '更新' : 'DBに追加';
+        // アイコンを消さないよう、書き換えるのはラベル部分だけにする。
+        const saveLabel = saveButton.querySelector('.btn-icon__label');
+        if (saveLabel) {
+          saveLabel.textContent = target ? '更新' : 'DBに追加';
+        }
       }
     }
 
@@ -3616,12 +4420,6 @@
     const expandedSavedIds = new Set();
 
     /**
-     * 展開したセトリの中身（曲順のリスト）を組み立てる。
-     * 参照用の表示なので曲名は正式名称のまま出す。
-     * @param {SavedSetlist} record 表示する保存データ
-     * @returns {HTMLOListElement} 曲順のリスト要素
-     */
-    /**
      * 保存一覧で見せるMCメモの要素を組み立てる。
      * 改行はそのまま見せる（CSS の white-space: pre-wrap）。
      * メモは textContent で挿入する（XSS安全）。
@@ -3641,6 +4439,12 @@
       return item;
     }
 
+    /**
+     * 展開したセトリの中身（曲順のリスト）を組み立てる。
+     * 参照用の表示なので曲名は正式名称のまま出す。
+     * @param {SavedSetlist} record 表示する保存データ
+     * @returns {HTMLUListElement} 曲順のリスト要素
+     */
     function buildSavedSongList(record) {
       const songs = document.createElement('ul');
       songs.className = 'saved-songs';
@@ -3889,7 +4693,9 @@
 
     /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
     const BACKUP_FORMAT = 'yuisrus-setlist-backup';
-    const BACKUP_VERSION = 3; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
+    // 4: 追加した会場・エリアも書き出す（古い版の取り込みでも壊れないよう、
+    //    受け取り側は setlists 以外が無くても読み進める）。
+    const BACKUP_VERSION = 4; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
 
     /** 取り込み結果の通知文。 */
     const BACKUP_PARSE_FAILURE_MESSAGE = 'JSONを読み取れませんでした';
@@ -3901,12 +4707,23 @@
      * @returns {string} 書き出す JSON
      */
     function buildBackupJson() {
-      return JSON.stringify({
+      const backup = {
         format: BACKUP_FORMAT,
         version: BACKUP_VERSION,
         exportedAt: new Date().toISOString(),
         setlists: loadSavedSetlists().map(toStoredSavedSetlist) // 曲はIDで書き出す
-      });
+      };
+
+      // 自分で追加した会場・エリアだけを書き出す（組み込みマスタは相手側にもある）。
+      const areas = loadUserAreas();
+      const venues = loadUserVenues();
+      if (areas.length > 0) {
+        backup.areas = areas;
+      }
+      if (venues.length > 0) {
+        backup.venues = venues;
+      }
+      return JSON.stringify(backup);
     }
 
     /**
@@ -3915,6 +4732,8 @@
      * @param {SavedSetlist} record 保存済みセトリ
      * @returns {string} 内容の同一性を比べるキー
      */
+    // MCメモはキーに含めない。メモだけ違うものを別レコードにすると同じライブが
+    // 2件並ぶため、取り込み側で「空のメモを埋める」扱いにしている（mergeSavedSetlists）。
     function savedSetlistKey(record) {
       return [
         record.date,
@@ -3961,10 +4780,59 @@
     }
 
     /**
+     * バックアップに入っている会場・エリアを取り込む（既存は消さない）。
+     * すでに知っている名前は飛ばすので、何度取り込んでも増えない。
+     * 会場・エリアが入っていない古いバックアップでは何もしない。
+     * @param {string} text バックアップのJSON文字列
+     * @returns {{added: number}} 追加した件数（会場＋エリアの合計）
+     */
+    function mergeBackupMasters(text) {
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        return { added: 0 }; // ここへ来る時点で setlists は読めているが、念のため
+      }
+      if (!data || typeof data !== 'object') {
+        return { added: 0 };
+      }
+
+      let added = 0;
+
+      if (Array.isArray(data.areas)) {
+        data.areas.forEach(function (item) {
+          const area = normalizeAreaEntry(item);
+          if (!area || allAreas().some(function (known) { return known.name === area.name; })) {
+            return;
+          }
+          if (addUserArea(area)) {
+            added += 1;
+          }
+        });
+      }
+
+      if (Array.isArray(data.venues)) {
+        data.venues.forEach(function (item) {
+          const venue = normalizeVenueEntry(item);
+          if (!venue || findVenueByName(venue.name)) {
+            return;
+          }
+          if (addUserVenue(venue)) {
+            added += 1;
+          }
+        });
+      }
+
+      return { added: added };
+    }
+
+    /**
      * 取り込み候補を保存一覧へ追加する（既存は消さない）。
      * 内容が同じセトリはスキップし、IDだけ衝突した場合は新しいIDを振って追加する。
+     * スキップした相手にMCメモがあり、こちらが空の場合はメモだけ埋める（filled）。
      * @param {SavedSetlist[]} incoming 取り込む候補
-     * @returns {{added: number, skipped: number, ok: boolean}} 追加件数・スキップ件数・書き込み成否
+     * @returns {{added: number, skipped: number, filled: number, ok: boolean}}
+     *   追加件数・スキップ件数・メモを埋めた件数・書き込み成否
      */
     function mergeSavedSetlists(incoming) {
       const records = loadSavedSetlists();
@@ -3977,9 +4845,20 @@
 
       let added = 0;
       let skipped = 0;
+      let filled = 0;
       incoming.forEach(function (record) {
         const key = savedSetlistKey(record);
         if (usedKeys[key]) {
+          // 同じライブとして扱うが、こちらにだけ無いMCメモは拾っておく
+          // （キーに memo を入れて別レコードにすると、同じライブが2件並んでしまう）。
+          if (record.memo !== '') {
+            records.forEach(function (existing, index) {
+              if (existing.memo === '' && savedSetlistKey(existing) === key) {
+                records[index] = Object.assign({}, existing, { memo: record.memo });
+                filled += 1;
+              }
+            });
+          }
           skipped += 1; // すでに同じ内容を持っている
           return;
         }
@@ -4001,10 +4880,10 @@
         added += 1;
       });
 
-      if (added === 0) {
-        return { added: 0, skipped: skipped, ok: true }; // 書き込む必要なし
+      if (added === 0 && filled === 0) {
+        return { added: 0, skipped: skipped, filled: 0, ok: true }; // 書き込む必要なし
       }
-      return { added: added, skipped: skipped, ok: writeSavedSetlists(records) };
+      return { added: added, skipped: skipped, filled: filled, ok: writeSavedSetlists(records) };
     }
 
     /**
@@ -4115,7 +4994,19 @@
         showToast(BACKUP_PARSE_FAILURE_MESSAGE);
         return;
       }
+
+      // セトリが0件でも会場・エリアだけのバックアップは取り込む（機種変更のとき、
+      // まだセトリを入れていない端末へ会場だけ移す使い方があるため）。
+      const masters = mergeBackupMasters(input.value);
+      const masterNote = masters.added > 0 ? '／会場・エリア' + masters.added + '件' : '';
+
       if (incoming.length === 0) {
+        if (masters.added > 0) {
+          syncVenueAddButton(); // 登録済みになった会場の「登録」ボタンを引っ込める
+          closeBackupPanel();
+          showToast('会場・エリア' + masters.added + '件を取り込みました');
+          return;
+        }
         showToast(BACKUP_EMPTY_MESSAGE);
         return;
       }
@@ -4130,15 +5021,23 @@
       renderSavedList();
       updateSearchRunButton();
 
+      syncVenueAddButton(); // 取り込んだ会場がマスタに入ったので表示を合わせる
+
+      const filledNote = result.filled > 0 ? '／メモ' + result.filled + '件を補いました' : '';
+
       if (result.added === 0) {
-        showToast('すべて取り込み済みでした（' + result.skipped + '件）');
+        showToast('すべて取り込み済みでした（' + result.skipped + '件）' + filledNote + masterNote);
+        if (result.filled > 0) {
+          closeBackupPanel();
+        }
         return;
       }
       closeBackupPanel();
       showToast(
-        result.skipped === 0
+        (result.skipped === 0
           ? result.added + '件を取り込みました'
-          : result.added + '件を取り込みました（' + result.skipped + '件は取り込み済み）'
+          : result.added + '件を取り込みました（' + result.skipped + '件は取り込み済み）') +
+        filledNote + masterNote
       );
     }
 
@@ -5147,6 +6046,692 @@
     }
 
     // ============================================================
+    // Venue Picker Controller: 会場の選択（VenuePickerController）
+    // ------------------------------------------------------------
+    // 会場名は手入力だと表記がゆれるため、会場マスタから選べるようにする。
+    // 「選ぶ」タップで一覧（あいうえお順）を開き、選ぶと入力欄と state へ反映する。
+    // マスタに無い会場のために手入力も残す（選択は必須ではない）。
+    // 結線は initVenuePicker() で行い、フラグで冪等化する。
+    // ============================================================
+
+    /**
+     * 会場のソートキーを返す。読み仮名を優先し、未設定なら名前へフォールバックする。
+     * @param {Venue} venue 会場マスタの1会場
+     * @returns {string} あいうえお順比較に用いるキー
+     */
+    function venueSortKey(venue) {
+      const source = venue || {};
+      const reading = typeof source.reading === 'string' ? source.reading.trim() : '';
+      if (reading !== '') {
+        return reading;
+      }
+      return typeof source.name === 'string' ? source.name : '';
+    }
+
+    /**
+     * 会場（組み込み＋追加分）を読み仮名（フォールバック名前）昇順にソートして返す。
+     * 比較は日本語ロケールで行う。読み仮名の無い追加分は名前で比較する。
+     * @returns {Venue[]} あいうえお順に並んだ会場配列
+     */
+    function getSortedVenueMaster() {
+      return allVenues().sort(function (a, b) {
+        return venueSortKey(a).localeCompare(venueSortKey(b), 'ja');
+      });
+    }
+
+    /**
+     * 会場をエリアごとにまとめ、エリアマスタ（組み込み＋追加分）の順で返す。
+     * 会場が1つも無いエリアは返さない。マスタに無い／未設定の area は
+     * 末尾の「その他」へまとめる。各エリア内はあいうえお順。
+     * @returns {{area: string, venues: Venue[]}[]} エリアごとの会場
+     */
+    function getVenuesByArea() {
+      const sorted = getSortedVenueMaster();
+      const groups = [];
+      const byArea = new Map();
+
+      allAreas().forEach(function (area) {
+        const group = { area: area.name, venues: [] };
+        groups.push(group);
+        byArea.set(area.name, group);
+      });
+      const others = { area: OTHER_AREA_NAME, venues: [] };
+
+      sorted.forEach(function (venue) {
+        const area = typeof venue.area === 'string' ? venue.area : '';
+        const group = byArea.get(area);
+        if (group) {
+          group.venues.push(venue);
+        } else {
+          others.venues.push(venue); // 未設定・マスタに無いエリア
+        }
+      });
+
+      groups.push(others);
+      return groups.filter(function (group) {
+        return group.venues.length > 0;
+      });
+    }
+
+    /**
+     * 選んだ会場を入力欄と state へ反映する。
+     * 入力欄は renderAll を呼ばないため、ここで保存まで行う。
+     * @param {string} name 会場名
+     * @returns {void}
+     */
+    function applyVenue(name) {
+      const venueInput = document.getElementById('input-venue');
+      state.venue = name;
+      if (venueInput) {
+        venueInput.value = name;
+      }
+      saveState();
+      syncVenueAddButton();
+      closeVenuePopup();
+    }
+
+    /**
+     * 会場一覧（#venue-list）をエリアごとにまとめて描画する（各エリア内はあいうえお順）。
+     * 会場名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderVenueList() {
+      const list = document.getElementById('venue-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存項目をクリア）
+
+      const groups = getVenuesByArea();
+
+      if (groups.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '選択できる会場がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      groups.forEach(function (group) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.dataset.role = 'venue-area';
+        heading.textContent = group.area; // textContent で挿入（XSS安全）
+        fragment.appendChild(heading);
+
+        group.venues.forEach(function (venue) {
+          const name = typeof venue.name === 'string' ? venue.name : '';
+
+          const item = document.createElement('li');
+          item.className = 'popup__item';
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'popup__item-button';
+          button.dataset.role = 'venue-option';
+          button.textContent = name; // textContent で挿入（XSS安全）
+          if (name === state.venue) {
+            // 今入っている会場が分かるように印を付ける。
+            button.classList.add('popup__item-button--selected');
+            button.setAttribute('aria-current', 'true');
+          }
+          button.addEventListener('click', function () {
+            applyVenue(name);
+          });
+
+          item.appendChild(button);
+          fragment.appendChild(item);
+        });
+      });
+      list.appendChild(fragment);
+    }
+
+    // ------------------------------------------------------------
+    // 会場の管理（削除・統合）
+    // ------------------------------------------------------------
+    // 表記のゆれた会場（新宿LOFT ／ 新宿ロフト）を1つへまとめ、要らない会場を
+    // 消すための画面。統合では保存データの会場名も付け替えるので、過去のセトリの
+    // 表記も揃う。組み込みマスタの会場はファイル管理なので消せない（まとめ先には
+    // 選べる）。
+
+    /** 統合元として選んでいる会場名（まとめ先を選ぶ間だけ保持する）。 */
+    let mergeSourceVenue = '';
+
+    /**
+     * 会場の管理一覧（#venue-manage-list）をエリアごとに描画する。
+     * 各行に、その会場を使っている保存データの件数と操作ボタンを出す。
+     * 会場名は textContent で挿入する（XSS安全）。
+     * @returns {void}
+     */
+    function renderVenueManageList() {
+      const list = document.getElementById('venue-manage-list');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const groups = getVenuesByArea();
+      if (groups.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = '会場がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      groups.forEach(function (group) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.dataset.role = 'venue-manage-area';
+        heading.textContent = group.area;
+        fragment.appendChild(heading);
+
+        group.venues.forEach(function (venue) {
+          fragment.appendChild(buildVenueManageRow(venue));
+        });
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 会場の管理の1行を組み立てる。
+     * 組み込みの会場はファイル管理なので編集・削除は出さない（まとめ先には選べる）。
+     * @param {Venue} venue 対象の会場
+     * @returns {HTMLLIElement} 一覧へ差し込む行
+     */
+    function buildVenueManageRow(venue) {
+      const builtIn = isBuiltInVenue(venue.name);
+      const used = countSavedByVenue(venue.name);
+
+      const item = document.createElement('li');
+      item.className = 'venue-row';
+      item.dataset.role = 'venue-manage-row';
+
+      const label = document.createElement('span');
+      label.className = 'venue-row__label';
+
+      const name = document.createElement('span');
+      name.className = 'venue-row__name';
+      name.textContent = venue.name; // textContent で挿入（XSS安全）
+
+      const meta = document.createElement('span');
+      meta.className = 'venue-row__meta';
+      meta.textContent = (builtIn ? '組み込み・' : '') +
+        (used > 0 ? '保存' + used + '件' : '未使用');
+
+      label.appendChild(name);
+      label.appendChild(meta);
+
+      const actions = document.createElement('span');
+      actions.className = 'venue-row__actions';
+
+      const mergeButton = document.createElement('button');
+      mergeButton.type = 'button';
+      mergeButton.className = 'venue-row__button';
+      mergeButton.dataset.role = 'venue-merge-start';
+      mergeButton.textContent = 'まとめる';
+      mergeButton.setAttribute('aria-label', venue.name + ' を別の会場へまとめる');
+      mergeButton.addEventListener('click', function () {
+        openVenueMergePopup(venue.name);
+      });
+      actions.appendChild(mergeButton);
+
+      if (!builtIn) {
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'venue-row__button';
+        editButton.dataset.role = 'venue-edit';
+        editButton.textContent = '編集';
+        editButton.setAttribute('aria-label', venue.name + ' の名前やエリアを変える');
+        editButton.addEventListener('click', function () {
+          openVenueEditPopup(venue);
+        });
+        actions.appendChild(editButton);
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'venue-row__button venue-row__button--danger';
+        removeButton.dataset.role = 'venue-remove';
+        removeButton.textContent = '削除';
+        removeButton.setAttribute('aria-label', venue.name + ' を一覧から削除する');
+        removeButton.addEventListener('click', function () {
+          // 保存データは会場名を文字列で持つため、消しても過去のセトリは残る。
+          const note = used > 0
+            ? '「' + venue.name + '」を一覧から削除します。保存済み' + used +
+              '件の会場名はそのまま残ります。よろしいですか？'
+            : '「' + venue.name + '」を一覧から削除します。よろしいですか？';
+          if (!window.confirm(note)) {
+            return;
+          }
+          if (!removeUserVenue(venue.name)) {
+            showToast(SAVE_FAILURE_MESSAGE);
+            return;
+          }
+          renderVenueManageList();
+          renderVenueList();
+          syncVenueAddButton(); // 消した会場を入力中なら「登録」を出し直す
+          showToast('会場を削除しました');
+        });
+        actions.appendChild(removeButton);
+      }
+
+      item.appendChild(label);
+      item.appendChild(actions);
+      return item;
+    }
+
+    /**
+     * まとめ先の候補（#venue-merge-list）を描画する。統合元は候補から外す。
+     * @returns {void}
+     */
+    function renderVenueMergeList() {
+      const list = document.getElementById('venue-merge-list');
+      const source = document.getElementById('venue-merge-source');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      if (source) {
+        source.textContent = '「' + mergeSourceVenue + '」のまとめ先';
+      }
+
+      const sourceKey = masterNameKey(mergeSourceVenue);
+      const candidates = getSortedVenueMaster().filter(function (venue) {
+        return masterNameKey(venue.name) !== sourceKey;
+      });
+
+      if (candidates.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'popup__empty';
+        emptyItem.textContent = 'まとめ先にできる会場がありません';
+        list.appendChild(emptyItem);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      candidates.forEach(function (venue) {
+        const item = document.createElement('li');
+        item.className = 'popup__item';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'popup__item-button';
+        button.dataset.role = 'venue-merge-target';
+        button.textContent = venue.name; // textContent で挿入（XSS安全）
+        button.addEventListener('click', function () {
+          applyVenueMerge(venue.name);
+        });
+
+        item.appendChild(button);
+        fragment.appendChild(item);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 統合元を選んで、まとめ先の一覧を開く。
+     * @param {string} name 統合元の会場名
+     * @returns {void}
+     */
+    function openVenueMergePopup(name) {
+      const overlay = document.getElementById('venue-merge-overlay');
+      if (!overlay) {
+        return;
+      }
+      mergeSourceVenue = name;
+      renderVenueMergeList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * まとめ先の一覧を閉じる（統合はしない）。
+     * @returns {void}
+     */
+    function closeVenueMergePopup() {
+      const overlay = document.getElementById('venue-merge-overlay');
+      mergeSourceVenue = '';
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /**
+     * 選んだまとめ先へ統合する（確認あり）。
+     * 保存データの会場名を付け替え、作業中の会場名も揃える。
+     * @param {string} targetName まとめ先の会場名
+     * @returns {void}
+     */
+    function applyVenueMerge(targetName) {
+      const sourceName = mergeSourceVenue;
+      if (sourceName === '') {
+        return;
+      }
+      const used = countSavedByVenue(sourceName);
+      const note = '「' + sourceName + '」を「' + targetName + '」にまとめます。' +
+        (used > 0 ? '保存済み' + used + '件の会場名も「' + targetName + '」に変わります。' : '') +
+        'よろしいですか？';
+      if (!window.confirm(note)) {
+        return;
+      }
+
+      const result = mergeVenues(sourceName, targetName);
+      if (!result.ok) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      // 作業中の会場名も揃える（同じ会場を指しているため）。
+      if (masterNameKey(state.venue) === masterNameKey(sourceName)) {
+        applyVenue(targetName);
+      }
+
+      closeVenueMergePopup();
+      renderVenueManageList();
+      renderVenueList();
+      renderSavedList();      // 保存一覧を開いていれば会場名の表示も更新する
+      syncVenueAddButton();
+
+      const updatedNote = result.updated > 0 ? '（保存' + result.updated + '件を付け替え）' : '';
+      showToast(result.removed
+        ? 'まとめました' + updatedNote
+        : 'まとめました' + updatedNote + '。組み込みの会場は一覧に残ります');
+    }
+
+    /**
+     * 会場の管理を開く。
+     * @returns {void}
+     */
+    function openVenueManagePopup() {
+      const overlay = document.getElementById('venue-manage-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderVenueManageList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 会場の管理を閉じる（まとめ先の一覧も一緒に畳む）。
+     * @returns {void}
+     */
+    function closeVenueManagePopup() {
+      const overlay = document.getElementById('venue-manage-overlay');
+      closeVenueMergePopup();
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /** 会場登録フォームで選んでいるエリア名（未選択は ''）。 */
+    let venueAddArea = '';
+
+    /** 編集中の会場名（''なら新規登録。フォームを使い回すため持つ）。 */
+    let venueEditTarget = '';
+
+    /**
+     * 「登録」ボタンの出し入れを入力欄の内容に合わせる。
+     * 何か入力されていて、まだマスタに無い会場のときだけ出す。
+     * @returns {void}
+     */
+    function syncVenueAddButton() {
+      const addButton = document.getElementById('btn-venue-add');
+      if (!addButton) {
+        return;
+      }
+      const name = state.venue.trim();
+      addButton.hidden = name === '' || findVenueByName(name) !== null;
+    }
+
+    /**
+     * 登録フォームのエリア選択肢を描画する（組み込み＋追加分）。
+     * 1つだけ選べるトグルで、もう一度押すと未選択へ戻る。
+     * @returns {void}
+     */
+    function renderVenueAreaChoices() {
+      const list = document.getElementById('venue-add-areas');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const fragment = document.createDocumentFragment();
+      allAreas().forEach(function (area) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.dataset.role = 'venue-add-area';
+        chip.textContent = area.name; // textContent で挿入（XSS安全）
+        chip.setAttribute('aria-pressed', area.name === venueAddArea ? 'true' : 'false');
+        chip.addEventListener('click', function () {
+          // 同じものを押したら未選択へ戻す（1つだけ選べる）。
+          venueAddArea = venueAddArea === area.name ? '' : area.name;
+          renderVenueAreaChoices();
+        });
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 会場登録フォームを開く（入力欄の内容を初期値にする）。
+     * @returns {void}
+     */
+    function openVenueAddPopup() {
+      openVenueForm({ name: state.venue.trim(), reading: '', area: '' }, '');
+    }
+
+    /**
+     * 追加した会場の内容を編集する（フォームは登録と同じものを使い回す）。
+     * @param {Venue} venue 編集する会場
+     * @returns {void}
+     */
+    function openVenueEditPopup(venue) {
+      openVenueForm(venue, venue.name);
+    }
+
+    /**
+     * 会場フォームを初期値付きで開く。
+     * editTarget が空なら新規登録、入っていればその会場の編集として振る舞う
+     * （見出しとボタンの文言だけを切り替える）。
+     * @param {Venue} venue フォームの初期値
+     * @param {string} editTarget 編集対象の会場名（新規登録なら ''）
+     * @returns {void}
+     */
+    function openVenueForm(venue, editTarget) {
+      const overlay = document.getElementById('venue-add-overlay');
+      const title = document.getElementById('venue-add-title');
+      const submitButton = document.getElementById('btn-venue-add-submit');
+      const nameInput = document.getElementById('venue-add-name');
+      const readingInput = document.getElementById('venue-add-reading');
+      const newAreaInput = document.getElementById('venue-add-new-area');
+      if (!overlay) {
+        return;
+      }
+
+      venueEditTarget = editTarget;
+      if (title) {
+        title.textContent = editTarget === '' ? '会場を登録' : '会場を編集';
+      }
+      if (submitButton) {
+        submitButton.textContent = editTarget === '' ? '登録する' : '保存する';
+      }
+      if (nameInput) {
+        nameInput.value = typeof venue.name === 'string' ? venue.name : '';
+      }
+      if (readingInput) {
+        readingInput.value = typeof venue.reading === 'string' ? venue.reading : '';
+      }
+      if (newAreaInput) {
+        newAreaInput.value = '';
+      }
+      venueAddArea = typeof venue.area === 'string' ? venue.area : '';
+      renderVenueAreaChoices();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 会場登録フォームを閉じる（マスタは変更しない）。
+     * @returns {void}
+     */
+    function closeVenueAddPopup() {
+      const overlay = document.getElementById('venue-add-overlay');
+      venueEditTarget = '';
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 入力された内容で会場を登録する（編集中はその会場を書き換える）。
+     * 新しいエリアが書かれていればエリアも追加し、その会場のエリアにする。
+     * 登録した会場は入力欄へも反映する（そのまま使えるように）。
+     * 編集で名前を変えた場合は保存データの会場名も付け替える。
+     * @returns {void}
+     */
+    function submitVenueAdd() {
+      const nameInput = document.getElementById('venue-add-name');
+      const readingInput = document.getElementById('venue-add-reading');
+      const newAreaInput = document.getElementById('venue-add-new-area');
+
+      const name = nameInput ? nameInput.value.trim() : '';
+      if (name === '') {
+        showToast('会場名を入力してください');
+        return;
+      }
+
+      // 編集中は自分自身との衝突を除いて判定する（名前を変えないこともあるため）。
+      const duplicate = findVenueByName(name);
+      if (duplicate &&
+        (venueEditTarget === '' || masterNameKey(duplicate.name) !== masterNameKey(venueEditTarget))) {
+        showToast(venueEditTarget === ''
+          ? 'すでに登録されています'
+          : '同じ会場があります。まとめる場合は「まとめる」から');
+        return;
+      }
+
+      const newArea = newAreaInput ? newAreaInput.value.trim() : '';
+      let area = venueAddArea;
+      if (newArea !== '') {
+        if (!addUserArea({ name: newArea, reading: '' })) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        area = newArea; // 新しく作ったエリアを優先する
+      }
+
+      const reading = readingInput ? readingInput.value.trim() : '';
+      const editing = venueEditTarget;
+
+      if (editing !== '') {
+        const result = renameUserVenue(editing, { name: name, reading: reading, area: area });
+        if (!result.ok) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        closeVenueAddPopup();
+        // 作業中の会場名も揃える（同じ会場を指しているため）。
+        if (masterNameKey(state.venue) === masterNameKey(editing)) {
+          applyVenue(name);
+        }
+        renderVenueManageList();
+        renderVenueList();
+        renderSavedList();    // 保存一覧を開いていれば会場名の表示も更新する
+        syncVenueAddButton();
+        showToast(result.updated > 0
+          ? '会場を変更しました（保存' + result.updated + '件を付け替え）'
+          : '会場を変更しました');
+        return;
+      }
+
+      if (!addUserVenue({ name: name, reading: reading, area: area })) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+
+      closeVenueAddPopup();
+      applyVenue(name);       // 入力欄・作業中データへ反映し、選択ポップアップも閉じる
+      renderVenueManageList();
+      syncVenueAddButton();   // 登録済みになったのでボタンを引っ込める
+      showToast('会場を登録しました');
+    }
+
+    /**
+     * 会場選択ポップアップを開く（表示直前に最新のマスタを反映する）。
+     * @returns {void}
+     */
+    function openVenuePopup() {
+      const overlay = document.getElementById('venue-overlay');
+      if (!overlay) {
+        return;
+      }
+      renderVenueList();
+      overlay.hidden = false;
+    }
+
+    /**
+     * 会場選択ポップアップを閉じる（state は変更しない）。
+     * @returns {void}
+     */
+    function closeVenuePopup() {
+      const overlay = document.getElementById('venue-overlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.hidden = true;
+    }
+
+    /**
+     * 「選ぶ」「閉じる」ボタンの結線を行う初期化（冪等）。
+     * 項目タップの結線は renderVenueList 側で都度行う。
+     * @returns {void}
+     */
+    let venuePickerWired = false;
+    function initVenuePicker() {
+      if (venuePickerWired) {
+        return;
+      }
+      const pickButton = document.getElementById('btn-venue-pick');
+      const closeButton = document.getElementById('btn-venue-close');
+      const addButton = document.getElementById('btn-venue-add');
+      const addCancelButton = document.getElementById('btn-venue-add-cancel');
+      const addSubmitButton = document.getElementById('btn-venue-add-submit');
+      const manageButton = document.getElementById('btn-venue-manage');
+      const manageCloseButton = document.getElementById('btn-venue-manage-close');
+      const mergeCancelButton = document.getElementById('btn-venue-merge-cancel');
+
+      if (pickButton) {
+        pickButton.addEventListener('click', openVenuePopup);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', closeVenuePopup);
+      }
+      if (addButton) {
+        addButton.addEventListener('click', openVenueAddPopup);
+      }
+      if (addCancelButton) {
+        addCancelButton.addEventListener('click', closeVenueAddPopup);
+      }
+      if (addSubmitButton) {
+        addSubmitButton.addEventListener('click', submitVenueAdd);
+      }
+      if (manageButton) {
+        manageButton.addEventListener('click', openVenueManagePopup);
+      }
+      if (manageCloseButton) {
+        manageCloseButton.addEventListener('click', closeVenueManagePopup);
+      }
+      if (mergeCancelButton) {
+        mergeCancelButton.addEventListener('click', closeVenueMergePopup);
+      }
+      syncVenueAddButton(); // 復元した内容に合わせて初期状態を決める
+      venuePickerWired = true;
+    }
+
+    // ============================================================
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
     // セトリ作成画面（既定）と保存一覧画面を URL のハッシュで切り替える。
@@ -5186,6 +6771,13 @@
       const showSaved = name === 'saved';
       mainPage.hidden = showSaved;
       savedPage.hidden = !showSaved;
+
+      // ページをまたいで一時的なポップアップが残らないようにする
+      // （オーバーレイはページ要素の外にあるため、画面を切り替えても消えない）。
+      closeVenuePopup();
+      closeVenueAddPopup();
+      closeVenueManagePopup();
+      closeAddSongPopup();
 
       if (showSaved) {
         renderSavedList(); // 表示直前に最新の保存データを反映
@@ -5304,6 +6896,7 @@
         venueInput.addEventListener('input', function () {
           state.venue = venueInput.value;
           saveState();
+          syncVenueAddButton(); // マスタに無い会場なら「登録」を出す
         });
       }
       if (memoInput) {
@@ -5348,27 +6941,8 @@
         if (!window.confirm('セトリと入力内容をすべて削除します。よろしいですか？')) {
           return;
         }
-        resetState(); // 状態をクリア（DOM には触れない）
-
-        // 入力欄の表示値も state に合わせて更新する。
-        // 日付だけは空ではなく本日へ戻し、state.date も同期する。
-        const dateInput = document.getElementById('input-date');
-        const liveNameInput = document.getElementById('input-live-name');
-        const venueInput = document.getElementById('input-venue');
-        const memoInput = document.getElementById('input-memo');
-        if (dateInput) {
-          dateInput.value = todayString();
-          state.date = dateInput.value;
-        }
-        if (liveNameInput) {
-          liveNameInput.value = '';
-        }
-        if (venueInput) {
-          venueInput.value = '';
-        }
-        if (memoInput) {
-          memoInput.value = '';
-        }
+        resetState();         // 状態をクリア（DOM には触れない）
+        applyStateToInputs(); // 入力欄を state に合わせる（日付は本日へ戻る）
 
         renderAll();     // セトリ表を空状態へ再描画
         syncEditingUi(); // 編集中の紐づけも解除された状態へ表示を戻す
@@ -5401,6 +6975,7 @@
       if (memoInput) {
         memoInput.value = state.memo;
       }
+      syncVenueAddButton();
     }
 
     /**
@@ -5428,6 +7003,7 @@
       initSavedBackup();     // 保存データの書き出し／取り込みの結線（冪等）
       initImportResolve();   // 取り込み時の曲名確認の結線（冪等）
       initImportConfirm();   // 取り込み前の確認画面の結線（冪等）
+      initVenuePicker();     // 会場の選択ポップアップの結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
       syncEditingUi();       // 編集中だった場合は帯と保存ボタンを復元
       initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
