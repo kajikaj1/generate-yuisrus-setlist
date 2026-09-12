@@ -151,6 +151,40 @@
       gap: 4px;
     }
 
+    /* 設定ページ。項目はラベルを上に置いた縦並びにする。 */
+    .settings {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+
+    .settings__note {
+      margin: 0;
+      font-size: 12px;
+      color: var(--color-muted);
+    }
+
+    .settings__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* 推し色のチップ。文字だけだと分かりにくいので、色の丸を添える。 */
+    .theme-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .theme-chip__swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+    }
+
     /* 分析ページ: 上部の並べ替えチップと、曲ごとの集計行。 */
     .page-actions--analysis {
       justify-content: flex-start;
@@ -2108,6 +2142,58 @@
       <ul class="popup__list" id="saved-list" data-role="saved-list">
         <!-- 保存済み一覧は renderSavedList() が描画する -->
       </ul>
+    </main>
+  </div>
+
+  <!-- ===== Page: 設定（URL の #settings で表示する別ページ） ===== -->
+  <div class="app" id="page-settings" data-role="page-settings" hidden>
+    <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
+    <nav class="page-nav">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
+        <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        <span class="page-nav__current" data-role="page-name"></span>
+        <span class="page-nav__caret" aria-hidden="true">▾</span>
+      </button>
+    </nav>
+
+    <main class="app__main">
+      <div class="settings">
+        <div class="field field--stacked">
+          <label class="field__label" for="setting-group-name">グループ名</label>
+          <input class="field__input" type="text" id="setting-group-name"
+            data-role="setting-group-name" placeholder="例：ゆいざらす" autocomplete="off">
+          <p class="settings__note">ブラウザのタブに出る名前に使います。</p>
+        </div>
+
+        <div class="field field--stacked">
+          <label class="field__label" for="setting-hashtag">コピーに付けるハッシュタグ</label>
+          <input class="field__input" type="text" id="setting-hashtag"
+            data-role="setting-hashtag" placeholder="例：#ゆいざらすセトリ" autocomplete="off">
+          <p class="settings__note">コピーする文の最後に付けます。空にすると付けません。</p>
+        </div>
+
+        <div class="field field--stacked">
+          <span class="field__label" id="setting-theme-label">推し色</span>
+          <div class="tag-list" id="setting-themes" data-role="setting-themes"
+            role="group" aria-labelledby="setting-theme-label">
+            <!-- 色のチップは renderThemeChoices() が描画する -->
+          </div>
+          <p class="settings__note">ボタンや選択中の印の色が変わります。</p>
+        </div>
+
+        <div class="field field--stacked">
+          <span class="field__label">マスタの管理</span>
+          <div class="settings__actions">
+            <button type="button" class="btn btn--add" id="btn-setting-venues"
+              data-role="setting-venues">会場を管理</button>
+            <button type="button" class="btn btn--add" id="btn-setting-bands"
+              data-role="setting-bands">対バン相手を管理</button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -4309,8 +4395,13 @@
     /** 曜日（日本語1文字）。new Date#getDay() の 0=日 〜 6=土 に対応。 */
     const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
-    /** 出力末尾に常に付与する固定ハッシュタグ（Requirements 5.4）。 */
-    const FIXED_HASHTAG = '#ゆいざらすセトリ';
+    /**
+     * 出力末尾に付けるハッシュタグを返す（設定で変えられる。空なら付けない）。
+     * @returns {string} ハッシュタグ（未設定は ''）
+     */
+    function outputHashtag() {
+      return settings.hashtag;
+    }
 
     /**
      * `YYYY-MM-DD` を `YYYY.MM.DD(曜)` 形式へ整形する（純粋関数 / Requirements 1.4）。
@@ -4361,7 +4452,7 @@
      *   2. 『{liveName}』
      *   3. 会場：{venue}
      *   4. 各曲 `{index}.{title}`（index は 1 起算、setlist の順）
-     *   5. 固定行 `#ゆいざらすセトリ`（件数や入力に関わらず常に付与）
+     *   5. 設定のハッシュタグ（空なら付けない）
      * ライブ名／会場名が空でもエラーにせず該当行を空のまま出力する（5.8）。
      * 行区切りは '\n'。
      * @param {AppState} state アプリ状態
@@ -4385,7 +4476,10 @@
         lines.push(setlistLineLabel(position) + (typeof title === 'string' ? title : ''));
       });
 
-      lines.push(FIXED_HASHTAG);                      // 5. 固定ハッシュタグ（常に付与）
+      const hashtag = outputHashtag();
+      if (hashtag !== '') {
+        lines.push(hashtag);                          // 5. ハッシュタグ（設定で変えられる）
+      }
 
       return lines.join('\n');
     }
@@ -9984,6 +10078,253 @@
     }
 
     // ============================================================
+    // Settings: アプリの設定（SettingsStore / SettingsController）
+    // ------------------------------------------------------------
+    // グループ名・コピーに付けるハッシュタグ・推し色は、グループごとに違う。
+    // ファイルを書き換えなくても画面から変えられるよう localStorage に持ち、
+    // 起動時に読み込んで反映する（他のグループでもこのファイルのまま使える）。
+    // 保存できない環境（プライベートモード等）でも既定値で動く。
+    // ============================================================
+
+    /** 設定の localStorage キー（保存形式を変えたら末尾の版番号を上げる）。 */
+    const SETTINGS_STORAGE_KEY = 'yuisrus-setlist:settings:v1';
+
+    /** タブに出す既定の名前（グループ名が未設定のとき）。 */
+    const DEFAULT_DOCUMENT_TITLE = 'セトリテキスト生成';
+
+    /**
+     * 推し色の候補。面で見せる色（brand）には濃い文字を載せ、文字・枠線には
+     * 白地で読める濃い色（accent）を使う。どの色も同じ役割の組で持つ。
+     * @type {ReadonlyArray<{id: string, name: string, vars: Object}>}
+     */
+    const THEME_PRESETS = [
+      { id: 'yellow', name: '黄', vars: {
+        '--color-brand': '#ffd60a', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#8a6100', '--color-accent-soft': '#fff4cc',
+        '--color-drop-indicator': '#d97706' } },
+      { id: 'pink', name: 'ピンク', vars: {
+        '--color-brand': '#ff9ec4', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#b3004f', '--color-accent-soft': '#ffe4ef',
+        '--color-drop-indicator': '#d6006a' } },
+      { id: 'red', name: '赤', vars: {
+        '--color-brand': '#ff8a8a', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#b3261e', '--color-accent-soft': '#ffe5e5',
+        '--color-drop-indicator': '#d33a2c' } },
+      { id: 'orange', name: '橙', vars: {
+        '--color-brand': '#ffb066', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#b45309', '--color-accent-soft': '#ffedd5',
+        '--color-drop-indicator': '#ea580c' } },
+      { id: 'green', name: '緑', vars: {
+        '--color-brand': '#6ee7b7', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#047857', '--color-accent-soft': '#d9f6ec',
+        '--color-drop-indicator': '#059669' } },
+      { id: 'sky', name: '水色', vars: {
+        '--color-brand': '#7ad7f0', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#006d8f', '--color-accent-soft': '#dff4fd',
+        '--color-drop-indicator': '#0284a8' } },
+      { id: 'blue', name: '青', vars: {
+        '--color-brand': '#7cc0ff', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#0b5cab', '--color-accent-soft': '#e3f1ff',
+        '--color-drop-indicator': '#1d6fd0' } },
+      { id: 'purple', name: '紫', vars: {
+        '--color-brand': '#c79bff', '--color-brand-text': '#1c1e21',
+        '--color-accent': '#6b21a8', '--color-accent-soft': '#f3e8ff',
+        '--color-drop-indicator': '#7e22ce' } }
+    ];
+
+    /**
+     * 設定の既定値（このファイルの初期データ＝いまのグループの内容）。
+     * @returns {{groupName: string, hashtag: string, theme: string}} 既定の設定
+     */
+    function defaultSettings() {
+      return { groupName: '', hashtag: '#ゆいざらすセトリ', theme: 'yellow' };
+    }
+
+    /**
+     * 任意の値を設定として検証・正規化する（純粋関数）。
+     * 知らない推し色は既定へ倒す。
+     * @param {unknown} data 検証する値
+     * @returns {{groupName: string, hashtag: string, theme: string}} 正規化した設定
+     */
+    function normalizeSettings(data) {
+      const base = defaultSettings();
+      if (!data || typeof data !== 'object') {
+        return base;
+      }
+      const theme = typeof data.theme === 'string' && THEME_PRESETS.some(function (preset) {
+        return preset.id === data.theme;
+      }) ? data.theme : base.theme;
+      return {
+        groupName: typeof data.groupName === 'string' ? data.groupName.trim() : base.groupName,
+        // ハッシュタグは空にもできる（付けない運用）ので、文字列ならそのまま採る。
+        hashtag: typeof data.hashtag === 'string' ? data.hashtag.trim() : base.hashtag,
+        theme: theme
+      };
+    }
+
+    /** 現在の設定。起動時に読み込み、変更のたびに保存する。 */
+    let settings = defaultSettings();
+
+    /**
+     * 設定を localStorage から読み込む（壊れていれば既定のまま）。
+     * @returns {void}
+     */
+    function loadSettings() {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+      } catch (err) {
+        return; // localStorage 参照不可
+      }
+      if (!raw) {
+        return;
+      }
+      try {
+        settings = normalizeSettings(JSON.parse(raw));
+      } catch (err) {
+        // 壊れた JSON は無視して既定で動く。
+      }
+    }
+
+    /**
+     * 設定を localStorage へ保存する（保存できなくても動作は継続する）。
+     * @returns {void}
+     */
+    function saveSettings() {
+      try {
+        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      } catch (err) {
+        // 保存できなくてもこの画面では使える。
+      }
+    }
+
+    /**
+     * 推し色を画面へ反映する（CSS 変数を root へ上書きする）。
+     * @returns {void}
+     */
+    function applyTheme() {
+      const preset = THEME_PRESETS.filter(function (item) {
+        return item.id === settings.theme;
+      })[0] || THEME_PRESETS[0];
+      const root = document.documentElement;
+      Object.keys(preset.vars).forEach(function (name) {
+        root.style.setProperty(name, preset.vars[name]);
+      });
+    }
+
+    /**
+     * グループ名をブラウザのタブへ反映する。
+     * @returns {void}
+     */
+    function applyDocumentTitle() {
+      document.title = settings.groupName === ''
+        ? DEFAULT_DOCUMENT_TITLE
+        : settings.groupName + ' セトリ';
+    }
+
+    /**
+     * 設定を画面へ反映する（起動時と変更時に呼ぶ）。
+     * @returns {void}
+     */
+    function applySettings() {
+      applyTheme();
+      applyDocumentTitle();
+    }
+
+    /**
+     * 推し色のチップを描画する（1つだけ選べる）。
+     * @returns {void}
+     */
+    function renderThemeChoices() {
+      const list = document.getElementById('setting-themes');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画（既存のチップとリスナを捨てる）
+
+      const fragment = document.createDocumentFragment();
+      THEME_PRESETS.forEach(function (preset) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip theme-chip';
+        chip.dataset.role = 'setting-theme';
+        chip.dataset.theme = preset.id;
+        chip.setAttribute('aria-pressed', preset.id === settings.theme ? 'true' : 'false');
+
+        const swatch = document.createElement('span');
+        swatch.className = 'theme-chip__swatch';
+        swatch.style.backgroundColor = preset.vars['--color-brand'];
+        swatch.setAttribute('aria-hidden', 'true'); // 色の名前は下のラベルが担う
+
+        const label = document.createElement('span');
+        label.textContent = preset.name;
+
+        chip.appendChild(swatch);
+        chip.appendChild(label);
+        chip.addEventListener('click', function () {
+          settings.theme = preset.id;
+          saveSettings();
+          applyTheme();
+          renderThemeChoices(); // 押下表示を更新する
+        });
+        fragment.appendChild(chip);
+      });
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 設定ページの入力欄へ現在の設定を入れる（開くたびに呼ぶ）。
+     * @returns {void}
+     */
+    function renderSettingsPage() {
+      const groupInput = document.getElementById('setting-group-name');
+      const hashtagInput = document.getElementById('setting-hashtag');
+      if (groupInput) {
+        groupInput.value = settings.groupName;
+      }
+      if (hashtagInput) {
+        hashtagInput.value = settings.hashtag;
+      }
+      renderThemeChoices();
+    }
+
+    /**
+     * 設定ページの結線（冪等）。入力のたびに保存して画面へ反映する。
+     * @returns {void}
+     */
+    let settingsWired = false;
+    function initSettings() {
+      if (settingsWired) {
+        return;
+      }
+      const groupInput = document.getElementById('setting-group-name');
+      const hashtagInput = document.getElementById('setting-hashtag');
+      const venuesButton = document.getElementById('btn-setting-venues');
+      const bandsButton = document.getElementById('btn-setting-bands');
+
+      if (groupInput) {
+        groupInput.addEventListener('input', function () {
+          settings.groupName = groupInput.value.trim();
+          saveSettings();
+          applyDocumentTitle();
+        });
+      }
+      if (hashtagInput) {
+        hashtagInput.addEventListener('input', function () {
+          settings.hashtag = hashtagInput.value.trim();
+          saveSettings();
+        });
+      }
+      if (venuesButton) {
+        venuesButton.addEventListener('click', openVenueManagePopup);
+      }
+      if (bandsButton) {
+        bandsButton.addEventListener('click', openBandManagePopup);
+      }
+      settingsWired = true;
+    }
+
+    // ============================================================
     // Analysis Controller: 曲ごとの演奏頻度（AnalysisController）
     // ------------------------------------------------------------
     // 保存したセトリを古い順に1周して、曲ごとに「回数・演奏率・最後にやった日・
@@ -10347,7 +10688,7 @@
     // Router: 画面切り替え（Router）
     // ------------------------------------------------------------
     // ページは URL のハッシュで切り替える
-    // （セトリ登録＝既定 / #saved / #backup / #analysis）。
+    // （セトリ登録＝既定 / #saved / #settings / #backup / #analysis）。
     // 別ページとして扱えるので、ブラウザの戻る／進む・リロード・ブックマーク・
     // リンク共有がそのまま効く。ページを増やすときは PAGES に1行足せばよく、
     // ページ切替のメニューと見出しはそこから作る。
@@ -10365,6 +10706,9 @@
         icon: ['M4 20l0.8-3.6L15.6 5.6a2 2 0 0 1 2.8 2.8L7.6 19.2 4 20z', 'M13.5 7.5l3 3'] },
       { id: 'saved',    hash: '#saved',    name: '保存したセトリ', element: 'page-saved',
         icon: ['M6 4h12v16l-6-3.6L6 20z'] },
+      { id: 'settings', hash: '#settings', name: '設定',         element: 'page-settings',
+        icon: ['M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
+          'M4.5 12c0-.5.05-1 .15-1.45l-1.5-1.2 1.5-2.6 1.8.6c.7-.6 1.5-1.05 2.4-1.35L9.2 4h3.6l.35 1.9c.9.3 1.7.75 2.4 1.35l1.8-.6 1.5 2.6-1.5 1.2c.1.45.15.95.15 1.45s-.05 1-.15 1.45l1.5 1.2-1.5 2.6-1.8-.6c-.7.6-1.5 1.05-2.4 1.35L12.8 20H9.2l-.35-1.9c-.9-.3-1.7-.75-2.4-1.35l-1.8.6-1.5-2.6 1.5-1.2A8.6 8.6 0 0 1 4.5 12z'] },
       { id: 'backup',   hash: '#backup',   name: 'バックアップ', element: 'page-backup',
         icon: ['M12 4v9', 'M8.5 9.5L12 13l3.5-3.5', 'M4.5 15v4.5h15V15'] },
       { id: 'analysis', hash: '#analysis', name: '分析',         element: 'page-analysis',
@@ -10440,6 +10784,7 @@
       const showSaved = target.id === 'saved';
       const showBackup = target.id === 'backup';
       const showAnalysis = target.id === 'analysis';
+      const showSettings = target.id === 'settings';
 
       // ページ切替ボタンに今いるページ名を出す（各ページに1つずつある）。
       document.querySelectorAll('[data-role="page-name"]').forEach(function (label) {
@@ -10470,6 +10815,10 @@
 
       if (showAnalysis) {
         renderAnalysis(); // 表示直前に最新の保存データから数え直す
+      }
+
+      if (showSettings) {
+        renderSettingsPage(); // 表示直前に現在の設定を入力欄へ入れる
       }
       window.scrollTo(0, 0); // 別ページへ移った体感に合わせて先頭から表示する
     }
@@ -10996,6 +11345,8 @@
       }
       appBootstrapped = true;
 
+      loadSettings();        // 設定を復元（推し色・グループ名・ハッシュタグ）
+      applySettings();       // 画面へ反映（描画の前に色を当てる）
       loadState();           // 保存データを復元（間違って閉じても直前の内容へ）
       applyStateToInputs();  // 復元値を入力欄へ反映（日付未設定なら本日）
       initLiveInfoInputs();  // 入力反映（1.2, 1.3）
@@ -11013,6 +11364,7 @@
       initImportConfirm();   // 取り込み前の確認画面の結線（冪等）
       initVenuePicker();     // 会場の選択ポップアップの結線（冪等）
       initMemo();            // MCメモのポップアップの結線（冪等）
+      initSettings();        // 設定ページの結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
       syncEditingUi();       // 編集中だった場合は帯と保存ボタンを復元
       initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
