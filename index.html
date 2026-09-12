@@ -2145,6 +2145,32 @@
     </main>
   </div>
 
+  <!-- ===== Page: 曲マスタ（URL の #songs で表示する別ページ） ===== -->
+  <div class="app page-saved" id="page-songs" data-role="page-songs" hidden>
+    <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
+    <nav class="page-nav">
+      <button type="button" class="page-nav__link" data-role="page-menu"
+        aria-haspopup="menu" aria-expanded="false">
+        <svg class="page-nav__glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        <span class="page-nav__current" data-role="page-name"></span>
+        <span class="page-nav__caret" aria-hidden="true">▾</span>
+      </button>
+    </nav>
+
+    <div class="page-actions">
+      <button type="button" class="btn btn--add" id="btn-song-add" data-role="song-add">追加</button>
+      <span class="stat-summary" id="song-master-count" data-role="song-master-count"></span>
+    </div>
+
+    <main class="app__main">
+      <ul class="popup__list" id="song-master-list" data-role="song-master-list">
+        <!-- 曲の一覧は renderSongMasterList() が描画する -->
+      </ul>
+    </main>
+  </div>
+
   <!-- ===== Page: 設定（URL の #settings で表示する別ページ） ===== -->
   <div class="app" id="page-settings" data-role="page-settings" hidden>
     <!-- ===== ページ切替（どのページにも同じものを置く） ===== -->
@@ -2187,6 +2213,8 @@
         <div class="field field--stacked">
           <span class="field__label">マスタの管理</span>
           <div class="settings__actions">
+            <button type="button" class="btn btn--add" id="btn-setting-songs"
+              data-role="setting-songs">曲マスタ</button>
             <button type="button" class="btn btn--add" id="btn-setting-venues"
               data-role="setting-venues">会場を管理</button>
             <button type="button" class="btn btn--add" id="btn-setting-bands"
@@ -2383,6 +2411,41 @@
             <label class="field__label" for="venue-add-new-area">新しいエリアを作る（省略可）</label>
             <input class="field__input" type="text" id="venue-add-new-area" data-role="venue-add-new-area"
               placeholder="例：高円寺" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Song master form popup (initially hidden) ===== -->
+  <div class="popup-overlay popup-overlay--stacked" id="song-form-overlay"
+    data-role="song-form-overlay" hidden>
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="song-form-title">
+      <div class="popup__header">
+        <h2 class="popup__title" id="song-form-title">曲を登録</h2>
+        <div class="popup__header-actions">
+          <button type="button" class="btn btn--ghost" id="btn-song-form-cancel"
+            data-role="song-form-cancel">キャンセル</button>
+          <button type="button" class="btn btn--copy" id="btn-song-form-submit"
+            data-role="song-form-submit">登録する</button>
+        </div>
+      </div>
+      <div class="popup__body">
+        <div class="venue-add-form">
+          <div class="field field--stacked">
+            <label class="field__label" for="song-form-title-input">曲名</label>
+            <input class="field__input" type="text" id="song-form-title-input"
+              data-role="song-form-title-input" autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="song-form-short">省略名称（狭い場所で使う。省略可）</label>
+            <input class="field__input" type="text" id="song-form-short"
+              data-role="song-form-short" placeholder="例：全コロ" autocomplete="off">
+          </div>
+          <div class="field field--stacked">
+            <label class="field__label" for="song-form-reading">読み仮名（並び順に使う。省略可）</label>
+            <input class="field__input" type="text" id="song-form-reading"
+              data-role="song-form-reading" placeholder="例：ぜんりょくころっけ" autocomplete="off">
           </div>
         </div>
       </div>
@@ -2667,7 +2730,7 @@
     // ============================================================
 
     /** @type {ReadonlyArray<Song>} */
-    const SONG_MASTER = [
+    const SONG_SEED = [
       { id:  1, title: 'よーいすとっぷ',               reading: 'よーいすとっぷ' },
       { id:  2, title: '途中下車スーサイド',           reading: 'とちゅうげしゃすーさいど',     short: '途中下車' },
       { id:  3, title: '宵夢バタフライ',               reading: 'よいゆめばたふらい',           short: 'よいゆめ' },
@@ -2703,18 +2766,130 @@
       { id: 33, title: '全力コロッケ',                 reading: 'ぜんりょくころっけ',           short: '全コロ' }
     ];
 
+    // ============================================================
+    // Song Store: 曲マスタの保存と編集（SongStore）
+    // ------------------------------------------------------------
+    // 曲はグループごとに違うので、画面から足したり直したりできるようにする。
+    // 初回だけ上の SONG_SEED を localStorage へ写し、以後はそちらを唯一の
+    // 曲マスタとして扱う（ファイルを書き換えなくても他のグループで使える）。
+    // 保存データは曲を ID で持つため、ID は一度使ったら再利用しない。
+    // 使い終わった曲は「非表示」にして一覧から隠す（保存データは壊れない）。
+    // 完全な削除は、どの保存データでも使っていない曲だけに限る。
+    // 参照表（ID→曲名など）はマスタを変えるたびに作り直す。
+    // ============================================================
+
+    /** 曲マスタの localStorage キー（保存形式を変えたら末尾の版番号を上げる）。 */
+    const SONG_STORAGE_KEY = 'yuisrus-setlist:songs:v1';
+
+    /** 編集できる曲マスタ（起動時に読み込む。表示順は読み仮名で決める）。 */
+    let songMaster = [];
+
     /**
-     * 曲タイトル → 省略名称の対応表。曲マスタから一度だけ組み立てる。
+     * 曲マスタの1曲を検証・正規化する（純粋関数）。曲名が空なら null。
+     * @param {unknown} data 検証する値
+     * @returns {Song|null} 正規化した1曲
+     */
+    function normalizeSongEntry(data) {
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const title = typeof data.title === 'string' ? data.title.trim() : '';
+      if (title === '' || typeof data.id !== 'number' || !Number.isFinite(data.id)) {
+        return null;
+      }
+      return {
+        id: data.id,
+        title: title,
+        reading: typeof data.reading === 'string' ? data.reading.trim() : '',
+        short: typeof data.short === 'string' ? data.short.trim() : '',
+        hidden: data.hidden === true
+      };
+    }
+
+    /**
+     * 曲マスタ全件（非表示も含む）を返す。
+     * @returns {Song[]} 曲マスタ
+     */
+    function allSongs() {
+      return songMaster;
+    }
+
+    /**
+     * 次に使う曲IDを返す（今あるIDの最大＋1。消したIDも再利用しない）。
+     * 非表示の曲も含めて数えるので、隠した曲のIDと衝突しない。
+     * @returns {number} 新しい曲ID
+     */
+    function nextSongId() {
+      let max = 0;
+      songMaster.forEach(function (song) {
+        if (song.id > max) {
+          max = song.id;
+        }
+      });
+      return max + 1;
+    }
+
+    /**
+     * 曲マスタを localStorage から読み込む。初回（保存が無い）のときは
+     * ファイルの種をそのまま写す（IDも同じなので保存データと食い違わない）。
+     * @returns {void}
+     */
+    function loadSongs() {
+      let raw = null;
+      try {
+        raw = window.localStorage.getItem(SONG_STORAGE_KEY);
+      } catch (err) {
+        raw = null; // localStorage 参照不可。種だけで動かす
+      }
+      let list = null;
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          if (Array.isArray(data)) {
+            list = [];
+            data.forEach(function (item) {
+              const song = normalizeSongEntry(item);
+              if (song) {
+                list.push(song);
+              }
+            });
+          }
+        } catch (err) {
+          list = null; // 壊れた JSON は無視して種から始める
+        }
+      }
+      if (!list) {
+        list = SONG_SEED.map(function (song) {
+          return normalizeSongEntry(song);
+        }).filter(function (song) { return song !== null; });
+        songMaster = list;
+        saveSongs(); // 次回からはこちらを使う
+        rebuildSongIndexes();
+        return;
+      }
+      songMaster = list;
+      rebuildSongIndexes();
+    }
+
+    /**
+     * 曲マスタを localStorage へ書き込む（全置換）。
+     * @returns {boolean} 書き込めたら true
+     */
+    function saveSongs() {
+      try {
+        window.localStorage.setItem(SONG_STORAGE_KEY, JSON.stringify(songMaster));
+        return true;
+      } catch (err) {
+        return false; // 容量超過・プライベートモード等
+      }
+    }
+
+    /**
+     * 曲タイトル → 省略名称の対応表。曲マスタから組み立て直す。
      * short が未設定・空文字の曲は登録しない（＝タイトルをそのまま使う）。
      * @type {Map<string, string>}
      */
     const SONG_SHORT_BY_TITLE = new Map();
-    SONG_MASTER.forEach(function (song) {
-      const short = typeof song.short === 'string' ? song.short.trim() : '';
-      if (short !== '') {
-        SONG_SHORT_BY_TITLE.set(song.title, short);
-      }
-    });
 
     // ============================================================
     // Data: 属性マスタ（ライブの種類。HTML内固定埋め込み）
@@ -2786,22 +2961,14 @@
     }
 
     /**
-     * 曲ID → 正式名称／正式名称 → 曲ID の対応表。曲マスタから一度だけ組み立てる。
+     * 曲ID → 正式名称／正式名称 → 曲ID の対応表。曲マスタから組み立て直す。
      * 保存データは ID で曲を持ち、アプリ内では常にタイトルへ解決して扱う。
+     * 非表示の曲も入れる（隠しても過去のセトリは読めるようにするため）。
      * @type {Map<number, string>}
      */
     const SONG_TITLE_BY_ID = new Map();
     /** @type {Map<string, number>} */
     const SONG_ID_BY_TITLE = new Map();
-    SONG_MASTER.forEach(function (song) {
-      if (typeof song.id !== 'number') {
-        return; // ID未設定の曲はタイトルのまま保存される（マスタ編集時の書き忘れ対策）
-      }
-      SONG_TITLE_BY_ID.set(song.id, song.title);
-      if (!SONG_ID_BY_TITLE.has(song.title)) {
-        SONG_ID_BY_TITLE.set(song.title, song.id);
-      }
-    });
 
     /**
      * 保存用のセトリ表現へ変換する（純粋関数）。
@@ -2881,22 +3048,191 @@
      * @type {Map<string, string>}
      */
     const SONG_TITLE_BY_KEY = new Map();
-    SONG_MASTER.forEach(function (song) {
-      const key = songMatchKey(song.title);
-      if (!SONG_TITLE_BY_KEY.has(key)) {
-        SONG_TITLE_BY_KEY.set(key, song.title);
+
+    /**
+     * 曲マスタの参照表（省略名称・ID・照合キー）を作り直す。
+     * マスタを読み込んだときと、編集したときに必ず呼ぶ。
+     * @returns {void}
+     */
+    function rebuildSongIndexes() {
+      SONG_SHORT_BY_TITLE.clear();
+      SONG_TITLE_BY_ID.clear();
+      SONG_ID_BY_TITLE.clear();
+      SONG_TITLE_BY_KEY.clear();
+
+      songMaster.forEach(function (song) {
+        const short = typeof song.short === 'string' ? song.short.trim() : '';
+        if (short !== '') {
+          SONG_SHORT_BY_TITLE.set(song.title, short);
+        }
+        SONG_TITLE_BY_ID.set(song.id, song.title);
+        if (!SONG_ID_BY_TITLE.has(song.title)) {
+          SONG_ID_BY_TITLE.set(song.title, song.id);
+        }
+        const key = songMatchKey(song.title);
+        if (!SONG_TITLE_BY_KEY.has(key)) {
+          SONG_TITLE_BY_KEY.set(key, song.title);
+        }
+      });
+
+      // 省略名称は正式名称より後に入れる（同じキーならタイトルを優先する）。
+      songMaster.forEach(function (song) {
+        const short = typeof song.short === 'string' ? song.short.trim() : '';
+        if (short === '') {
+          return;
+        }
+        const key = songMatchKey(short);
+        if (!SONG_TITLE_BY_KEY.has(key)) {
+          SONG_TITLE_BY_KEY.set(key, song.title);
+        }
+      });
+    }
+
+
+    /**
+     * 曲マスタから曲名で探す（非表示の曲も含む。表記の差は songMatchKey で吸収）。
+     * @param {string} title 曲名
+     * @returns {Song|null} 見つかった1曲。無ければ null
+     */
+    function findSongByTitle(title) {
+      const key = songMatchKey(typeof title === 'string' ? title : '');
+      if (key === '') {
+        return null;
       }
-    });
-    SONG_MASTER.forEach(function (song) {
-      const short = typeof song.short === 'string' ? song.short.trim() : '';
-      if (short === '') {
-        return;
+      for (let i = 0; i < songMaster.length; i += 1) {
+        if (songMatchKey(songMaster[i].title) === key) {
+          return songMaster[i];
+        }
       }
-      const key = songMatchKey(short);
-      if (!SONG_TITLE_BY_KEY.has(key)) {
-        SONG_TITLE_BY_KEY.set(key, song.title);
+      return null;
+    }
+
+    /**
+     * 曲マスタからIDで探す。
+     * @param {number} id 曲ID
+     * @returns {Song|null} 見つかった1曲。無ければ null
+     */
+    function findSongById(id) {
+      for (let i = 0; i < songMaster.length; i += 1) {
+        if (songMaster[i].id === id) {
+          return songMaster[i];
+        }
       }
-    });
+      return null;
+    }
+
+    /**
+     * その曲が入っている保存データの件数を数える。
+     * @param {string} title 曲名
+     * @returns {number} 件数
+     */
+    function countSavedBySong(title) {
+      if (typeof title !== 'string' || title === '') {
+        return 0;
+      }
+      return loadSavedSetlists().filter(function (record) {
+        return record.setlist.indexOf(title) !== -1;
+      }).length;
+    }
+
+    /**
+     * 曲マスタへ1曲足す。IDは使い回さない番号を新しく振る。
+     * @param {{title: string, reading: string, short: string}} song 追加する曲
+     * @returns {Song|null} 追加した曲。書き込めなければ null
+     */
+    function addMasterSong(song) {
+      const entry = normalizeSongEntry({
+        id: nextSongId(),
+        title: song.title,
+        reading: song.reading,
+        short: song.short
+      });
+      if (!entry) {
+        return null;
+      }
+      songMaster.push(entry);
+      if (!saveSongs()) {
+        songMaster.pop(); // 保存できないなら足さない（画面と中身をずらさない）
+        return null;
+      }
+      rebuildSongIndexes();
+      return entry;
+    }
+
+    /**
+     * 曲マスタの1曲を書き換える（IDは変えない）。
+     * @param {number} id 対象の曲ID
+     * @param {{title: string, reading: string, short: string}} next 変更後の内容
+     * @returns {Song|null} 変更後の曲。該当なし・書き込み失敗なら null
+     */
+    function updateMasterSong(id, next) {
+      const target = findSongById(id);
+      if (!target) {
+        return null;
+      }
+      const before = { title: target.title, reading: target.reading, short: target.short };
+      const entry = normalizeSongEntry({
+        id: id, title: next.title, reading: next.reading, short: next.short,
+        hidden: target.hidden
+      });
+      if (!entry) {
+        return null;
+      }
+      target.title = entry.title;
+      target.reading = entry.reading;
+      target.short = entry.short;
+      if (!saveSongs()) {
+        target.title = before.title;
+        target.reading = before.reading;
+        target.short = before.short;
+        return null;
+      }
+      rebuildSongIndexes();
+      return target;
+    }
+
+    /**
+     * 曲を一覧から隠す／戻す。保存データは曲IDで持っているので壊れない。
+     * @param {number} id 対象の曲ID
+     * @param {boolean} hidden 隠すなら true
+     * @returns {boolean} 書き込めたら true
+     */
+    function setMasterSongHidden(id, hidden) {
+      const target = findSongById(id);
+      if (!target) {
+        return false;
+      }
+      const before = target.hidden;
+      target.hidden = hidden === true;
+      if (!saveSongs()) {
+        target.hidden = before;
+        return false;
+      }
+      rebuildSongIndexes();
+      return true;
+    }
+
+    /**
+     * 曲マスタから1曲を完全に消す（どの保存データでも使っていない曲だけ）。
+     * 消したIDは再利用しないので、あとから足した曲と混ざることはない。
+     * @param {number} id 対象の曲ID
+     * @returns {boolean} 消して書き込めたら true
+     */
+    function removeMasterSong(id) {
+      const target = findSongById(id);
+      if (!target || countSavedBySong(target.title) > 0) {
+        return false;
+      }
+      const rest = songMaster.filter(function (song) { return song.id !== id; });
+      const before = songMaster;
+      songMaster = rest;
+      if (!saveSongs()) {
+        songMaster = before;
+        return false;
+      }
+      rebuildSongIndexes();
+      return true;
+    }
 
     /**
      * 曲名を曲マスタの正式名称へ解決する（純粋関数）。
@@ -5641,7 +5977,7 @@
     // ------------------------------------------------------------
     // 責務（Requirements 3.1, 3.2, 3.3, 3.4, 3.6 / design AddSongPopupController）:
     //   - 追加ボタンのタップでポップアップを開く（hidden 解除）。
-    //   - SONG_MASTER を読み仮名 reading（未設定時は title）昇順にソートして一覧描画
+    //   - 曲マスタを読み仮名 reading（未設定時は title）昇順にソートして一覧描画
     //     （あいうえお順 / localeCompare('ja')）。
     //   - 一覧はスクロール可能なコンテナ（.popup__body{overflow-y:auto} + .popup{max-height}）
     //     に入れ、収まらない場合は縦スクロールできる。
@@ -5671,12 +6007,14 @@
     }
 
     /**
-     * SONG_MASTER を読み仮名（フォールバック title）昇順にソートした新配列を返す
+     * 表示中の曲を読み仮名（フォールバック title）昇順にソートした新配列を返す
      * （元配列は破壊しない / Requirements 3.2）。比較は日本語ロケールで行う。
      * @returns {Song[]} あいうえお順に並んだ曲配列
      */
     function getSortedSongMaster() {
-      return SONG_MASTER.slice().sort(function (a, b) {
+      return songMaster.filter(function (song) {
+        return !song.hidden; // 非表示の曲は選べない（保存データからは読める）
+      }).sort(function (a, b) {
         return songSortKey(a).localeCompare(songSortKey(b), 'ja');
       });
     }
@@ -5714,7 +6052,7 @@
     }
 
     /**
-     * ポップアップの曲一覧（#popup-list）を SONG_MASTER のあいうえお順で描画する。
+     * ポップアップの曲一覧（#popup-list）を曲マスタのあいうえお順で描画する。
      * 各項目はタップ追加用のボタンで、タップで addSong→renderAll→閉じる（3.4）。
      * 曲名は textContent で挿入する（XSS安全）。
      * @returns {void}
@@ -6303,9 +6641,11 @@
 
     /** 書き出す JSON の形式名と版番号（形式を変えたら版番号を上げる）。 */
     const BACKUP_FORMAT = 'yuisrus-setlist-backup';
+    // 7: 曲マスタも書き出す。曲IDは端末ごとに違いうるので、取り込み側は曲名で
+    //    突き合わせてセトリのIDを張り替える（mergeBackupSongs）。
+    const BACKUP_VERSION = 7; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
     // 6: 登録した対バン相手のマスタも書き出す（トップレベルの bands はマスタ、
     //    setlists[].bands は各ライブの対バン相手で別物）。
-    const BACKUP_VERSION = 6; // 2: 曲名の配列→曲IDの配列 / 3: O.A・アンコールの曲数を追加
     // 5: 各ライブの対バン相手を書き出す（無いセトリでは何も書き出さない）。
     // 4: 追加した会場・エリアも書き出す（古い版の取り込みでも壊れないよう、
     //    受け取り側は setlists 以外が無くても読み進める）。
@@ -6326,6 +6666,8 @@
         exportedAt: new Date().toISOString(),
         setlists: loadSavedSetlists().map(toStoredSavedSetlist) // 曲はIDで書き出す
       };
+
+      backup.songs = songMaster; // 曲マスタ（相手側でIDを張り替えて取り込む）
 
       // 自分で追加した会場・エリア・対バン相手だけを書き出す
       // （組み込みマスタは相手側にもある）。
@@ -6368,9 +6710,10 @@
      * 書き出した JSON（または保存済みセトリの配列）を読み取る（純粋関数）。
      * 形式が違う・壊れている場合は null を返し、要素単位の不正は捨てる。
      * @param {string} text 貼り付けられた JSON 文字列
+     * @param {Object} [songIdMap] 曲IDの対応表（mergeBackupSongs の戻り値）
      * @returns {SavedSetlist[]|null} 取り込み候補の配列。読み取れなければ null
      */
-    function parseBackupJson(text) {
+    function parseBackupJson(text, songIdMap) {
       if (typeof text !== 'string' || text.trim() === '') {
         return null;
       }
@@ -6387,14 +6730,77 @@
       if (!list) {
         return null;
       }
+      const idMap = songIdMap || {};
       const records = [];
       list.forEach(function (item) {
-        const record = normalizeSavedSetlist(item);
+        const record = normalizeSavedSetlist(remapStoredSongIds(item, idMap));
         if (record) {
           records.push(record); // 壊れた要素・空セトリは静かに捨てる
         }
       });
       return records;
+    }
+
+    /**
+     * バックアップに入っている曲マスタを取り込み、曲IDの対応表を返す。
+     * 曲IDは端末ごとに違いうるので、曲名で突き合わせて「相手のID→こちらのID」を作る。
+     * こちらに無い曲は新しいIDで足す（相手のIDはそのままでは使わない）。
+     * 曲マスタが入っていない古いバックアップでは何もしない（対応表も空）。
+     * @param {string} text バックアップのJSON文字列
+     * @returns {{added: number, idMap: Object}} 追加した曲数と、曲IDの対応表
+     */
+    function mergeBackupSongs(text) {
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        return { added: 0, idMap: {} };
+      }
+      if (!data || typeof data !== 'object' || !Array.isArray(data.songs)) {
+        return { added: 0, idMap: {} };
+      }
+
+      const idMap = {};
+      let added = 0;
+      data.songs.forEach(function (item) {
+        const song = normalizeSongEntry(item);
+        if (!song) {
+          return;
+        }
+        const known = findSongByTitle(song.title);
+        if (known) {
+          idMap[song.id] = known.id;
+          return;
+        }
+        const created = addMasterSong({
+          title: song.title, reading: song.reading, short: song.short
+        });
+        if (created) {
+          idMap[song.id] = created.id;
+          added += 1;
+        }
+      });
+      return { added: added, idMap: idMap };
+    }
+
+    /**
+     * 取り込むセトリの曲IDを、こちらのIDへ張り替える（純粋関数）。
+     * 対応表に無いIDはそのまま残す（古いバックアップ＝同じID体系のため）。
+     * @param {Object} item バックアップ内の保存データ1件
+     * @param {Object} idMap 曲IDの対応表（相手のID→こちらのID）
+     * @returns {Object} 張り替えた1件（元の値は変えない）
+     */
+    function remapStoredSongIds(item, idMap) {
+      if (!item || typeof item !== 'object' || !Array.isArray(item.setlist)) {
+        return item;
+      }
+      const setlist = item.setlist.map(function (entry) {
+        if (typeof entry === 'number' && Object.prototype.hasOwnProperty.call(idMap, entry)) {
+          return idMap[entry];
+        }
+        return entry;
+      });
+      return Object.assign({}, item, { setlist: setlist });
     }
 
     /**
@@ -6627,22 +7033,26 @@
       if (!input) {
         return;
       }
-      const incoming = parseBackupJson(input.value);
+      // 曲マスタを先に揃える（セトリの曲IDをこちらのIDへ張り替えるため）。
+      const songs = mergeBackupSongs(input.value);
+
+      const incoming = parseBackupJson(input.value, songs.idMap);
       if (!incoming) {
         showToast(BACKUP_PARSE_FAILURE_MESSAGE);
         return;
       }
 
-      // セトリが0件でも会場・エリアだけのバックアップは取り込む（機種変更のとき、
-      // まだセトリを入れていない端末へ会場だけ移す使い方があるため）。
+      // セトリが0件でも、曲・会場・エリアだけのバックアップは取り込む（機種変更の
+      // とき、まだセトリを入れていない端末へマスタだけ移す使い方があるため）。
       const masters = mergeBackupMasters(input.value);
-      const masterNote = masters.added > 0 ? '／会場・エリア・対バン相手' + masters.added + '件' : '';
+      const masterAdded = masters.added + songs.added;
+      const masterNote = masterAdded > 0 ? '／曲・会場・対バン相手' + masterAdded + '件' : '';
 
       if (incoming.length === 0) {
-        if (masters.added > 0) {
-          syncVenueAddButton(); // 登録済みになった会場の「登録」ボタンを引っ込める
-          renderBackupPage(); // 取り込んだ結果を書き出し欄へ反映する
-          showToast('会場・エリア・対バン相手' + masters.added + '件を取り込みました');
+        if (masterAdded > 0) {
+          syncVenueAddButtons(); // 登録済みになった会場の「登録」ボタンを引っ込める
+          renderBackupPage();    // 取り込んだ結果を書き出し欄へ反映する
+          showToast('曲・会場・対バン相手' + masterAdded + '件を取り込みました');
           return;
         }
         showToast(BACKUP_EMPTY_MESSAGE);
@@ -7030,7 +7440,7 @@
     }
 
     /**
-     * 確認用の曲一覧（#resolve-list）を SONG_MASTER のあいうえお順で描画する。
+     * 確認用の曲一覧（#resolve-list）を曲マスタのあいうえお順で描画する。
      * 曲名タップでその曲へ置き換える。曲名は textContent で挿入する（XSS安全）。
      * @returns {void}
      */
@@ -7648,7 +8058,7 @@
     }
 
     /**
-     * 検索用の曲一覧（#search-list）を SONG_MASTER のあいうえお順で描画する。
+     * 検索用の曲一覧（#search-list）を曲マスタのあいうえお順で描画する。
      * 各項目はトグルボタン（aria-pressed）で、タップのたびに選択状態を反転する。
      * 省略名称モード（「曲を選択」と共有）では short 表示＋ボタン詰め表示にする。
      * 曲名は textContent で挿入する（XSS安全）。
@@ -10078,6 +10488,311 @@
     }
 
     // ============================================================
+    // Song Master Controller: 曲マスタの編集（SongMasterController）
+    // ------------------------------------------------------------
+    // 曲の追加・編集・非表示・削除を行う画面。保存データは曲IDで持つので、
+    // 曲名を直すと過去のセトリの表示も一緒に直る（作業中の内容も揃える）。
+    // 「非表示」は一覧から隠すだけで、保存データからは今までどおり読める。
+    // 「削除」はどの保存データでも使っていない曲だけに出す。
+    // ============================================================
+
+    /** 編集中の曲ID（0なら新規登録。フォームを使い回すため持つ）。 */
+    let songFormTarget = 0;
+
+    /**
+     * 曲マスタの1行を組み立てる。
+     * @param {Song} song 対象の曲
+     * @returns {HTMLLIElement} 一覧へ差し込む行
+     */
+    function buildSongMasterRow(song) {
+      const used = countSavedBySong(song.title);
+
+      const item = document.createElement('li');
+      item.className = 'master-row';
+      item.dataset.role = 'song-master-row';
+
+      const label = document.createElement('span');
+      label.className = 'master-row__label';
+
+      const name = document.createElement('span');
+      name.className = 'master-row__name';
+      name.textContent = song.title; // textContent で挿入（XSS安全）
+
+      const notes = [];
+      if (song.short !== '') {
+        notes.push('略：' + song.short);
+      }
+      if (song.reading !== '') {
+        notes.push(song.reading);
+      }
+      notes.push(used > 0 ? '保存' + used + '件' : '未使用');
+
+      const meta = document.createElement('span');
+      meta.className = 'master-row__meta';
+      meta.textContent = notes.join('・');
+
+      label.appendChild(name);
+      label.appendChild(meta);
+
+      const actions = document.createElement('span');
+      actions.className = 'master-row__actions';
+
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'master-row__button';
+      editButton.dataset.role = 'song-edit';
+      editButton.textContent = '編集';
+      editButton.setAttribute('aria-label', song.title + ' を編集する');
+      editButton.addEventListener('click', function () {
+        openSongForm(song);
+      });
+      actions.appendChild(editButton);
+
+      const hideButton = document.createElement('button');
+      hideButton.type = 'button';
+      hideButton.className = 'master-row__button';
+      hideButton.dataset.role = 'song-hide';
+      hideButton.textContent = song.hidden ? '戻す' : '非表示';
+      hideButton.setAttribute('aria-label',
+        song.title + (song.hidden ? ' を一覧へ戻す' : ' を一覧から隠す'));
+      hideButton.addEventListener('click', function () {
+        if (!setMasterSongHidden(song.id, !song.hidden)) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        renderSongMasterList();
+        showToast(song.hidden ? '一覧へ戻しました' : '一覧から隠しました');
+      });
+      actions.appendChild(hideButton);
+
+      // 使っている曲を消すと過去のセトリから曲が消えるので、未使用のときだけ出す。
+      if (used === 0) {
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'master-row__button master-row__button--danger';
+        removeButton.dataset.role = 'song-remove';
+        removeButton.textContent = '削除';
+        removeButton.setAttribute('aria-label', song.title + ' を削除する');
+        removeButton.addEventListener('click', function () {
+          if (!window.confirm('「' + song.title + '」を曲マスタから削除します。よろしいですか？')) {
+            return;
+          }
+          if (!removeMasterSong(song.id)) {
+            showToast(SAVE_FAILURE_MESSAGE);
+            return;
+          }
+          renderSongMasterList();
+          showToast('曲を削除しました');
+        });
+        actions.appendChild(removeButton);
+      }
+
+      item.appendChild(label);
+      item.appendChild(actions);
+      return item;
+    }
+
+    /**
+     * 曲マスタの一覧を描画する（表示中→非表示の順。中はあいうえお順）。
+     * @returns {void}
+     */
+    function renderSongMasterList() {
+      const list = document.getElementById('song-master-list');
+      const count = document.getElementById('song-master-count');
+      if (!list) {
+        return;
+      }
+      list.textContent = ''; // 全再描画
+
+      const sorted = allSongs().slice().sort(function (a, b) {
+        return songSortKey(a).localeCompare(songSortKey(b), 'ja');
+      });
+      const shown = sorted.filter(function (song) { return !song.hidden; });
+      const hidden = sorted.filter(function (song) { return song.hidden; });
+
+      if (count) {
+        count.textContent = hidden.length > 0
+          ? shown.length + '曲（非表示' + hidden.length + '曲）'
+          : shown.length + '曲';
+      }
+
+      if (sorted.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'popup__empty';
+        empty.textContent = '曲がありません。「追加」から登録できます';
+        list.appendChild(empty);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      shown.forEach(function (song) {
+        fragment.appendChild(buildSongMasterRow(song));
+      });
+
+      if (hidden.length > 0) {
+        const heading = document.createElement('li');
+        heading.className = 'popup__group-title';
+        heading.textContent = '非表示の曲';
+        fragment.appendChild(heading);
+        hidden.forEach(function (song) {
+          fragment.appendChild(buildSongMasterRow(song));
+        });
+      }
+      list.appendChild(fragment);
+    }
+
+    /**
+     * 曲名の変更に、作業中のセトリと画面の表示を追従させる。
+     * 保存データはIDで持っているので、読み直せば新しい表記になる。
+     * @param {string} fromTitle 変更前の曲名
+     * @param {string} toTitle 変更後の曲名
+     * @returns {void}
+     */
+    function syncSongRename(fromTitle, toTitle) {
+      if (fromTitle === toTitle) {
+        return;
+      }
+      let changed = false;
+      state.setlist = state.setlist.map(function (title) {
+        if (title !== fromTitle) {
+          return title;
+        }
+        changed = true;
+        return toTitle;
+      });
+      if (changed) {
+        renderAll(); // セトリ表を描き直して作業中データを保存
+      }
+      renderSavedList(); // 保存一覧を開いていれば表示も更新する
+    }
+
+    /**
+     * 曲のフォームを開く（song が無ければ新規登録として開く）。
+     * @param {Song} [song] 編集する曲
+     * @returns {void}
+     */
+    function openSongForm(song) {
+      const overlay = document.getElementById('song-form-overlay');
+      const title = document.getElementById('song-form-title');
+      const submitButton = document.getElementById('btn-song-form-submit');
+      const titleInput = document.getElementById('song-form-title-input');
+      const shortInput = document.getElementById('song-form-short');
+      const readingInput = document.getElementById('song-form-reading');
+      if (!overlay) {
+        return;
+      }
+
+      songFormTarget = song ? song.id : 0;
+      if (title) {
+        title.textContent = song ? '曲を編集' : '曲を登録';
+      }
+      if (submitButton) {
+        submitButton.textContent = song ? '保存する' : '登録する';
+      }
+      if (titleInput) {
+        titleInput.value = song ? song.title : '';
+      }
+      if (shortInput) {
+        shortInput.value = song ? song.short : '';
+      }
+      if (readingInput) {
+        readingInput.value = song ? song.reading : '';
+      }
+      overlay.hidden = false;
+      if (titleInput) {
+        titleInput.focus();
+      }
+    }
+
+    /**
+     * 曲のフォームを閉じる（マスタは変更しない）。
+     * @returns {void}
+     */
+    function closeSongForm() {
+      const overlay = document.getElementById('song-form-overlay');
+      songFormTarget = 0;
+      if (overlay) {
+        overlay.hidden = true;
+      }
+    }
+
+    /**
+     * 入力された内容で曲を登録・保存する。
+     * @returns {void}
+     */
+    function submitSongForm() {
+      const titleInput = document.getElementById('song-form-title-input');
+      const shortInput = document.getElementById('song-form-short');
+      const readingInput = document.getElementById('song-form-reading');
+
+      const title = titleInput ? titleInput.value.trim() : '';
+      if (title === '') {
+        showToast('曲名を入力してください');
+        return;
+      }
+
+      // 編集中は自分自身との衝突を除いて判定する（名前を変えないこともあるため）。
+      const duplicate = findSongByTitle(title);
+      if (duplicate && duplicate.id !== songFormTarget) {
+        showToast('同じ曲名がすでにあります');
+        return;
+      }
+
+      const next = {
+        title: title,
+        short: shortInput ? shortInput.value.trim() : '',
+        reading: readingInput ? readingInput.value.trim() : ''
+      };
+
+      if (songFormTarget === 0) {
+        if (!addMasterSong(next)) {
+          showToast(SAVE_FAILURE_MESSAGE);
+          return;
+        }
+        closeSongForm();
+        renderSongMasterList();
+        showToast('曲を登録しました');
+        return;
+      }
+
+      const target = findSongById(songFormTarget);
+      const before = target ? target.title : '';
+      if (!updateMasterSong(songFormTarget, next)) {
+        showToast(SAVE_FAILURE_MESSAGE);
+        return;
+      }
+      closeSongForm();
+      syncSongRename(before, title);
+      renderSongMasterList();
+      showToast('曲を保存しました');
+    }
+
+    /**
+     * 曲マスタページの結線（冪等）。行ごとの結線は描画時に行う。
+     * @returns {void}
+     */
+    let songMasterWired = false;
+    function initSongMaster() {
+      if (songMasterWired) {
+        return;
+      }
+      const addButton = document.getElementById('btn-song-add');
+      const cancelButton = document.getElementById('btn-song-form-cancel');
+      const submitButton = document.getElementById('btn-song-form-submit');
+
+      if (addButton) {
+        addButton.addEventListener('click', function () { openSongForm(null); });
+      }
+      if (cancelButton) {
+        cancelButton.addEventListener('click', closeSongForm);
+      }
+      if (submitButton) {
+        submitButton.addEventListener('click', submitSongForm);
+      }
+      songMasterWired = true;
+    }
+
+    // ============================================================
     // Settings: アプリの設定（SettingsStore / SettingsController）
     // ------------------------------------------------------------
     // グループ名・コピーに付けるハッシュタグ・推し色は、グループごとに違う。
@@ -10299,6 +11014,7 @@
       }
       const groupInput = document.getElementById('setting-group-name');
       const hashtagInput = document.getElementById('setting-hashtag');
+      const songsButton = document.getElementById('btn-setting-songs');
       const venuesButton = document.getElementById('btn-setting-venues');
       const bandsButton = document.getElementById('btn-setting-bands');
 
@@ -10314,6 +11030,9 @@
           settings.hashtag = hashtagInput.value.trim();
           saveSettings();
         });
+      }
+      if (songsButton) {
+        songsButton.addEventListener('click', function () { goToPage('songs'); });
       }
       if (venuesButton) {
         venuesButton.addEventListener('click', openVenueManagePopup);
@@ -10706,6 +11425,9 @@
         icon: ['M4 20l0.8-3.6L15.6 5.6a2 2 0 0 1 2.8 2.8L7.6 19.2 4 20z', 'M13.5 7.5l3 3'] },
       { id: 'saved',    hash: '#saved',    name: '保存したセトリ', element: 'page-saved',
         icon: ['M6 4h12v16l-6-3.6L6 20z'] },
+      { id: 'songs',    hash: '#songs',    name: '曲マスタ',     element: 'page-songs',
+        icon: ['M9 18V6l10-2v12', 'M9 10l10-2',
+          'M6.5 18a2.5 2.5 0 1 0 2.5 2.5V18', 'M16.5 16a2.5 2.5 0 1 0 2.5 2.5V16'] },
       { id: 'settings', hash: '#settings', name: '設定',         element: 'page-settings',
         icon: ['M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
           'M4.5 12c0-.5.05-1 .15-1.45l-1.5-1.2 1.5-2.6 1.8.6c.7-.6 1.5-1.05 2.4-1.35L9.2 4h3.6l.35 1.9c.9.3 1.7.75 2.4 1.35l1.8-.6 1.5 2.6-1.5 1.2c.1.45.15.95.15 1.45s-.05 1-.15 1.45l1.5 1.2-1.5 2.6-1.8-.6c-.7.6-1.5 1.05-2.4 1.35L12.8 20H9.2l-.35-1.9c-.9-.3-1.7-.75-2.4-1.35l-1.8.6-1.5-2.6 1.5-1.2A8.6 8.6 0 0 1 4.5 12z'] },
@@ -10785,6 +11507,7 @@
       const showBackup = target.id === 'backup';
       const showAnalysis = target.id === 'analysis';
       const showSettings = target.id === 'settings';
+      const showSongs = target.id === 'songs';
 
       // ページ切替ボタンに今いるページ名を出す（各ページに1つずつある）。
       document.querySelectorAll('[data-role="page-name"]').forEach(function (label) {
@@ -10819,6 +11542,12 @@
 
       if (showSettings) {
         renderSettingsPage(); // 表示直前に現在の設定を入力欄へ入れる
+      }
+
+      if (showSongs) {
+        renderSongMasterList(); // 表示直前に最新の曲マスタを描く
+      } else {
+        closeSongForm();        // 開いたままのフォームは持ち越さない
       }
       window.scrollTo(0, 0); // 別ページへ移った体感に合わせて先頭から表示する
     }
@@ -11347,6 +12076,7 @@
 
       loadSettings();        // 設定を復元（推し色・グループ名・ハッシュタグ）
       applySettings();       // 画面へ反映（描画の前に色を当てる）
+      loadSongs();           // 曲マスタを復元（初回はファイルの種を写す）
       loadState();           // 保存データを復元（間違って閉じても直前の内容へ）
       applyStateToInputs();  // 復元値を入力欄へ反映（日付未設定なら本日）
       initLiveInfoInputs();  // 入力反映（1.2, 1.3）
@@ -11365,6 +12095,7 @@
       initVenuePicker();     // 会場の選択ポップアップの結線（冪等）
       initMemo();            // MCメモのポップアップの結線（冪等）
       initSettings();        // 設定ページの結線（冪等）
+      initSongMaster();      // 曲マスタページの結線（冪等）
       renderAll();           // 初期描画（メイン画面を動作可能状態に）
       syncEditingUi();       // 編集中だった場合は帯と保存ボタンを復元
       initRouter();          // ハッシュに応じた画面表示（#saved なら保存一覧ページ）
